@@ -1,0 +1,53 @@
+# Ignore everything except public_html
+/*
+!.gitignore
+!public_html/
+
+# Ignore common files
+.DS_Store
+.localized
+*.zip
+*.code-workspace
+
+# Ignore parent directories
+Admin tools/
+Backups/
+Cursor workspaces/
+CustomFolders/
+Events booking/
+Freescout modules/
+Freescout-webhook/
+Joomla/
+JoomlaData/
+Jorsites/
+Lottasite/
+Mimo/
+Mobilebulk/
+OLD FOLDERS/
+Project - BWMC/
+SplitPane/
+Stipremote/
+Swipe/
+Terminal commands/
+TribeofAEIR/
+Webhooks/
+acymailing/
+bb-acymailing/
+dashboard/
+easyimage-pro/
+eventsbooking/
+globallightforce/
+localhost/
+mediamanager/
+meubelwebwerk/
+simplecms/
+unpacktest/
+
+# Ignore public_html specific files
+public_html/easy-image/php_errorlog
+public_html/easy-image/logs/
+public_html/easy-image/uploads/
+public_html/easy-image/cleanup_log.txt
+public_html/easy-image/*.zip
+public_html.zip
+

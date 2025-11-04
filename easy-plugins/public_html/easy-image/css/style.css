@@ -1,0 +1,13 @@
+/* Remove all help modal styles */
+.help-modal,
+.help-modal-overlay,
+.help-modal-content,
+.help-section,
+.help-modal-close {
+    display: none;
+}
+
+/* Remove help icon styles */
+.help-icon {
+    display: none;
+} 

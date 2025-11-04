@@ -1,0 +1,136 @@
+/* Easy Text - Minimal Styling */
+
+/* Statistics styling */
+.stat-item {
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary, #4CAF50);
+    display: block;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted, #6c757d);
+    margin-top: 0.25rem;
+}
+
+/* Button hover effects */
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Text area styling */
+#textInput {
+    resize: vertical;
+    min-height: 200px;
+}
+
+/* Alert styling */
+.alert {
+    border-radius: 8px;
+}
+
+/* Card styling */
+.card {
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 8px;
+}
+
+.card-header {
+    background: var(--bg-hover, #f8f9fa);
+    border-bottom: 1px solid var(--border, #e0e0e0);
+}
+
+/* Form control styling */
+.form-control {
+    border-radius: 6px;
+    border: 1px solid var(--border, #e0e0e0);
+}
+
+.form-control:focus {
+    border-color: var(--primary, #4CAF50);
+    box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+}
+
+/* Button styling */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary {
+    border-color: var(--primary, #4CAF50);
+    color: var(--primary, #4CAF50);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary, #4CAF50);
+    border-color: var(--primary, #4CAF50);
+}
+
+.btn-outline-success {
+    border-color: var(--success, #28a745);
+    color: var(--success, #28a745);
+}
+
+.btn-outline-success:hover {
+    background-color: var(--success, #28a745);
+    border-color: var(--success, #28a745);
+}
+
+.btn-outline-warning {
+    border-color: var(--warning, #ffc107);
+    color: var(--warning, #ffc107);
+}
+
+.btn-outline-warning:hover {
+    background-color: var(--warning, #ffc107);
+    border-color: var(--warning, #ffc107);
+}
+
+.btn-outline-danger {
+    border-color: var(--danger, #dc3545);
+    color: var(--danger, #dc3545);
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--danger, #dc3545);
+    border-color: var(--danger, #dc3545);
+}
+
+.btn-outline-info {
+    border-color: var(--info, #17a2b8);
+    color: var(--info, #17a2b8);
+}
+
+.btn-outline-info:hover {
+    background-color: var(--info, #17a2b8);
+    border-color: var(--info, #17a2b8);
+}
+
+.btn-outline-secondary {
+    border-color: var(--text-muted, #6c757d);
+    color: var(--text-muted, #6c757d);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--text-muted, #6c757d);
+    border-color: var(--text-muted, #6c757d);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-item {
+        margin-bottom: 1rem;
+    }
+    
+    .btn {
+        margin-bottom: 0.5rem;
+    }
+}

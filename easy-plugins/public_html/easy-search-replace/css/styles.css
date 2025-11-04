@@ -1,0 +1,226 @@
+/* Easy Search & Replace Specific Styles */
+
+/* Monospace font for text input/output */
+.font-monospace {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+}
+
+/* Textarea styling */
+textarea.form-control {
+    resize: vertical;
+}
+
+/* Card header button group alignment */
+.card-header .btn-group {
+    margin-left: auto;
+}
+
+/* Dark Mode Accordion */
+body.dark .accordion {
+    background-color: transparent !important;
+}
+
+body.dark .accordion-item {
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .accordion-button {
+    background-color: #1a1a1a !important;
+    color: #a0a0a0 !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark .accordion-button:not(.collapsed) {
+    background-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+    box-shadow: inset 0 -1px 0 rgba(42, 42, 42, 0.125) !important;
+}
+
+body.dark .accordion-button:focus {
+    border-color: #4CAF50 !important;
+    box-shadow: 0 0 0 0.25rem rgba(76, 175, 80, 0.25) !important;
+}
+
+body.dark .accordion-button::after {
+    filter: invert(0.8) !important;
+}
+
+body.dark .accordion-body {
+    background-color: #1a1a1a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .accordion-body .card {
+    background-color: #2a2a2a !important;
+    border-color: #404040 !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .accordion-body .card-header {
+    background-color: #2a2a2a !important;
+    border-bottom-color: #404040 !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .accordion-body .card-body {
+    background-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+/* Regex examples table */
+.table code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+body.dark .table code {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #4CAF50;
+}
+
+/* Dark Mode Modal */
+body.dark #regexExamplesModal .modal-content {
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .modal-header {
+    background-color: #1a1a1a !important;
+    border-bottom-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .modal-title {
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .modal-body {
+    background-color: #1a1a1a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .table {
+    color: #a0a0a0 !important;
+    background-color: #1a1a1a !important;
+}
+
+body.dark #regexExamplesModal .table thead th {
+    background-color: #151515 !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .table tbody td {
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .table tbody tr {
+    background-color: #1a1a1a !important;
+}
+
+body.dark #regexExamplesModal .table-striped > tbody > tr {
+    background-color: #1a1a1a !important;
+}
+
+body.dark #regexExamplesModal .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #1a1a1a !important;
+}
+
+body.dark #regexExamplesModal .table-striped > tbody > tr:nth-of-type(even) {
+    background-color: #151515 !important;
+}
+
+body.dark #regexExamplesModal .table-striped > tbody > tr:nth-of-type(odd) td {
+    background-color: #1a1a1a !important;
+}
+
+body.dark #regexExamplesModal .table-striped > tbody > tr:nth-of-type(even) td {
+    background-color: #151515 !important;
+}
+
+/* Light mode hover effect */
+#regexExamplesModal .table tbody > tr {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#regexExamplesModal .table tbody > tr:hover {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+#regexExamplesModal .table tbody > tr:hover td {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+/* Dark mode hover effect */
+body.dark #regexExamplesModal .table tbody > tr:hover {
+    background-color: rgba(76, 175, 80, 0.15) !important;
+}
+
+body.dark #regexExamplesModal .table tbody > tr:hover td {
+    background-color: rgba(76, 175, 80, 0.15) !important;
+}
+
+body.dark #regexExamplesModal .btn-close {
+    filter: invert(1) !important;
+}
+
+body.dark #regexExamplesModal .modal-footer {
+    background-color: #1a1a1a !important;
+    border-top-color: #2a2a2a !important;
+}
+
+body.dark #regexExamplesModal .btn-secondary {
+    background-color: #2a2a2a !important;
+    border-color: #404040 !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .btn-secondary:hover {
+    background-color: #333333 !important;
+    border-color: #555555 !important;
+}
+
+/* Dark Mode Tabs */
+body.dark #regexExamplesModal .nav-tabs {
+    border-bottom-color: #2a2a2a !important;
+}
+
+body.dark #regexExamplesModal .nav-tabs .nav-link {
+    color: #a0a0a0 !important;
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark #regexExamplesModal .nav-tabs .nav-link:hover {
+    border-color: #404040 !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark #regexExamplesModal .nav-tabs .nav-link.active {
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a #2a2a2a #1a1a1a !important;
+    color: #4CAF50 !important;
+}
+
+/* Light Mode Tabs */
+#regexExamplesModal .nav-tabs .nav-link.active {
+    color: #4CAF50 !important;
+    border-color: #dee2e6 #dee2e6 #fff !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .col-lg-4 {
+        margin-bottom: 1rem;
+    }
+}
+
