@@ -3,16 +3,22 @@ $pageTitle = 'Easy Image';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
+/** Toss the Pics waiting toy — set false to disable without deleting toss-toy/ */
+$easyImageTossToyEnabled = true;
 include '../shared/header.php'; 
 ?>
 
     <!-- Cropper.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" integrity="sha384-1arqhTHsGLPVJdhZo8SAycbI+y5k+G7khi5bTZ4BxHJIpCfvWoeSDgXEXXRxB/9G" crossorigin="anonymous">
     <!-- Easy Image Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=1.8">
-      
+    <link rel="stylesheet" href="css/styles.css?v=2.1">
+<?php if (!empty($easyImageTossToyEnabled)): ?>
+    <link rel="stylesheet" href="toss-toy/toss-toy.css?v=7">
+    <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=3">
+<?php endif; ?>
     <div class="container-fluid">
-        <div class="container">
+        <div class="container tool-page-inner">
+        <?php $toolInfoSlug = 'easy-image'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
        
         
         <!-- Split Screen Layout -->
@@ -23,7 +29,7 @@ include '../shared/header.php';
                 <div id="dropzone" class="dropzone">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <p data-translate="IMAGE_UPLOAD_PLACEHOLDER">Drag & drop images here or click to select</p>
-                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                    <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp" style="display: none;">
                 </div>
                 <div id="previewContainer" class="preview-container"></div>
                 <div class="upload-controls">
@@ -44,6 +50,12 @@ include '../shared/header.php';
                         </button>
                         <button type="button" class="mode-btn" data-mode="crop">
                             <i class="fas fa-crop"></i> <span data-translate="IMAGE_CROP_MODE">Crop</span>
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="optimize">
+                            <i class="fas fa-magic"></i> <span data-translate="IMAGE_OPTIMIZE_MODE">Optimize</span>
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="custom">
+                            <i class="fas fa-cut"></i> <span data-translate="IMAGE_CUSTOM_MODE">Custom</span>
                         </button>
                     </div>
 
@@ -85,17 +97,56 @@ include '../shared/header.php';
                         </div>
                     </div>
 
+                    <!-- Optimize Info -->
+                    <div id="optimizeInfo" class="form-group" style="display: none;">
+                        <label>Optimize Settings</label>
+                        <p class="form-help">
+                            Adjust quality, format, and effects below to compress or enhance your images without changing their dimensions.
+                        </p>
+                    </div>
+
+                    <!-- Custom trim info -->
+                    <div id="customInfo" class="form-group" style="display: none;">
+                        <label>Custom Trim</label>
+                        <p class="form-help">
+                            Drag the crop lines on each image to trim edges. Output size matches the area you keep — great for cutting off borders or unwanted sides.
+                        </p>
+                    </div>
+
+                    <!-- Resize Presets -->
+                    <div id="resizePresets" class="form-group">
+                        <label>Choose a preset width:</label>
+                        <div class="preset-buttons">
+                            <button type="button" class="quality-btn resize-preset-btn active" data-width="300">
+                                <i class="fas fa-image"></i>
+                                <small>300 px</small>
+                            </button>
+                            <button type="button" class="quality-btn resize-preset-btn" data-width="600">
+                                <i class="fas fa-image"></i>
+                                <small>600 px</small>
+                            </button>
+                            <button type="button" class="quality-btn resize-preset-btn" data-width="1200">
+                                <i class="fas fa-image"></i>
+                                <small>1200 px</small>
+                            </button>
+                            <button type="button" class="quality-btn resize-preset-btn" data-width="1920">
+                                <i class="fas fa-image"></i>
+                                <small>1920 px</small>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Dimension inputs -->
-                    <div class="form-group">
+                    <div id="dimensionGroup" class="form-group">
                         <label>Image Dimensions:</label>
                         <div class="dimension-inputs">
                             <div id="widthInput" class="dimension-input">
                                 <label for="width">Width (pixels):</label>
-                                <input type="number" id="width" name="width" required min="1" placeholder="Enter width">
+                                <input type="number" id="width" name="width" min="1" placeholder="Enter width" value="300">
                             </div>
                             <div id="heightInput" class="dimension-input">
                                 <label for="height">Height (pixels):</label>
-                                <input type="number" id="height" name="height" required min="1" placeholder="Enter height">
+                                <input type="number" id="height" name="height" min="1" placeholder="Enter height">
                             </div>
                         </div>
                     </div>
@@ -103,22 +154,32 @@ include '../shared/header.php';
                     <!-- Quality Options -->
                     <div class="form-group">
                         <label>Image Quality: <i class="fas fa-info-circle quality-info" onclick="showQualityInfo()"></i></label>
-                        <div class="quality-buttons">
-                            <button type="button" class="quality-btn" data-quality="40">
-                                <i class="fas fa-compress"></i> Small (40%)
-                            </button>
-                            <button type="button" class="quality-btn active" data-quality="70">
-                                <i class="fas fa-compress"></i> Medium (70%)
-                            </button>
-                            <button type="button" class="quality-btn" data-quality="100">
-                                <i class="fas fa-compress"></i> High (100%)
-                            </button>
-                            <button type="button" class="quality-btn" data-quality="custom">
-                                <i class="fas fa-sliders-h"></i> Custom
-                            </button>
+                        <div class="quality-preset-groups">
+                            <div class="quality-buttons quality-buttons-row">
+                                <button type="button" class="quality-btn quality-preset-btn" data-quality="50" data-tier="lossy">
+                                    Low (50%)
+                                </button>
+                                <button type="button" class="quality-btn quality-preset-btn" data-quality="60" data-tier="lossy">
+                                    Medium (60%)
+                                </button>
+                                <button type="button" class="quality-btn quality-preset-btn active" data-quality="70" data-tier="lossy">
+                                    Web Smart (70%)
+                                </button>
+                            </div>
+                            <div class="quality-buttons quality-buttons-row">
+                                <button type="button" class="quality-btn quality-preset-btn" data-quality="85" data-tier="lossy">
+                                    Web Sharp (85%)
+                                </button>
+                                <button type="button" class="quality-btn quality-preset-btn" data-quality="100" data-tier="lossy">
+                                    Web Max (100%)
+                                </button>
+                                <button type="button" class="quality-btn quality-preset-btn" data-quality="custom">
+                                    <i class="fas fa-sliders-h"></i> Custom
+                                </button>
+                            </div>
                         </div>
                         <div id="customQualitySlider" class="custom-quality" style="display: none;">
-                            <input type="range" id="qualitySlider" min="0" max="100" value="70" class="slider">
+                            <input type="range" id="qualitySlider" min="1" max="100" value="70" class="slider">
                             <span id="qualityValue">70%</span>
                         </div>
                     </div>
@@ -130,13 +191,13 @@ include '../shared/header.php';
                             <button type="button" class="quality-btn" data-crop-mode="auto">
                                 <i class="fas fa-magic"></i> Automatic
                             </button>
-                            <button type="button" class="quality-btn" data-crop-mode="manual">
+                            <button type="button" class="quality-btn active" data-crop-mode="manual">
                                 <i class="fas fa-crop"></i> Manual
                             </button>
                         </div>
                     </div>
 
-                    <div id="alignmentOptions" class="alignment-options" style="display: none;">
+                    <div id="alignmentOptions" class="alignment-options form-group" style="display: none;">
                         <div class="intro-text">
                             <p> <label>Crop alignment:</label>
                             <p class="alignment-info">Choose where to focus when auto-cropping your images. Perfect for keeping the important parts in frame!</p>
@@ -193,7 +254,7 @@ include '../shared/header.php';
                         <div class="advanced-content" style="display: none;">
                             <div class="performance-notice">
                                 <i class="fas fa-info-circle"></i>
-                                <p>Performance Notice: Each additional effect and image will increase processing time. Maximum 100 images or 200MB total. For best results, apply effects selectively and process images in smaller batches.</p>
+                                <p>Performance Notice: Each additional effect and image will increase processing time. Maximum 100 images or 256MB total. For best results, apply effects selectively and process images in smaller batches.<span id="serverLimitsNotice"></span></p>
                             </div>
                             <div class="effect-options">
                                 <label>Image Effects</label>
@@ -273,6 +334,9 @@ include '../shared/header.php';
         <!-- Download Step (Hidden by default) -->
         <div id="downloadStep" class="step">
             <h2><i class="fas fa-download"></i> Download Images</h2>
+            <p id="downloadSummary" class="download-summary"></p>
+            <div id="downloadWarnings" class="download-warnings" style="display: none;"></div>
+            <div id="orientationDebugPanel" class="orientation-debug-panel" style="display: none;"></div>
             <div id="processedImages" class="processed-images"></div>
             <div class="download-controls">
                 <button onclick="downloadAll()" class="btn download-all" style="display: none;">
@@ -286,12 +350,30 @@ include '../shared/header.php';
 
         <!-- Crop Step (Hidden by default) -->
         <div id="cropStep" class="step">
-            <h2><i class="fas fa-crop"></i> Crop Image</h2>
+            <h2 id="cropStepTitle"><i class="fas fa-crop"></i> Crop Image</h2>
+            <div id="cropDimensions" class="crop-dimensions">
+                <div class="crop-dimension-row">
+                    <span class="crop-dimension-label">Original:</span>
+                    <span id="cropOriginalSize">—</span>
+                </div>
+                <div class="crop-dimension-row">
+                    <span class="crop-dimension-label">Trim:</span>
+                    <span id="cropTrimSize">—</span>
+                </div>
+                <div class="crop-dimension-row">
+                    <span class="crop-dimension-label">Selection:</span>
+                    <span id="cropSelectionSize">—</span>
+                </div>
+                <div class="crop-dimension-row crop-dimension-output">
+                    <span class="crop-dimension-label">Final output:</span>
+                    <span id="cropOutputSize">—</span>
+                </div>
+            </div>
             <div class="crop-area">
                 <img id="cropImage" src="" alt="Crop preview">
             </div>
             <div class="crop-controls">
-                <button onclick="applyCrop()" class="btn">
+                <button id="applyCropBtn" onclick="applyCrop()" class="btn">
                     <i class="fas fa-check"></i> Apply & Next <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
@@ -299,6 +381,34 @@ include '../shared/header.php';
         
         </div>
         
+        <section id="processingStats" class="processing-stats" style="display: none;">
+            <div class="processing-stats__inner">
+                <div class="processing-stats__icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="processing-stats__content">
+                    <p class="processing-stats__title">Community Savings</p>
+                    <div class="processing-stats__metrics">
+                        <div class="processing-stats__metric">
+                            <span class="processing-stats__metric-value" id="statsImages">0</span>
+                            <span class="processing-stats__metric-label">Images optimized</span>
+                        </div>
+                        <div class="processing-stats__divider"></div>
+                        <div class="processing-stats__metric">
+                            <span class="processing-stats__metric-value" id="statsProcessedMB">0</span>
+                            <span class="processing-stats__metric-label">MB processed</span>
+                        </div>
+                        <div class="processing-stats__divider"></div>
+                        <div class="processing-stats__metric">
+                            <span class="processing-stats__metric-value" id="statsSavedMB">0</span>
+                            <span class="processing-stats__metric-label">MB saved</span>
+                        </div>
+                    </div>
+                    <p class="processing-stats__subtitle" id="statsSubtitle">Join thousands of creators keeping media fast and sharp.</p>
+                </div>
+            </div>
+        </section>
+
         <?php include '../shared/footer.php'; ?>
     </div>
 
@@ -409,43 +519,44 @@ include '../shared/header.php';
                 <div class="quality-section">
                     <h3>Quality Settings Explained</h3>
                     <div class="quality-info-item">
-                        <h4><i class="fas fa-compress"></i> Small (40%)</h4>
-                        <p><strong>Best for:</strong> Social media, thumbnails, and when file size is critical</p>
-                        <p><strong>File size:</strong> Very small, typically 60-80% smaller than original</p>
-                        <p><strong>Quality:</strong> Noticeable compression, but still acceptable for web use</p>
-                        <p><strong>Use when:</strong> You need maximum file size reduction and slight quality loss is acceptable</p>
+                        <h4>Low (50%)</h4>
+                        <p><strong>Best for:</strong> Thumbnails, previews, and when file size matters most</p>
+                        <p><strong>Use when:</strong> You need the smallest files and slight quality loss is acceptable</p>
                     </div>
                     <div class="quality-info-item">
-                        <h4><i class="fas fa-compress"></i> Medium (70%) - RECOMMENDED</h4>
-                        <p><strong>Best for:</strong> Most website images, blog posts, and general web use</p>
-                        <p><strong>File size:</strong> Good balance, typically 40-60% smaller than original</p>
-                        <p><strong>Quality:</strong> Excellent visual quality with minimal noticeable loss</p>
-                        <p><strong>Use when:</strong> You want the best balance between file size and image quality</p>
+                        <h4>Medium (60%)</h4>
+                        <p><strong>Best for:</strong> Blog images, cards, and mobile-first pages</p>
+                        <p><strong>Use when:</strong> You want noticeably smaller files with good-enough quality</p>
+                    </div>
+                    <div class="quality-info-item quality-info-recommended">
+                        <h4>Web Smart (70%) — recommended</h4>
+                        <p><strong>Best for:</strong> Most website images — the default for everyday use</p>
+                        <p><strong>Use when:</strong> You want the best balance of quality and file size for typical web photos</p>
                     </div>
                     <div class="quality-info-item">
-                        <h4><i class="fas fa-compress"></i> High (100%)</h4>
-                        <p><strong>Best for:</strong> Professional photography, print materials, and maximum quality needs</p>
-                        <p><strong>File size:</strong> Larger files, typically 20-40% smaller than original</p>
-                        <p><strong>Quality:</strong> Maximum quality with minimal compression artifacts</p>
-                        <p><strong>Use when:</strong> Image quality is paramount and file size is less important</p>
+                        <h4>Web Sharp (85%)</h4>
+                        <p><strong>Best for:</strong> Hero images, portfolios, and detail that must stay crisp</p>
+                        <p><strong>Use when:</strong> Quality clearly matters more than saving a few extra kilobytes</p>
+                    </div>
+                    <div class="quality-info-item">
+                        <h4>Web Max (100%)</h4>
+                        <p><strong>Best for:</strong> Maximum lossy quality before custom tuning</p>
+                        <p><strong>Use when:</strong> File size is secondary and you want the smallest possible compression artifacts</p>
                     </div>
                     <div class="quality-info-item">
                         <h4><i class="fas fa-sliders-h"></i> Custom</h4>
-                        <p><strong>Best for:</strong> Specific requirements where you need precise control</p>
-                        <p><strong>File size:</strong> Variable based on your chosen setting</p>
-                        <p><strong>Quality:</strong> Adjustable from 0-100% based on your needs</p>
-                        <p><strong>Use when:</strong> You need a specific quality level that doesn't match the preset options</p>
+                        <p><strong>Best for:</strong> A specific quality percentage not covered by the presets</p>
+                        <p><strong>Use when:</strong> You need precise control over the compression level</p>
                     </div>
                 </div>
                 
                 <div class="quick-tips">
                     <h3>Quick Tips</h3>
                     <ul>
-                        <li><strong>Start with 70%</strong> - It works well for most use cases</li>
-                        <li><strong>Mobile users:</strong> Lower quality (40-60%) for faster loading</li>
-                        <li><strong>Desktop users:</strong> Higher quality (70-100%) for better viewing</li>
-                        <li><strong>Photo galleries:</strong> Use 70-80% for good balance</li>
-                        <li><strong>Print materials:</strong> Use 90-100% for best results</li>
+                        <li><strong>Start with Web Smart (70%)</strong> — it works well for most cases</li>
+                        <li><strong>Web Sharp (85%)</strong> — for serious high-quality needs</li>
+                        <li><strong>Low / Medium</strong> — faster loads on mobile and listing pages</li>
+                        <li><strong>Web Max (100%)</strong> — largest files; use when quality is paramount</li>
                     </ul>
                 </div>
             </div>
@@ -541,6 +652,15 @@ include '../shared/header.php';
         </div>
     </div>
 
+    <!-- Large Image Warning Modal -->
+    <div id="largeImageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeLargeImageInfo()">&times;</span>
+            <h2><i class="fas fa-exclamation-triangle"></i> Large image detected</h2>
+            <div id="largeImageModalBody" class="large-image-modal-body"></div>
+        </div>
+    </div>
+
     <script>
         // Close effects modal when clicking outside of it
         window.onclick = function(event) {
@@ -551,11 +671,20 @@ include '../shared/header.php';
         }
     </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js" integrity="sha384-P65gU1u4/dZpqRQ0AVqW+DHPwXmNAR84Qk31dC95hjk0WatF1GsVF1zRm/0uB+o0" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
     <script src="js/config.js"></script>
-    <script src="js/app.js?v=1.8"></script>
+    <script src="js/urlParams.js?v=2.10.0"></script>
+<?php if (!empty($easyImageTossToyEnabled)): ?>
+    <script src="toss-toy/toss-toy.config.js?v=3"></script>
+    <script src="toss-toy/toss-toy-tetris-scores.js?v=1"></script>
+    <script src="toss-toy/toss-toy-tetris.js?v=6"></script>
+    <script src="toss-toy/toss-toy-easter-egg.js?v=2"></script>
+    <script src="toss-toy/toss-toy.js?v=9"></script>
+    <script src="toss-toy/toss-toy-bridge.js?v=1"></script>
+<?php endif; ?>
+    <script src="js/app.js?v=2.10.0"></script>
     <!-- Bootstrap for shared components -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 </body>
 </html> 

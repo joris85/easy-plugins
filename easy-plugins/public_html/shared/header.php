@@ -1,10 +1,18 @@
 <?php
+require_once __DIR__ . '/site-config.php';
+
 // Detect current tool from URL path
-$currentPath = $_SERVER['REQUEST_URI'];
+$currentPath = $_SERVER['REQUEST_URI'] ?? '';
 $currentTool = '';
 
 if (strpos($currentPath, '/easy-image/') !== false) {
     $currentTool = 'easy-image';
+} elseif (strpos($currentPath, '/easy-png/') !== false) {
+    $currentTool = 'easy-png';
+} elseif (strpos($currentPath, '/easy-watermark/') !== false) {
+    $currentTool = 'easy-watermark';
+} elseif (strpos($currentPath, '/easy-image-rotate/') !== false) {
+    $currentTool = 'easy-image-rotate';
 } elseif (strpos($currentPath, '/easy-html/') !== false) {
     $currentTool = 'easy-html';
 } elseif (strpos($currentPath, '/easy-pricing/') !== false) {
@@ -15,6 +23,14 @@ if (strpos($currentPath, '/easy-image/') !== false) {
     $currentTool = 'easy-csv-converter';
 } elseif (strpos($currentPath, '/easy-search-replace/') !== false) {
     $currentTool = 'easy-search-replace';
+} elseif (strpos($currentPath, '/easy-identify-me/') !== false) {
+    $currentTool = 'easy-identify-me';
+} elseif (strpos($currentPath, '/easy-less/') !== false) {
+    $currentTool = 'easy-less';
+} elseif (strpos($currentPath, '/easy-sass/') !== false) {
+    $currentTool = 'easy-sass';
+} elseif (strpos($currentPath, '/plugins/') !== false) {
+    $currentTool = 'plugins';
 }
 ?>
 <!DOCTYPE html>
@@ -117,32 +133,49 @@ if (strpos($currentPath, '/easy-image/') !== false) {
             <!-- Menu on the right -->
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link <?= $currentTool === 'easy-image' ? 'active' : '' ?>" href="/easy-image/" data-tool="easy-image">
-                            <i class="fas fa-image me-1"></i>Easy Image
+                    <!-- Image Tools Dropdown -->
+                    <li class="nav-item dropdown" onmouseenter="showDropdown('imageToolsDropdown')" onmouseleave="hideDropdown('imageToolsDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-image', 'easy-png', 'easy-watermark', 'easy-image-rotate']) ? 'active' : '' ?>" href="#" id="imageToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('imageToolsDropdown')">
+                            <i class="fas fa-image me-1"></i><span data-translate="NAV_IMAGE_TOOLS">Image Tools</span>
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="imageToolsDropdownMenu" aria-labelledby="imageToolsDropdown" onmouseenter="showDropdown('imageToolsDropdown')" onmouseleave="hideDropdown('imageToolsDropdown')">
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-image' ? 'active' : '' ?>" href="/easy-image/" data-tool="easy-image">
+                                    <i class="fas fa-image me-2"></i>Easy Image
+                                    <small class="text-muted d-block ms-4">Resize, crop, and optimize images</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-png' ? 'active' : '' ?>" href="/easy-png/" data-tool="easy-png">
+                                    <i class="fas fa-file-image me-2"></i>Easy PNG
+                                    <small class="text-muted d-block ms-4">Add background to images</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-watermark' ? 'active' : '' ?>" href="/easy-watermark/" data-tool="easy-watermark">
+                                    <i class="fas fa-tint me-2"></i>Easy Watermark
+                                    <small class="text-muted d-block ms-4">Add watermarks to images</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-image-rotate' ? 'active' : '' ?>" href="/easy-image-rotate/" data-tool="easy-image-rotate">
+                                    <i class="fas fa-redo me-2"></i>Easy Image Rotate
+                                    <small class="text-muted d-block ms-4">Rotate images with real-time preview</small>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
-                    <li class="nav-item dropdown" onmouseenter="showDropdown('easyToolsDropdown')" onmouseleave="hideDropdown('easyToolsDropdown')">
-                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-pricing', 'easy-text-converter', 'easy-csv-converter', 'easy-search-replace']) ? 'active' : '' ?>" href="#" id="easyToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('easyToolsDropdown')">
-                            <i class="fas fa-tools me-1"></i><span data-translate="NAV_EASY_TOOLS">Easy</span>
+                    
+                    <!-- Text & Data Dropdown -->
+                    <li class="nav-item dropdown" onmouseenter="showDropdown('textDataDropdown')" onmouseleave="hideDropdown('textDataDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-text-converter', 'easy-csv-converter', 'easy-search-replace', 'easy-pricing']) ? 'active' : '' ?>" href="#" id="textDataDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('textDataDropdown')">
+                            <i class="fas fa-file-alt me-1"></i><span data-translate="NAV_TEXT_DATA">Text & Data</span>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end" id="easyToolsDropdownMenu" aria-labelledby="easyToolsDropdown" onmouseenter="showDropdown('easyToolsDropdown')" onmouseleave="hideDropdown('easyToolsDropdown')">
-                            <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-html' ? 'active' : '' ?>" href="/easy-html/" data-tool="easy-html">
-                                    <i class="fas fa-code me-2"></i><span data-translate="NAV_EASY_HTML">Easy HTML</span>
-                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_HTML_DESC">HTML cleaner</small>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-pricing' ? 'active' : '' ?>" href="/easy-pricing/" data-tool="easy-pricing">
-                                    <i class="fas fa-calculator me-2"></i><span data-translate="NAV_EASY_PRICING">Easy Pricing</span>
-                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_PRICING_DESC">Pricing calculator</small>
-                                </a>
-                            </li>
+                        <ul class="dropdown-menu dropdown-menu-end" id="textDataDropdownMenu" aria-labelledby="textDataDropdown" onmouseenter="showDropdown('textDataDropdown')" onmouseleave="hideDropdown('textDataDropdown')">
                             <li>
                                 <a class="dropdown-item <?= $currentTool === 'easy-text-converter' ? 'active' : '' ?>" href="/easy-text-converter/" data-tool="easy-text-converter">
                                     <i class="fas fa-text-width me-2"></i><span data-translate="NAV_EASY_TEXT">Easy Text</span>
-                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_TEXT_DESC">Text converter</small>
+                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_TEXT_DESC">Text transformer</small>
                                 </a>
                             </li>
                             <li>
@@ -157,8 +190,48 @@ if (strpos($currentPath, '/easy-image/') !== false) {
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_SEARCH_DESC">Search and replace</small>
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-pricing' ? 'active' : '' ?>" href="/easy-pricing/" data-tool="easy-pricing">
+                                    <i class="fas fa-calculator me-2"></i><span data-translate="NAV_EASY_PRICING">Easy Pricing</span>
+                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_PRICING_DESC">Pricing calculator</small>
+                                </a>
+                            </li>
                         </ul>
                     </li>
+                    
+                    <!-- Web Tools Dropdown -->
+                    <li class="nav-item dropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-identify-me', 'easy-less', 'easy-sass']) ? 'active' : '' ?>" href="#" id="webToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('webToolsDropdown')">
+                            <i class="fas fa-globe me-1"></i><span data-translate="NAV_WEB_TOOLS">Web Tools</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="webToolsDropdownMenu" aria-labelledby="webToolsDropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-html' ? 'active' : '' ?>" href="/easy-html/" data-tool="easy-html">
+                                    <i class="fas fa-code me-2"></i><span data-translate="NAV_EASY_HTML">Easy HTML</span>
+                                    <small class="text-muted d-block ms-4" data-translate="NAV_EASY_HTML_DESC">HTML cleaner</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-less' ? 'active' : '' ?>" href="/easy-less/" data-tool="easy-less">
+                                    <i class="fas fa-file-code me-2"></i>Easy Less
+                                    <small class="text-muted d-block ms-4">LESS to CSS compiler</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-sass' ? 'active' : '' ?>" href="/easy-sass/" data-tool="easy-sass">
+                                    <i class="fas fa-code me-2"></i>Easy SASS
+                                    <small class="text-muted d-block ms-4">SASS/SCSS to CSS compiler</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-identify-me' ? 'active' : '' ?>" href="/easy-identify-me/" data-tool="easy-identify-me">
+                                    <i class="fas fa-id-card me-2"></i>Easy Identify Me
+                                    <small class="text-muted d-block ms-4">System information tool</small>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
                     <li class="nav-item">
                         <button class="nav-link lang-toggle-btn" onclick="toggleLanguage()" aria-label="Switch language">
                             <span id="lang-label">NL</span>
@@ -177,6 +250,22 @@ if (strpos($currentPath, '/easy-image/') !== false) {
 
 <script>
 let dropdownTimer = null;
+const allDropdownIds = ['imageToolsDropdown', 'textDataDropdown', 'webToolsDropdown'];
+
+// Close all dropdowns except the specified one
+function closeAllDropdownsExcept(exceptId) {
+    allDropdownIds.forEach(dropdownId => {
+        if (dropdownId !== exceptId) {
+            const dropdown = document.getElementById(dropdownId);
+            if (dropdown) {
+                const bsDropdown = bootstrap.Dropdown.getInstance(dropdown);
+                if (bsDropdown) {
+                    bsDropdown.hide();
+                }
+            }
+        }
+    });
+}
 
 // Show dropdown on hover
 function showDropdown(dropdownId) {
@@ -185,6 +274,9 @@ function showDropdown(dropdownId) {
         clearTimeout(dropdownTimer);
         dropdownTimer = null;
     }
+    
+    // Close all other dropdowns first
+    closeAllDropdownsExcept(dropdownId);
     
     const dropdown = document.getElementById(dropdownId);
     const menu = document.getElementById(dropdownId + 'Menu');

@@ -1,0 +1,14 @@
+# Block sensitive files in this directory
+<FilesMatch "^(cleanup_log\.txt|cleanup_cron\.log|php_errorlog|cleanup\.lock)$">
+    Require all denied
+</FilesMatch>
+
+<Files "cleanup_images.php">
+    Require all denied
+</Files>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

@@ -1,0 +1,24 @@
+# Rewrite sitemap.xml to sitemap.php
+RewriteEngine On
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# Redirect /articles/* to /plugins/* (clean URLs, no .php)
+RewriteRule ^articles/(.+?)\.php$ /plugins/$1 [R=301,L]
+RewriteRule ^articles/(.*)$ /plugins/$1 [R=301,L]
+RewriteRule ^articles/?$ /plugins/ [R=301,L]
+
+# Redirect /plugins/ and /plugins/index to homepage (301)
+RewriteRule ^plugins/?$ / [R=301,L]
+RewriteRule ^plugins/index\.php$ / [R=301,L]
+RewriteRule ^plugins/index$ / [R=301,L]
+
+# Redirect .php plugin URLs to clean URLs
+RewriteCond %{THE_REQUEST} \s/+plugins/([^\s?]+)\.php[\s?] [NC]
+RewriteRule ^ /plugins/%1 [R=301,L]
+
+# Serve clean plugin URLs from .php files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/plugins/$1.php -f
+RewriteRule ^plugins/([^/]+)/?$ plugins/$1.php [L]
+

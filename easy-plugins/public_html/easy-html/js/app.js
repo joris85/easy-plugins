@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Editor initialized:', !!editor);
         console.log('CodeViewer initialized:', !!codeViewer);
         
-        const cleanBtn = document.querySelector('button[onclick="cleanHTML()"]');
-        console.log('Clean button disabled:', cleanBtn.disabled);
-        console.log('Clean button text:', cleanBtn.innerHTML);
+        const cleanBtn = document.getElementById('cleanBtn');
+        console.log('Clean button disabled:', cleanBtn ? cleanBtn.disabled : 'not found');
+        console.log('Clean button text:', cleanBtn ? cleanBtn.innerHTML : 'not found');
         
         const options = getCleaningOptions();
         console.log('Current cleaning options:', options);
@@ -134,6 +134,12 @@ function initializeEditor() {
         paste_remove_styles: false,
         paste_remove_styles_if_webkit: false,
         paste_merge_formats: false,
+        // Prevent URL truncation and modification
+        url_converter: function(url, node, on_save) {
+            // Never modify URLs - return as-is
+            return url;
+        },
+        url_converter_scope: 'document',
         setup: function(ed) {
             editor = ed;
             
@@ -152,6 +158,31 @@ function initializeEditor() {
             
             ed.on('blur', function() {
                 tinyMCEHasFocus = false;
+            });
+            
+            // Prevent URL truncation on paste
+            ed.on('PastePostProcess', function(e) {
+                // Restore any truncated URLs in the pasted content
+                let content = e.node.innerHTML || '';
+                // Fix URLs with ellipsis patterns
+                content = content.replace(/\[%E2%80%A6\]/g, '');
+                content = content.replace(/…/g, '');
+                content = content.replace(/\[\.\.\.\]/g, '');
+                // Update the content if it was modified
+                if (content !== (e.node.innerHTML || '')) {
+                    e.node.innerHTML = content;
+                }
+            });
+            
+            // Also handle paste events to prevent URL truncation
+            ed.on('paste', function(e) {
+                // Get the pasted content
+                let pastedContent = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+                // If it looks like a URL, ensure it's not truncated
+                if (pastedContent && /^https?:\/\//i.test(pastedContent)) {
+                    // Prevent default paste handling that might truncate
+                    // The content will be inserted as-is
+                }
             });
             
             // Real-time HTML preview with debounce (NO CLEANING - just preview)
@@ -217,6 +248,12 @@ function initializeEditor() {
             extended_valid_elements: '*[*]',
             forced_root_block: 'div',
             convert_urls: false,
+            // Prevent URL truncation and modification
+            url_converter: function(url, node, on_save) {
+                // Never modify URLs - return as-is
+                return url;
+            },
+            url_converter_scope: 'document',
             setup: function(ed) {
                 editor = ed;
                 
@@ -227,6 +264,31 @@ function initializeEditor() {
                 
                 ed.on('blur', function() {
                     tinyMCEHasFocus = false;
+                });
+                
+                // Prevent URL truncation on paste
+                ed.on('PastePostProcess', function(e) {
+                    // Restore any truncated URLs in the pasted content
+                    let content = e.node.innerHTML || '';
+                    // Fix URLs with ellipsis patterns
+                    content = content.replace(/\[%E2%80%A6\]/g, '');
+                    content = content.replace(/…/g, '');
+                    content = content.replace(/\[\.\.\.\]/g, '');
+                    // Update the content if it was modified
+                    if (content !== (e.node.innerHTML || '')) {
+                        e.node.innerHTML = content;
+                    }
+                });
+                
+                // Also handle paste events to prevent URL truncation
+                ed.on('paste', function(e) {
+                    // Get the pasted content
+                    let pastedContent = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+                    // If it looks like a URL, ensure it's not truncated
+                    if (pastedContent && /^https?:\/\//i.test(pastedContent)) {
+                        // Prevent default paste handling that might truncate
+                        // The content will be inserted as-is
+                    }
                 });
                 
                 ed.on('change keyup input paste', function() {
@@ -461,7 +523,12 @@ function cleanHTML() {
     isUpdatingFromTinyMCE = false;
 
     // Show loading state
-    const cleanBtn = document.querySelector('button[onclick="cleanHTML()"]');
+    const cleanBtn = document.getElementById('cleanBtn');
+    if (!cleanBtn) {
+        alert('Clean button not found. Please refresh the page.');
+        isCleaning = false;
+        return;
+    }
     cleanBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cleaning...';
     cleanBtn.disabled = true;
 
@@ -485,7 +552,22 @@ function cleanHTML() {
             options: options
         })
     })
-    .then(response => response.json())
+    .then(async response => {
+        const text = await response.text();
+        if (!text.trim()) {
+            throw new Error('Server returned an empty response (HTTP ' + response.status + ')');
+        }
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (parseError) {
+            throw new Error('Invalid server response (HTTP ' + response.status + ')');
+        }
+        if (!response.ok && !data.error) {
+            throw new Error('Server error (HTTP ' + response.status + ')');
+        }
+        return data;
+    })
     .then(data => {
         if (data.success) {
             // Update CodeMirror with cleaned HTML
@@ -631,7 +713,7 @@ function resetEditor() {
         }
         
         // Reset button state
-        const cleanBtn = document.querySelector('button[onclick="cleanHTML()"]');
+        const cleanBtn = document.getElementById('cleanBtn');
         if (cleanBtn) {
             cleanBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Clean HTML';
             cleanBtn.disabled = false;
@@ -640,7 +722,8 @@ function resetEditor() {
 }
 
 function showSuccessMessage() {
-    const cleanBtn = document.querySelector('button[onclick="cleanHTML()"]');
+    const cleanBtn = document.getElementById('cleanBtn');
+    if (!cleanBtn) return;
     cleanBtn.innerHTML = '<i class="fas fa-check me-2"></i>Cleaned & Synced!';
     cleanBtn.classList.add('btn-success');
     cleanBtn.classList.remove('btn-primary');

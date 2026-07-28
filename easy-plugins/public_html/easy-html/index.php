@@ -41,7 +41,8 @@ include '../shared/header.php';
     
     <div class="container-fluid">
         <!-- Main Content -->
-        <div class="container py-4">
+        <div class="container tool-page-inner">
+            <?php $toolInfoSlug = 'easy-html'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
             <div class="row">
                 <!-- Left Side - Visual Editor -->
                 <div class="col-lg-6">

@@ -4,12 +4,8 @@ include '../shared/header.php';
 ?>
     
     <div class="container-fluid bg-gradient">
-        <div class="container py-5">
-            <!-- Header -->
-            <div class="row justify-content-center mb-5">
-                <div class="col-lg-8 text-center">
-                </div>
-            </div>
+        <div class="container tool-page-inner">
+            <?php $toolInfoSlug = 'easy-pricing'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
 
             <!-- Navigation Tabs -->
             <div class="row justify-content-center mb-4">

@@ -11,7 +11,8 @@ include '../shared/header.php';
     
     <div class="container-fluid">
         <!-- Main Content -->
-        <div class="container py-4">
+        <div class="container tool-page-inner">
+            <?php $toolInfoSlug = 'easy-csv-converter'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
             
             <!-- File Upload / Text Input Section -->
             <div class="row">

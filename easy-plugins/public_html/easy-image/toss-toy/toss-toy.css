@@ -1,0 +1,674 @@
+/* Toss the Pics — waiting overlay (Easy Image) */
+
+.toss-toy-backdrop {
+    --toss-bg-1: #211d40;
+    --toss-bg-2: #322a5e;
+    --toss-panel: #faf9ff;
+    --toss-ink: #211d40;
+    --toss-ink-soft: #6b6690;
+    --toss-accent: #ff7a59;
+    --toss-accent-2: #ffb15c;
+    --toss-done: #2bbf8a;
+    --toss-track: #ece9fb;
+    --toss-radius: 18px;
+
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(58, 49, 112, 0.85) 0%, transparent 60%),
+        linear-gradient(160deg, rgba(33, 29, 64, 0.92), rgba(50, 42, 94, 0.92));
+    animation: toss-toy-fade-in 0.35s ease both;
+}
+
+.toss-toy-backdrop.toss-toy--static {
+    /* reduced-motion: no canvas bounce */
+}
+
+@keyframes toss-toy-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.toss-toy-overlay {
+    width: 100%;
+    max-width: 560px;
+    background: var(--toss-panel);
+    border-radius: 24px;
+    box-shadow: 0 30px 80px -20px rgba(20, 15, 50, 0.6);
+    overflow: hidden;
+    animation: toss-toy-pop-in 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.3) both;
+}
+
+@keyframes toss-toy-pop-in {
+    from { transform: translateY(18px) scale(0.96); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+.toss-toy-head {
+    padding: 22px 24px 16px;
+}
+
+.toss-toy-title {
+    margin: 0;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--toss-ink);
+}
+
+.toss-toy-title .toss-toy-spark {
+    font-size: 18px;
+    animation: toss-toy-twinkle 2.2s ease-in-out infinite;
+}
+
+@keyframes toss-toy-twinkle {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.toss-toy-hint {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    color: var(--toss-ink-soft);
+}
+
+.toss-toy-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.toss-toy-track {
+    flex: 1;
+    height: 9px;
+    border-radius: 99px;
+    background: var(--toss-track);
+    overflow: hidden;
+}
+
+.toss-toy-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--toss-accent), var(--toss-accent-2));
+    transition: width 0.5s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+.toss-toy-track--complete .toss-toy-bar {
+    background: linear-gradient(90deg, var(--toss-done), #3dd6a0);
+}
+
+.toss-toy-overlay.toss-toy-all-done .toss-toy-title .toss-toy-spark {
+    animation: none;
+    color: var(--toss-done);
+    font-size: 20px;
+}
+
+.toss-toy-overlay.toss-toy-all-done .toss-toy-count {
+    color: var(--toss-done);
+    font-weight: 700;
+}
+
+.toss-toy-count {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--toss-ink-soft);
+    min-width: 78px;
+    text-align: right;
+}
+
+.toss-toy-stage-wrap {
+    padding: 4px 14px 14px;
+}
+
+.toss-toy-stage {
+    position: relative;
+    width: 100%;
+    min-height: 280px;
+    aspect-ratio: 13 / 9;
+    max-height: min(52vh, 420px);
+    border-radius: var(--toss-radius);
+    background: linear-gradient(180deg, #f3f1ff, #eceaff);
+    border: 1px solid #e7e3fb;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.toss-toy-stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+}
+
+.toss-toy-stage canvas.toss-toy-grabbing {
+    cursor: grabbing;
+}
+
+.toss-toy-stage--tetris canvas {
+    cursor: default;
+}
+
+.toss-toy-tetris-hud {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: 3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    pointer-events: none;
+}
+
+.toss-toy-tetris-hud-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 10px rgba(40, 25, 90, 0.12);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--toss-ink-soft);
+}
+
+.toss-toy-tetris-hud-stat strong {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--toss-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.toss-toy-tetris-hud-best strong {
+    color: #e84a2f;
+}
+
+.toss-toy-tetris-hud-best {
+    pointer-events: auto;
+    cursor: pointer;
+    border: none;
+    font: inherit;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.toss-toy-tetris-hud-best:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(232, 74, 47, 0.22);
+}
+
+.toss-toy-tetris-hud-best:focus-visible {
+    outline: 2px solid #e84a2f;
+    outline-offset: 2px;
+}
+
+.toss-toy-tetris-board {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: rgba(33, 29, 64, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+.toss-toy-tetris-board[hidden] {
+    display: none;
+}
+
+.toss-toy-tetris-board-panel {
+    width: min(100%, 280px);
+    max-height: min(70vh, 320px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 14px 36px rgba(40, 25, 90, 0.28);
+    overflow: hidden;
+}
+
+.toss-toy-tetris-board-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid rgba(40, 25, 90, 0.08);
+}
+
+.toss-toy-tetris-board-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--toss-ink);
+}
+
+.toss-toy-tetris-board-close {
+    border: none;
+    background: transparent;
+    color: var(--toss-ink-soft);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.toss-toy-tetris-board-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 10px 12px;
+    overflow-y: auto;
+}
+
+.toss-toy-tetris-board-row,
+.toss-toy-tetris-board-empty {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 6px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--toss-ink);
+}
+
+.toss-toy-tetris-board-row:nth-child(odd) {
+    background: rgba(40, 25, 90, 0.04);
+}
+
+.toss-toy-tetris-board-empty {
+    display: block;
+    text-align: center;
+    color: var(--toss-ink-soft);
+    font-weight: 600;
+    padding: 18px 10px;
+}
+
+.toss-toy-tetris-board-rank {
+    font-weight: 800;
+    color: var(--toss-ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+.toss-toy-tetris-board-rank--top {
+    color: #e84a2f;
+}
+
+.toss-toy-tetris-board-name {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toss-toy-tetris-board-score {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #1ea877;
+}
+
+.toss-toy-tetris-score-entry {
+    width: min(100%, 280px);
+    margin-top: 4px;
+}
+
+.toss-toy-tetris-score-entry[hidden] {
+    display: none;
+}
+
+.toss-toy-tetris-score-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.toss-toy-tetris-score-form {
+    display: flex;
+    gap: 8px;
+}
+
+.toss-toy-tetris-name-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--toss-ink);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.toss-toy-tetris-name-input:focus {
+    outline: 2px solid #35cc96;
+    outline-offset: 1px;
+}
+
+.toss-toy-tetris-save-score {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    background: linear-gradient(180deg, #ffb15c, #ff7a59);
+    box-shadow: 0 6px 16px -6px rgba(255, 122, 89, 0.55);
+}
+
+.toss-toy-tetris-save-score:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.toss-toy-tetris-score-entry-msg {
+    margin: 6px 0 0;
+    min-height: 1.2em;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.toss-toy-tetris-score-flash {
+    margin-left: auto;
+    align-self: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1ea877;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.25s ease;
+}
+
+.toss-toy-tetris-score-flash.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toss-toy-tetris-over {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(33, 29, 64, 0.55);
+    backdrop-filter: blur(3px);
+}
+
+.toss-toy-tetris-over[hidden] {
+    display: none;
+}
+
+.toss-toy-tetris-over-title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.toss-toy-tetris-over-hint {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.toss-toy-tetris-replay {
+    margin-top: 6px;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(180deg, #35cc96, #1ea877);
+    box-shadow: 0 8px 20px -6px rgba(30, 168, 119, 0.65);
+    transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.toss-toy-tetris-replay:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+}
+
+.toss-toy-stage--game-over canvas {
+    filter: saturate(0.85);
+}
+
+.toss-toy-keys-popup {
+    position: absolute;
+    z-index: 3;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--toss-ink);
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(40, 25, 90, 0.22);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1.3);
+}
+
+.toss-toy-keys-popup.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.toss-toy-static-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 10px;
+    padding: 16px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.toss-toy-static-card {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #e8e5f5;
+    box-shadow: 0 4px 12px rgba(40, 25, 90, 0.12);
+}
+
+.toss-toy-static-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.toss-toy-static-card.toss-toy-done {
+    outline: 3px solid var(--toss-done);
+    outline-offset: -3px;
+}
+
+.toss-toy-static-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--toss-done);
+    color: #fff;
+    font-size: 12px;
+    line-height: 22px;
+    text-align: center;
+    font-weight: 700;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1.3);
+}
+
+.toss-toy-static-card.toss-toy-done .toss-toy-static-badge {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.toss-toy-more-label {
+    margin: 0 16px 12px;
+    font-size: 12px;
+    color: var(--toss-ink-soft);
+    text-align: center;
+}
+
+.toss-toy-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 24px 22px;
+}
+
+.toss-toy-ready-msg {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--toss-ink);
+    background: linear-gradient(135deg, rgba(43, 191, 138, 0.14), rgba(255, 177, 92, 0.18));
+    border: 1px solid rgba(43, 191, 138, 0.35);
+    text-align: center;
+}
+
+.toss-toy-ready-msg[hidden] {
+    display: none;
+}
+
+.toss-toy-foot-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.toss-toy-keep-playing {
+    border: none;
+    border-radius: 12px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(180deg, #35cc96, #1ea877);
+    cursor: pointer;
+    margin-right: auto;
+    box-shadow: 0 6px 16px -6px rgba(30, 168, 119, 0.55);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.toss-toy-keep-playing:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow: 0 8px 20px -6px rgba(30, 168, 119, 0.65);
+}
+
+.toss-toy-keep-playing:active {
+    transform: translateY(0);
+}
+
+.toss-toy-keep-playing[hidden] {
+    display: none;
+}
+
+.toss-toy-keep-playing:disabled {
+    cursor: default;
+    opacity: 0.92;
+    transform: none;
+    box-shadow: 0 4px 12px -6px rgba(30, 168, 119, 0.45);
+}
+
+.toss-toy-continue {
+    border: none;
+    border-radius: 12px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(180deg, #bdb8d6, #a59fc4);
+    cursor: not-allowed;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.3s ease;
+    box-shadow: 0 8px 18px -8px rgba(40, 30, 90, 0.3);
+}
+
+.toss-toy-continue.toss-toy-ready {
+    background: linear-gradient(180deg, #ff8f5c, #e84a2f);
+    cursor: pointer;
+    padding: 16px 30px;
+    min-width: 14rem;
+    font-size: 20px;
+    line-height: 1.2;
+    border-radius: 14px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 10px 26px -6px rgba(232, 74, 47, 0.58);
+}
+
+.toss-toy-continue.toss-toy-countdown-active {
+    animation: toss-toy-countdown-attn 1.15s ease-in-out infinite;
+}
+
+.toss-toy-continue.toss-toy-ready:hover {
+    transform: translateY(-2px) scale(1.02);
+    filter: brightness(1.06);
+    animation: none;
+}
+
+@keyframes toss-toy-countdown-attn {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 10px 26px -6px rgba(232, 74, 47, 0.58);
+    }
+    35% {
+        transform: translateY(-4px) scale(1.03);
+        box-shadow: 0 14px 32px -4px rgba(232, 74, 47, 0.72);
+    }
+    65% {
+        transform: translateY(-1px) scale(1.01);
+        box-shadow: 0 11px 28px -5px rgba(232, 74, 47, 0.64);
+    }
+}
+
+@keyframes toss-toy-nudge {
+    0%, 100% { transform: none; }
+    30% { transform: translateY(-3px); }
+    60% { transform: translateY(0); }
+}
+
+body.toss-toy-scroll-lock {
+    overflow: hidden;
+}

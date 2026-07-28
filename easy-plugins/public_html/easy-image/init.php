@@ -1,7 +1,7 @@
 <?php
-// Enable error reporting
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// Log errors but do not expose them in web responses.
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
 error_reporting(E_ALL);
 
 // Define base path
@@ -11,7 +11,9 @@ define('BASE_PATH', __DIR__);
 $uploadDirs = [
     BASE_PATH . '/uploads',
     BASE_PATH . '/uploads/resize',
-    BASE_PATH . '/uploads/crop'
+    BASE_PATH . '/uploads/crop',
+    BASE_PATH . '/uploads/optimize',
+    BASE_PATH . '/uploads/custom'
 ];
 
 // Create directories if they don't exist and set permissions
@@ -34,19 +36,15 @@ foreach ($uploadDirs as $dir) {
 $htaccessContent = "Options -Indexes\n
 # Allow access to image files
 <FilesMatch \"\\.(jpg|jpeg|png|gif|webp)$\">
-    Order Allow,Deny
-    Allow from all
+    Require all granted
 </FilesMatch>
 
 # Deny access to all other files
-<FilesMatch \"^(?!.*\\.(jpg|jpeg|png|gif|webp)$).*\">
-    Order Deny,Allow
-    Deny from all
+<FilesMatch \"^(?!.*\\.(jpg|jpeg|png|gif|webp)$).\">
+    Require all denied
 </FilesMatch>";
 
 $htaccessFile = BASE_PATH . '/uploads/.htaccess';
 if (!file_exists($htaccessFile)) {
     file_put_contents($htaccessFile, $htaccessContent);
-}
-
-echo "Initialization completed successfully!"; 
+} 

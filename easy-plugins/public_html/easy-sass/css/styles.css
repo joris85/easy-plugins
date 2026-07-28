@@ -1,0 +1,95 @@
+/* Easy SASS - Styling */
+
+.code-editor {
+    height: 500px;
+    border: none;
+}
+
+.CodeMirror {
+    height: 100%;
+    font-size: 14px;
+    line-height: 1.5;
+    border: none;
+}
+
+.CodeMirror-scroll {
+    min-height: 500px;
+}
+
+/* Statistics styling */
+.stat-item {
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary, #4CAF50);
+    display: block;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted, #6c757d);
+    margin-top: 0.25rem;
+}
+
+/* Card styling */
+.card {
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    background: var(--bg-hover, #f8f9fa);
+    border-bottom: 1px solid var(--border, #e0e0e0);
+}
+
+/* Error display */
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem;
+    border: 1px solid #f5c6cb;
+}
+
+.error-message.dark {
+    background-color: #3d1f1f;
+    color: #ff6b6b;
+    border-color: #5a2a2a;
+}
+
+/* Loading indicator */
+.compiling-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    z-index: 1000;
+    display: none;
+}
+
+.compiling-indicator.active {
+    display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .code-editor {
+        height: 300px;
+    }
+    
+    .CodeMirror-scroll {
+        min-height: 300px;
+    }
+}
+
+

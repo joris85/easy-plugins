@@ -1,0 +1,6 @@
+# Easy Image Pro is a separate project with its own git repos —
+# it must never become part of the easy-plugins repo.
+Claude sites/advanced-image/
+Claude sites/easy-image-app/
+
+.DS_Store

@@ -218,3 +218,4 @@ async function initializeTranslations() {
 document.addEventListener('DOMContentLoaded', initializeTranslations);
 
 
+

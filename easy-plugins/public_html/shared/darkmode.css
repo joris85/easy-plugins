@@ -20,6 +20,18 @@ body.dark {
     color: #a0a0a0 !important;
 }
 
+/* Override CSS variables for dark mode */
+html.dark,
+body.dark {
+    --bg-page: #1e1e1e !important;
+    --bg-card: #1a1a1a !important;
+    --bg-hover: #1e1e1e !important;
+    --text-primary: #a0a0a0 !important;
+    --text-muted: #808080 !important;
+    --border: #2a2a2a !important;
+    --border-light: #1e1e1e !important;
+}
+
 /* Critical: Prevent any white flash on page elements - ONLY in dark mode */
 html.dark .container,
 html.dark .container-fluid,
@@ -931,4 +943,221 @@ body.dark .form-check-input:hover {
     body.dark .hero-subtitle {
         color: #808080 !important;
     }
+}
+
+/* ===== EASY PNG & EASY WATERMARK DARK MODE ===== */
+/* Upload and Preview Sections - Force override CSS variables */
+html.dark .upload-section,
+html.dark .preview-section,
+html.dark .watermark-upload-section,
+body.dark .upload-section,
+body.dark .preview-section,
+body.dark .watermark-upload-section {
+    background: #1a1a1a !important;
+    background-color: #1a1a1a !important;
+    border-color: #2a2a2a !important;
+}
+
+/* Dropzones */
+body.dark .dropzone {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark .dropzone:hover,
+body.dark .dropzone.dragover {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border-color: #4CAF50 !important;
+}
+
+body.dark .dropzone p {
+    color: #a0a0a0 !important;
+}
+
+body.dark .dropzone small {
+    color: #808080 !important;
+}
+
+/* Form Groups */
+body.dark .form-group {
+    background: #1e1e1e !important;
+}
+
+body.dark .form-group label {
+    color: #a0a0a0 !important;
+}
+
+/* Text Inputs */
+body.dark .color-input-group input[type="text"],
+body.dark .color-item input[type="text"],
+body.dark .text-watermark-input-field,
+body.dark .text-watermark-input .form-control {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .color-input-group input[type="text"]:focus,
+body.dark .color-item input[type="text"]:focus,
+body.dark .text-watermark-input-field:focus,
+body.dark .text-watermark-input .form-control:focus {
+    background: #1a1a1a !important;
+    border-color: #4CAF50 !important;
+    color: #a0a0a0 !important;
+}
+
+/* Color Inputs */
+body.dark .color-input-group input[type="color"],
+body.dark .color-item input[type="color"] {
+    border-color: #2a2a2a !important;
+    background: #1e1e1e !important;
+}
+
+body.dark .color-input-group input[type="color"]:hover,
+body.dark .color-item input[type="color"]:hover {
+    border-color: #4CAF50 !important;
+}
+
+/* Select Dropdowns */
+body.dark .font-family-select {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .font-family-select:focus {
+    background: #1a1a1a !important;
+    border-color: #4CAF50 !important;
+    color: #a0a0a0 !important;
+}
+
+/* Buttons */
+body.dark .bg-type-btn,
+body.dark .gradient-type-btn,
+body.dark .direction-btn,
+body.dark .position-btn,
+body.dark .style-toggle,
+body.dark .align-btn {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .bg-type-btn:hover,
+body.dark .gradient-type-btn:hover,
+body.dark .direction-btn:hover,
+body.dark .position-btn:hover,
+body.dark .style-toggle:hover,
+body.dark .align-btn:hover {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border-color: #4CAF50 !important;
+    color: #a0a0a0 !important;
+}
+
+body.dark .bg-type-btn.active,
+body.dark .gradient-type-btn.active,
+body.dark .direction-btn.active,
+body.dark .position-btn.active,
+body.dark .align-btn.active {
+    background: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+}
+
+/* Preview Container */
+body.dark .preview-container {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark .preview-placeholder {
+    color: #808080 !important;
+}
+
+body.dark .preview-placeholder i {
+    color: #2a2a2a !important;
+}
+
+/* Canvas */
+body.dark #previewCanvas {
+    background: #1e1e1e !important;
+}
+
+/* Watermark Items */
+body.dark .watermark-item {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark .watermark-item.active {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border-color: #4CAF50 !important;
+}
+
+body.dark .watermark-item-title {
+    color: #a0a0a0 !important;
+}
+
+body.dark .watermark-thumbnail {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+}
+
+body.dark .watermark-thumbnail-text {
+    background: #1e1e1e !important;
+    border-color: #2a2a2a !important;
+    color: #4CAF50 !important;
+}
+
+/* Control Labels */
+body.dark .watermark-control-label {
+    color: #a0a0a0 !important;
+}
+
+body.dark .watermark-control-label span {
+    color: #4CAF50 !important;
+}
+
+body.dark .alpha-value {
+    color: #808080 !important;
+}
+
+/* Sliders */
+body.dark .slider {
+    background: #2a2a2a !important;
+}
+
+body.dark .slider::-webkit-slider-thumb {
+    background: #4CAF50 !important;
+}
+
+body.dark .slider::-moz-range-thumb {
+    background: #4CAF50 !important;
+}
+
+/* Control Groups */
+body.dark .watermark-control-group {
+    border-color: #2a2a2a !important;
+}
+
+body.dark .watermark-control-subgroup {
+    border-color: rgba(76, 175, 80, 0.2) !important;
+}
+
+/* Toggle Checkboxes */
+body.dark .watermark-toggle {
+    color: #a0a0a0 !important;
+}
+
+body.dark .style-toggle {
+    color: #a0a0a0 !important;
+}
+
+body.dark .style-toggle input[type="checkbox"]:checked + span {
+    color: #4CAF50 !important;
+}
+
+body.dark .style-toggle:has(input[type="checkbox"]:checked) {
+    border-color: #4CAF50 !important;
+    background: rgba(76, 175, 80, 0.1) !important;
 }

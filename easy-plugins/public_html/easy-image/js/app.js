@@ -26,15 +26,48 @@ window.showFormatInfo = function() {
 };
 
 // Global variables
+const BATCH_SIZE = 8;
+const BATCH_DELAY_MS = 200;
+const UPLOAD_OVERHEAD_BYTES = 64 * 1024;
+const APP_MAX_FILE_BYTES = 50 * 1024 * 1024;
+const APP_MAX_TOTAL_BYTES = 256 * 1024 * 1024;
+
+const ORIENT_DEBUG = new URLSearchParams(window.location.search).has('orient_debug');
+const SHOW_STATS = new URLSearchParams(window.location.search).has('stats');
+let lastOrientationDebugReports = [];
+let lastOrientationLogFile = null;
+
+const SERVER_LIMITS_DEFAULTS = {
+    post_max_size_bytes: 8 * 1024 * 1024,
+    upload_max_filesize_bytes: 2 * 1024 * 1024,
+    post_max_size: '8M',
+    upload_max_filesize: '2M'
+};
+
+let serverLimits = Object.assign({ loaded: false }, SERVER_LIMITS_DEFAULTS);
+
 let uploadedFiles = [];
 let processedImages = [];
 let currentMode = 'resize';
-let currentQuality = 70; // Default to medium (70%)
+let suppressUrlSync = false;
+let currentQuality = 70;
+let currentQualityTier = 'lossy';
 let selectedDimension = 'width';
-let selectedAlignment = 'center-middle'; // Default to center-middle
-let selectedFormat = 'webp'; // Default to WebP
+let selectedAlignment = 'center-middle';
+let selectedFormat = 'webp';
 let currentImageIndex = 0;
 let cropper = null;
+let pendingCropData = {};
+let preCroppedFiles = {};
+let lastDownloadRequestedCount = 0;
+let lastDownloadFailures = [];
+let fileDimensions = {};
+let cropSourceMeta = {};
+let fileFlags = {};
+let cropPreviewObjectUrl = null;
+let cropperReady = false;
+let previewThumbUrls = [];
+let cropEditorMode = 'crop';
 let effectSettings = {
     blur: 0,
     sharpen: 0,
@@ -49,7 +82,744 @@ let effectSettings = {
     charcoal: false
 };
 
+function getCropPreviewMeta(index) {
+    return cropSourceMeta[index] || {
+        sourceWidth: 0,
+        sourceHeight: 0,
+        previewScale: 1,
+        usesFullPreview: true
+    };
+}
+
+function getPreviewToSourceScale(meta, imageData) {
+    const sourceWidth = meta.sourceWidth || imageData.naturalWidth;
+    const sourceHeight = meta.sourceHeight || imageData.naturalHeight;
+    return {
+        scaleX: sourceWidth / imageData.naturalWidth,
+        scaleY: sourceHeight / imageData.naturalHeight
+    };
+}
+
+function mapCropDataToSourceSpace(previewCrop, meta, imageData) {
+    if (meta.usesFullPreview) {
+        return {
+            x: previewCrop.x,
+            y: previewCrop.y,
+            width: previewCrop.width,
+            height: previewCrop.height,
+            sourceWidth: meta.sourceWidth,
+            sourceHeight: meta.sourceHeight,
+            sourceSpace: true
+        };
+    }
+
+    const { scaleX, scaleY } = getPreviewToSourceScale(meta, imageData);
+    return {
+        x: Math.round(previewCrop.x * scaleX),
+        y: Math.round(previewCrop.y * scaleY),
+        width: Math.round(previewCrop.width * scaleX),
+        height: Math.round(previewCrop.height * scaleY),
+        sourceWidth: meta.sourceWidth,
+        sourceHeight: meta.sourceHeight,
+        sourceSpace: true
+    };
+}
+
+function syncCropPreviewMetaFromCropper(index) {
+    if (!cropper) {
+        return;
+    }
+
+    const imageData = cropper.getImageData();
+    const meta = cropSourceMeta[index];
+    if (!meta || !imageData.naturalWidth) {
+        return;
+    }
+
+    meta.previewNaturalWidth = imageData.naturalWidth;
+    meta.previewNaturalHeight = imageData.naturalHeight;
+    meta.usesFullPreview = Math.abs(imageData.naturalWidth - meta.sourceWidth) <= 2
+        && Math.abs(imageData.naturalHeight - meta.sourceHeight) <= 2;
+}
+
+async function createCroppedFileFromCropper(file, cropperInstance, options = {}) {
+    const mimeType = getMimeTypeForFile(file);
+    const quality = getNumericQuality() / 100;
+    const preserveAlpha = mimeType === 'image/png' || mimeType === 'image/webp' || mimeType === 'image/gif';
+    const canvasOptions = {
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+        fillColor: preserveAlpha ? 'transparent' : '#ffffff'
+    };
+    let canvas;
+
+    if (options.mode === 'custom') {
+        canvas = cropperInstance.getCroppedCanvas(Object.assign({}, canvasOptions, {
+            maxWidth: options.sourceWidth,
+            maxHeight: options.sourceHeight
+        }));
+    } else {
+        canvas = cropperInstance.getCroppedCanvas(Object.assign({}, canvasOptions, {
+            width: options.targetWidth,
+            height: options.targetHeight
+        }));
+    }
+
+    if (!canvas) {
+        throw new Error('Could not create cropped image');
+    }
+
+    const blob = await canvasToBlob(canvas, mimeType, quality);
+    return new File([blob], file.name, { type: mimeType });
+}
+
+function computeFileLargeFlag(file, width, height) {
+    const reasons = [];
+    const largeBytes = Config.LARGE_FILE_BYTES || (10 * 1024 * 1024);
+    const largeDim = Config.LARGE_MAX_DIMENSION || 5000;
+
+    if (file.size > largeBytes) {
+        reasons.push('size');
+    }
+    if (width > largeDim || height > largeDim) {
+        reasons.push('dimensions');
+    }
+
+    return {
+        isLarge: reasons.length > 0,
+        reason: reasons.length === 2 ? 'both' : (reasons[0] || null)
+    };
+}
+
+function anyLargeFiles(files) {
+    return files.some((file) => {
+        const globalIndex = uploadedFiles.indexOf(file);
+        return globalIndex >= 0 && fileFlags[globalIndex]?.isLarge;
+    });
+}
+
+function getInterBatchDelayMs(file, index) {
+    const largeBytes = Config.LARGE_FILE_BYTES || (10 * 1024 * 1024);
+    if (file.size > largeBytes) {
+        return 1000;
+    }
+    if (fileFlags[index]?.isLarge) {
+        return 500;
+    }
+    return BATCH_DELAY_MS;
+}
+
+function revokeCropPreviewUrl() {
+    if (cropPreviewObjectUrl && cropPreviewObjectUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(cropPreviewObjectUrl);
+    }
+    cropPreviewObjectUrl = null;
+}
+
+function revokePreviewThumbUrls() {
+    previewThumbUrls.forEach((url) => {
+        if (url && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+        }
+    });
+    previewThumbUrls = [];
+}
+
+async function readDisplayDimensions(file) {
+    if (typeof createImageBitmap === 'function') {
+        try {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const dimensions = {
+                width: bitmap.width,
+                height: bitmap.height
+            };
+            bitmap.close();
+            return dimensions;
+        } catch (error) {
+            return readImageDimensionsFallback(file);
+        }
+    }
+
+    return readImageDimensionsFallback(file);
+}
+
+async function logClientOrientationPreview(file) {
+    if (!ORIENT_DEBUG) {
+        return;
+    }
+
+    try {
+        const storage = await readImageDimensionsFallback(file);
+        const display = await readDisplayDimensions(file);
+        console.group(`[orient_debug] Client preview: ${file.name}`);
+        console.log('storage (naturalWidth):', `${storage.width}x${storage.height}`);
+        console.log('display (from-image):', `${display.width}x${display.height}`);
+        console.log('match:', storage.width === display.width && storage.height === display.height);
+        console.groupEnd();
+    } catch (error) {
+        console.warn('[orient_debug] Client preview failed:', file.name, error);
+    }
+}
+
+function renderOrientationDebugPanel(reports, logFile) {
+    const panel = document.getElementById('orientationDebugPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (!ORIENT_DEBUG || !Array.isArray(reports) || reports.length === 0) {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        return;
+    }
+
+    const summaryRows = reports.map((report) => ({
+        file: report.original_name || report.file,
+        exif: report.exif_orientation_label || report.exif_orientation,
+        used: report.orientation_used_label || report.orientation_used,
+        rotated: report.pixels_rotated,
+        reason: report.normalize_reason || report.stale_guard_reason,
+        before: report.dimensions_before,
+        after: report.dimensions_after,
+        output: report.output_dimensions,
+        output_orient: report.output_orientation_label || report.output_orientation
+    }));
+
+    panel.style.display = 'block';
+    panel.innerHTML = `
+        <h3><i class="fas fa-bug"></i> Orientation debug</h3>
+        <p class="orientation-debug-hint">Enabled via <code>?orient_debug=1</code>. Full JSON is in the browser console and <code>${escapeHtml(logFile || 'logs/orientation_debug.log')}</code>.</p>
+        <pre class="orientation-debug-json">${escapeHtml(JSON.stringify(reports, null, 2))}</pre>
+    `;
+
+    console.group('[orient_debug] Server orientation reports');
+    console.table(summaryRows);
+    console.log('Full reports:', reports);
+    if (logFile) {
+        console.log('Log file:', logFile);
+    }
+    console.groupEnd();
+}
+
+function readImageDimensionsFallback(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => resolve({
+                width: img.naturalWidth,
+                height: img.naturalHeight
+            });
+            img.onerror = () => reject(new Error('Failed to read image dimensions'));
+            img.src = event.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result);
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function getPreviewOutputMime(file) {
+    const mimeType = getMimeTypeForFile(file);
+    if (mimeType === 'image/png' || mimeType === 'image/webp' || mimeType === 'image/gif') {
+        return 'image/png';
+    }
+    return 'image/jpeg';
+}
+
+function downscaleImageToBlobUrl(src, width, height, outputMime = 'image/jpeg') {
+    const quality = outputMime === 'image/jpeg' ? 0.85 : undefined;
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Failed to create preview canvas'));
+                return;
+            }
+            if (outputMime !== 'image/jpeg') {
+                ctx.clearRect(0, 0, width, height);
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    reject(new Error('Failed to create preview thumbnail'));
+                    return;
+                }
+                resolve(URL.createObjectURL(blob));
+            }, outputMime, quality);
+        };
+        img.onerror = () => reject(new Error('Failed to decode preview image'));
+        img.src = src;
+    });
+}
+
+async function downscaleFileToBlobUrl(file, width, height) {
+    const outputMime = getPreviewOutputMime(file);
+    const quality = outputMime === 'image/jpeg' ? 0.85 : undefined;
+
+    if (typeof createImageBitmap === 'function') {
+        const bitmap = await createImageBitmap(file, {
+            imageOrientation: 'from-image',
+            resizeWidth: width,
+            resizeHeight: height
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            bitmap.close();
+            throw new Error('Failed to create preview canvas');
+        }
+        if (outputMime !== 'image/jpeg') {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((result) => {
+                if (result) {
+                    resolve(result);
+                } else {
+                    reject(new Error('Failed to create preview thumbnail'));
+                }
+            }, outputMime, quality);
+        });
+        return URL.createObjectURL(blob);
+    }
+
+    return downscaleImageToBlobUrl(await fileToDataUrl(file), width, height, outputMime);
+}
+
+async function createPreviewThumbnail(file, maxEdge = 400) {
+    const dataUrl = await fileToDataUrl(file);
+    const dimensions = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({
+            width: img.naturalWidth,
+            height: img.naturalHeight
+        });
+        img.onerror = () => reject(new Error('Failed to decode preview image'));
+        img.src = dataUrl;
+    });
+
+    const sourceWidth = dimensions.width;
+    const sourceHeight = dimensions.height;
+    const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+
+    if (scale >= 1) {
+        return {
+            url: dataUrl,
+            width: sourceWidth,
+            height: sourceHeight
+        };
+    }
+
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+
+    return {
+        url: await downscaleFileToBlobUrl(file, width, height),
+        width: sourceWidth,
+        height: sourceHeight
+    };
+}
+
+function getMimeTypeForFilename(filename) {
+    const extension = (filename || '').split('.').pop().toLowerCase();
+    if (extension === 'webp') {
+        return 'image/webp';
+    }
+    if (extension === 'png') {
+        return 'image/png';
+    }
+    if (extension === 'gif') {
+        return 'image/gif';
+    }
+    if (extension === 'bmp') {
+        return 'image/bmp';
+    }
+    if (extension === 'jpg' || extension === 'jpeg') {
+        return 'image/jpeg';
+    }
+    return 'image/jpeg';
+}
+
+function getMimeTypeForFile(file) {
+    const type = (file && file.type ? file.type : '').toLowerCase();
+    if (type === 'image/x-webp') {
+        return 'image/webp';
+    }
+    if (type.startsWith('image/')) {
+        return type;
+    }
+    return getMimeTypeForFilename(file && file.name);
+}
+
+function splitFilename(filename) {
+    const lastDot = (filename || '').lastIndexOf('.');
+    if (lastDot <= 0) {
+        return { base: filename || 'image', extension: '' };
+    }
+    return {
+        base: filename.slice(0, lastDot),
+        extension: filename.slice(lastDot)
+    };
+}
+
+function sanitizeFilenameBase(base) {
+    return (base || '').replace(/[\\/:*?"<>|]/g, '').trim();
+}
+
+function buildFilename(base, extension) {
+    const safeBase = sanitizeFilenameBase(base);
+    return safeBase ? `${safeBase}${extension}` : '';
+}
+
+function commitProcessedImageFilename(index, inputEl) {
+    const image = processedImages[index];
+    if (!image || !inputEl) {
+        return;
+    }
+
+    const { base, extension } = splitFilename(image.name);
+    const newName = buildFilename(inputEl.value, extension);
+
+    if (!newName) {
+        inputEl.value = base;
+        return;
+    }
+
+    image.name = newName;
+    inputEl.value = splitFilename(newName).base;
+}
+
+function normalizeRotationDegrees(degrees) {
+    const normalized = ((degrees % 360) + 360) % 360;
+    return normalized === 0 || normalized === 90 || normalized === 180 || normalized === 270
+        ? normalized
+        : 0;
+}
+
+function loadImageElement(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load processed image'));
+        img.src = url;
+    });
+}
+
+function canvasToBlob(canvas, mimeType, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Failed to export rotated image'));
+            }
+        }, mimeType, quality);
+    });
+}
+
+async function exportProcessedImageBlob(image) {
+    const rotation = normalizeRotationDegrees(image.userRotation || 0);
+    const mimeType = getMimeTypeForFilename(image.name);
+    const quality = getNumericQuality() / 100;
+
+    if (rotation === 0) {
+        const response = await fetch(image.url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image (${response.status})`);
+        }
+        return await response.blob();
+    }
+
+    const img = await loadImageElement(image.url);
+    const swapDimensions = rotation === 90 || rotation === 270;
+    const canvas = document.createElement('canvas');
+    canvas.width = swapDimensions ? img.naturalHeight : img.naturalWidth;
+    canvas.height = swapDimensions ? img.naturalWidth : img.naturalHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        throw new Error('Failed to create export canvas');
+    }
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+    return canvasToBlob(canvas, mimeType, quality);
+}
+
+function formatSizeMb(bytes) {
+    return (bytes / 1024 / 1024).toFixed(1);
+}
+
+function formatPreviewFileSize(bytes) {
+    return (bytes / 1024 / 1024).toFixed(2) + 'mb';
+}
+
+function formatCompactFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 0) {
+        return '—';
+    }
+    const mb = bytes / (1024 * 1024);
+    if (mb >= 1) {
+        return mb.toFixed(2) + 'mb';
+    }
+    return Math.max(1, Math.round(bytes / 1024)) + 'kb';
+}
+
+function getProcessedImageDisplayDimensions(image) {
+    let width = image.width;
+    let height = image.height;
+    const rotation = normalizeRotationDegrees(image.userRotation || 0);
+
+    if ((rotation === 90 || rotation === 270) && width && height) {
+        return { width: height, height: width };
+    }
+
+    return { width, height };
+}
+
+function formatProcessedImageMeta(image) {
+    const { width, height } = getProcessedImageDisplayDimensions(image);
+    const sizeLabel = image.bytes != null ? formatCompactFileSize(image.bytes) : '—';
+    const dimensionsLabel = width && height ? `${width}x${height}` : '—';
+    return `${sizeLabel} (${dimensionsLabel})`;
+}
+
+function hasCropInUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('crop') || params.has('cropMode');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function getMaxSingleFileBytes() {
+    const uploadMax = serverLimits.upload_max_filesize_bytes || SERVER_LIMITS_DEFAULTS.upload_max_filesize_bytes;
+    const postMax = serverLimits.post_max_size_bytes || SERVER_LIMITS_DEFAULTS.post_max_size_bytes;
+    return Math.min(uploadMax, Math.floor(postMax * 0.95) - UPLOAD_OVERHEAD_BYTES);
+}
+
+function getMaxBatchBytes() {
+    const postMax = serverLimits.post_max_size_bytes || SERVER_LIMITS_DEFAULTS.post_max_size_bytes;
+    return Math.floor(postMax * 0.9);
+}
+
+function validateFileAgainstServerLimits(file) {
+    const maxSingle = getMaxSingleFileBytes();
+    if (file.size <= maxSingle) {
+        return null;
+    }
+
+    const fileMb = formatSizeMb(file.size);
+    const uploadLabel = serverLimits.upload_max_filesize || formatSizeMb(serverLimits.upload_max_filesize_bytes) + 'MB';
+    const postLabel = serverLimits.post_max_size || formatSizeMb(serverLimits.post_max_size_bytes) + 'MB';
+
+    return `${file.name} (${fileMb}MB) exceeds server limits (upload_max_filesize: ${uploadLabel}, post_max_size: ${postLabel}). Increase PHP limits or use a smaller file.`;
+}
+
+function validateBatchAgainstServerLimits(batchFiles) {
+    for (const file of batchFiles) {
+        const fileError = validateFileAgainstServerLimits(file);
+        if (fileError) {
+            return fileError;
+        }
+    }
+
+    const totalSize = batchFiles.reduce((sum, file) => sum + file.size, 0) + UPLOAD_OVERHEAD_BYTES;
+    const maxBatch = getMaxBatchBytes();
+
+    if (totalSize > maxBatch) {
+        const postLabel = serverLimits.post_max_size || formatSizeMb(maxBatch) + 'MB';
+        return `This upload batch (${formatSizeMb(totalSize)}MB) exceeds server post_max_size (${postLabel}). Fewer or smaller images will be sent per request automatically when possible.`;
+    }
+
+    return null;
+}
+
+function buildUploadBatches(files, singleFilePerRequest = false) {
+    if (singleFilePerRequest) {
+        return files.map((file, index) => ({
+            files: [file],
+            startIndex: index
+        }));
+    }
+
+    const maxBatchBytes = getMaxBatchBytes();
+    const batches = [];
+    let currentFiles = [];
+    let currentSize = UPLOAD_OVERHEAD_BYTES;
+    let startIndex = 0;
+
+    files.forEach((file, index) => {
+        const exceedsSize = currentFiles.length > 0 && (currentSize + file.size > maxBatchBytes);
+        const exceedsCount = currentFiles.length >= BATCH_SIZE;
+
+        if (exceedsSize || exceedsCount) {
+            batches.push({ files: currentFiles, startIndex });
+            currentFiles = [];
+            currentSize = UPLOAD_OVERHEAD_BYTES;
+            startIndex = index;
+        }
+
+        if (currentFiles.length === 0) {
+            startIndex = index;
+        }
+
+        currentFiles.push(file);
+        currentSize += file.size;
+    });
+
+    if (currentFiles.length > 0) {
+        batches.push({ files: currentFiles, startIndex });
+    }
+
+    return batches;
+}
+
+async function loadServerLimits() {
+    try {
+        const response = await fetch('check_limits.php', { cache: 'no-store' });
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        serverLimits = {
+            loaded: true,
+            post_max_size: data.post_max_size,
+            upload_max_filesize: data.upload_max_filesize,
+            post_max_size_bytes: data.post_max_size_bytes,
+            upload_max_filesize_bytes: data.upload_max_filesize_bytes,
+            memory_limit: data.memory_limit,
+            memory_limit_bytes: data.memory_limit_bytes
+        };
+        updateServerLimitsNotice();
+    } catch (error) {
+        // Server limits are optional; UI works without them.
+    }
+}
+
+function updateServerLimitsNotice() {
+    const noticeEl = document.getElementById('serverLimitsNotice');
+    if (!noticeEl || !serverLimits.loaded) {
+        return;
+    }
+
+    const perFileMb = formatSizeMb(getMaxSingleFileBytes());
+    const postLabel = serverLimits.post_max_size;
+    let notice = ` Server upload limit: ~${perFileMb}MB per file (PHP post_max_size: ${postLabel}).`;
+
+    const memoryBytes = serverLimits.memory_limit_bytes || 0;
+    if (memoryBytes > 0 && memoryBytes < 256 * 1024 * 1024) {
+        notice += ` PHP memory_limit (${serverLimits.memory_limit || formatSizeMb(memoryBytes) + 'M'}) is below 256M; large image processing may fail.`;
+    }
+
+    noticeEl.textContent = notice;
+}
+
+function getNumericQuality() {
+    const quality = parseInt(currentQuality, 10);
+    return Number.isFinite(quality) ? Math.max(1, Math.min(100, quality)) : 70;
+}
+
+function getQualityTier() {
+    if (currentQualityTier === 'near-lossless' || currentQualityTier === 'lossless') {
+        return currentQualityTier;
+    }
+    return 'lossy';
+}
+
+function buildEffectsSettings() {
+    return {
+        blur: parseInt(effectSettings.blur, 10) || 0,
+        sharpen: parseInt(effectSettings.sharpen, 10) || 0,
+        brightness: parseInt(effectSettings.brightness, 10) || 100,
+        contrast: parseInt(effectSettings.contrast, 10) || 100,
+        saturation: parseInt(effectSettings.saturation, 10) || 100,
+        normalize: effectSettings.normalize || false,
+        equalize: effectSettings.equalize || false,
+        enhance: effectSettings.enhance || false,
+        emboss: effectSettings.emboss || false,
+        edge: effectSettings.edge || false,
+        charcoal: effectSettings.charcoal || false
+    };
+}
+
+function getOutputPreviewLabel() {
+    const format = (selectedFormat || 'webp').toUpperCase();
+    const tier = getQualityTier();
+    if (tier === 'near-lossless') {
+        return `→ ${format} near-lossless`;
+    }
+    return `→ ${format} @ ${getNumericQuality()}%`;
+}
+
+function buildSettings(overrides = {}) {
+    const activeCropModeBtn = document.querySelector('.quality-btn[data-crop-mode].active');
+    const widthValue = document.getElementById('width').value;
+    const heightValue = document.getElementById('height').value;
+    let width = widthValue ? parseInt(widthValue, 10) : null;
+    let height = heightValue ? parseInt(heightValue, 10) : null;
+
+    if (currentMode === 'optimize' || currentMode === 'custom') {
+        width = null;
+        height = null;
+    }
+
+    return Object.assign({
+        mode: currentMode,
+        cropMode: currentMode === 'crop'
+            ? (activeCropModeBtn ? activeCropModeBtn.dataset.cropMode : 'manual')
+            : null,
+        width: width,
+        height: height,
+        quality: getNumericQuality(),
+        qualityTier: getQualityTier(),
+        alignment: currentMode === 'crop' ? (selectedAlignment || 'center-middle') : null,
+        format: selectedFormat || 'webp',
+        effects: buildEffectsSettings(),
+        debugOrientation: ORIENT_DEBUG
+    }, overrides);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    loadServerLimits();
+
+    if (ORIENT_DEBUG) {
+        console.info('[orient_debug] Orientation debugging enabled. Upload and process an image, then check this console and logs/orientation_debug.log.');
+        const container = document.querySelector('.container');
+        if (container && !document.getElementById('orientationDebugBanner')) {
+            const banner = document.createElement('div');
+            banner.id = 'orientationDebugBanner';
+            banner.className = 'orientation-debug-banner';
+            banner.innerHTML = '<strong>Orientation debug on</strong> — process an image, then check the browser console and the debug panel on the download step.';
+            container.insertBefore(banner, container.firstChild);
+        }
+    }
+
     // Check if Imagick is available
     fetch('check_imagick.php')
         .then(response => response.json())
@@ -71,8 +841,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
         })
-        .catch(error => {
-            console.error('Error checking Imagick:', error);
+        .catch(() => {
+            // Imagick check failed; leave the app usable and surface errors on process.
         });
 
     // DOM elements
@@ -84,7 +854,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize dropzone
     initializeDropzone();
 
-    // Initialize all event listeners
+    // Initialize all event listeners (suppress URL sync until settings are applied from the URL)
+    suppressUrlSync = true;
     initializeEventListeners();
 
     // Functions
@@ -104,45 +875,48 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mode selection
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentMode = btn.dataset.mode;
-                updateModeOptions();
+                setMode(btn.dataset.mode);
             });
         });
 
         // Dimension selection
         document.querySelectorAll('.dimension-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.dimension-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedDimension = btn.dataset.dimension;
-                updateDimensionInputs();
+                setDimension(btn.dataset.dimension);
             });
         });
+
+        // Resize preset selection
+        const resizePresetButtons = document.querySelectorAll('.resize-preset-btn');
+        const widthField = document.getElementById('width');
+
+        resizePresetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setDimensions({ width: parseInt(btn.dataset.width, 10) });
+            });
+        });
+
+        if (resizePresetButtons.length > 0 && widthField && !widthField.value) {
+            setDimensions({ width: parseInt(resizePresetButtons[0].dataset.width, 10) });
+        }
 
         // Quality selection
         document.querySelectorAll('.quality-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.dataset.quality) {
-                    // Quality buttons - only affect other quality buttons
-                    document.querySelectorAll('.quality-btn[data-quality]').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    currentQuality = btn.dataset.quality;
-                    updateQualitySlider();
+                    if (btn.dataset.quality === 'custom') {
+                        setQuality('custom');
+                    } else {
+                        setQuality(parseInt(btn.dataset.quality, 10));
+                    }
                 } else if (btn.dataset.width && btn.dataset.height) {
-                    // Preset size buttons - only affect other preset buttons
-                    document.querySelectorAll('.quality-btn[data-width][data-height]').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    document.getElementById('width').value = btn.dataset.width;
-                    document.getElementById('height').value = btn.dataset.height;
+                    setDimensions({
+                        width: parseInt(btn.dataset.width, 10),
+                        height: parseInt(btn.dataset.height, 10)
+                    });
                 } else if (btn.dataset.cropMode) {
-                    // Crop mode buttons
-                    document.querySelectorAll('.quality-btn[data-crop-mode]').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    updateCropModeOptions();
+                    setCropMode(btn.dataset.cropMode);
                 } else if (btn.dataset.effect) {
-                    // Effect buttons
                     btn.classList.toggle('active');
                     effectSettings[btn.dataset.effect] = btn.classList.contains('active');
                 }
@@ -152,10 +926,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Alignment selection - separate event listener for alignment buttons
         document.querySelectorAll('.alignment-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.alignment-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedAlignment = btn.dataset.align;
-                console.log('Alignment button clicked:', btn.dataset.align, 'Selected alignment:', selectedAlignment);
+                setAlignment(btn.dataset.align);
             });
         });
 
@@ -163,10 +934,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const qualitySlider = document.getElementById('qualitySlider');
         if (qualitySlider) {
             qualitySlider.addEventListener('input', (e) => {
-                currentQuality = e.target.value;
+                currentQuality = parseInt(e.target.value, 10);
+                currentQualityTier = 'lossy';
                 document.getElementById('qualityValue').textContent = currentQuality + '%';
+                document.querySelectorAll('.quality-btn[data-quality="custom"]').forEach(b => b.classList.add('active'));
+                document.querySelectorAll('.quality-btn[data-quality]:not([data-quality="custom"])').forEach(b => b.classList.remove('active'));
+                updatePreviewOutputLabels();
+                scheduleSyncUrlFromSettings();
             });
         }
+
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
+        [widthInput, heightInput].forEach(input => {
+            if (!input) {
+                return;
+            }
+            input.addEventListener('change', () => {
+                setDimensions({
+                    width: widthInput?.value ? parseInt(widthInput.value, 10) : null,
+                    height: heightInput?.value ? parseInt(heightInput.value, 10) : null
+                });
+            });
+        });
 
         // Effect sliders
         const effectSliders = ['blurSlider', 'sharpenSlider', 'brightnessSlider', 'contrastSlider', 'saturationSlider'];
@@ -222,32 +1012,14 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', () => {
                 btn.classList.toggle('active');
                 effectSettings[btn.dataset.effect] = btn.classList.contains('active');
-                console.log('Effect button clicked:', btn.dataset.effect, 'Active:', btn.classList.contains('active'));
-                console.log('Current effectSettings:', effectSettings);
             });
         });
 
         // Format buttons
         document.querySelectorAll('.format-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedFormat = btn.dataset.format;
-                console.log('Format button clicked:', btn.dataset.format, 'Selected format:', selectedFormat);
+                setFormat(btn.dataset.format);
             });
-        });
-
-        // Log initialization
-        const effectButtons = document.querySelectorAll('.effect-btn');
-        console.log('Found', effectButtons.length, 'effect buttons on page load');
-        effectButtons.forEach((btn, index) => {
-            console.log(`Effect button ${index + 1}:`, btn.dataset.effect, 'Element:', btn);
-        });
-
-        const formatButtons = document.querySelectorAll('.format-btn');
-        console.log('Found', formatButtons.length, 'format buttons on page load');
-        formatButtons.forEach((btn, index) => {
-            console.log(`Format button ${index + 1}:`, btn.dataset.format, 'Element:', btn);
         });
 
         // Initialize process button as disabled
@@ -263,8 +1035,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const resizeOptions = document.getElementById('resizeOptions');
         const cropModeOptions = document.getElementById('cropModeOptions');
         const alignmentOptions = document.getElementById('alignmentOptions');
+        const dimensionGroup = document.getElementById('dimensionGroup');
+        const resizePresets = document.getElementById('resizePresets');
         const widthInput = document.getElementById('widthInput');
         const heightInput = document.getElementById('heightInput');
+        const optimizeInfo = document.getElementById('optimizeInfo');
+        const customInfo = document.getElementById('customInfo');
 
         if (currentMode === 'crop') {
             cropOptions.style.display = 'block';
@@ -273,28 +1049,104 @@ document.addEventListener('DOMContentLoaded', function() {
             // Hide alignment options by default - they will show only when Automatic is selected
             alignmentOptions.style.display = 'none';
             // Show both inputs in crop mode
+            if (dimensionGroup) {
+                dimensionGroup.style.display = 'block';
+            }
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
             widthInput.style.display = 'block';
             heightInput.style.display = 'block';
+            if (optimizeInfo) {
+                optimizeInfo.style.display = 'none';
+            }
+            if (customInfo) {
+                customInfo.style.display = 'none';
+            }
+        } else if (currentMode === 'optimize') {
+            cropOptions.style.display = 'none';
+            resizeOptions.style.display = 'none';
+            cropModeOptions.style.display = 'none';
+            alignmentOptions.style.display = 'none';
+            if (dimensionGroup) {
+                dimensionGroup.style.display = 'none';
+            }
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
+            widthInput.style.display = 'none';
+            heightInput.style.display = 'none';
+            if (optimizeInfo) {
+                optimizeInfo.style.display = 'block';
+            }
+            if (customInfo) {
+                customInfo.style.display = 'none';
+            }
+        } else if (currentMode === 'custom') {
+            cropOptions.style.display = 'none';
+            resizeOptions.style.display = 'none';
+            cropModeOptions.style.display = 'none';
+            alignmentOptions.style.display = 'none';
+            if (dimensionGroup) {
+                dimensionGroup.style.display = 'none';
+            }
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
+            if (optimizeInfo) {
+                optimizeInfo.style.display = 'none';
+            }
+            if (customInfo) {
+                customInfo.style.display = 'block';
+            }
         } else {
             cropOptions.style.display = 'none';
             resizeOptions.style.display = 'block';
             cropModeOptions.style.display = 'none';
             alignmentOptions.style.display = 'none';
+            if (dimensionGroup) {
+                dimensionGroup.style.display = 'block';
+            }
+            if (resizePresets) {
+                resizePresets.style.display = selectedDimension === 'width' ? 'block' : 'none';
+            }
             // Show only selected dimension in resize mode
             updateDimensionInputs();
+            if (optimizeInfo) {
+                optimizeInfo.style.display = 'none';
+            }
+            if (customInfo) {
+                customInfo.style.display = 'none';
+            }
         }
     }
 
     function updateDimensionInputs() {
         const widthInput = document.getElementById('widthInput');
         const heightInput = document.getElementById('heightInput');
+        const resizePresets = document.getElementById('resizePresets');
+
+        if (currentMode === 'optimize' || currentMode === 'custom') {
+            widthInput.style.display = 'none';
+            heightInput.style.display = 'none';
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
+            return;
+        }
 
         if (selectedDimension === 'width') {
             widthInput.style.display = 'block';
             heightInput.style.display = 'none';
+            if (resizePresets && currentMode === 'resize') {
+                resizePresets.style.display = 'block';
+            }
         } else {
             widthInput.style.display = 'none';
             heightInput.style.display = 'block';
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
         }
     }
 
@@ -303,13 +1155,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const qualitySlider = document.getElementById('qualitySlider');
         const qualityValue = document.getElementById('qualityValue');
 
-        if (currentQuality === 'custom') {
+        if (currentQuality === 'custom' || document.querySelector('.quality-btn[data-quality="custom"].active')) {
             customQualitySlider.style.display = 'block';
         } else {
             customQualitySlider.style.display = 'none';
             if (qualitySlider && qualityValue) {
-                qualitySlider.value = currentQuality;
-                qualityValue.textContent = currentQuality + '%';
+                qualitySlider.value = getNumericQuality();
+                qualityValue.textContent = getNumericQuality() + '%';
             }
         }
     }
@@ -323,6 +1175,321 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             alignmentOptions.style.display = 'none';
         }
+    }
+
+    function handleModeDefaults() {
+        if (currentMode === 'crop') {
+            const firstCropPreset = document.querySelector('#cropOptions .quality-btn[data-width][data-height]');
+            if (firstCropPreset) {
+                firstCropPreset.click();
+            }
+        } else if (currentMode === 'resize') {
+            const firstResizePreset = document.querySelector('#resizePresets .resize-preset-btn');
+            if (firstResizePreset) {
+                firstResizePreset.click();
+            }
+        }
+    }
+
+    let syncUrlTimer = null;
+
+    function collectUrlSettings() {
+        const activeCropModeBtn = document.querySelector('.quality-btn[data-crop-mode].active');
+        const settings = {
+            mode: currentMode,
+            format: selectedFormat || 'webp'
+        };
+
+        if (currentMode === 'resize') {
+            settings.dimension = selectedDimension;
+            const widthVal = document.getElementById('width')?.value;
+            const heightVal = document.getElementById('height')?.value;
+            if (selectedDimension === 'width' && widthVal) {
+                settings.width = parseInt(widthVal, 10);
+            } else if (selectedDimension === 'height' && heightVal) {
+                settings.height = parseInt(heightVal, 10);
+            }
+        } else if (currentMode === 'crop') {
+            const widthVal = document.getElementById('width')?.value;
+            const heightVal = document.getElementById('height')?.value;
+            if (widthVal) {
+                settings.width = parseInt(widthVal, 10);
+            }
+            if (heightVal) {
+                settings.height = parseInt(heightVal, 10);
+            }
+            settings.crop = activeCropModeBtn ? activeCropModeBtn.dataset.cropMode : 'manual';
+            if (settings.crop === 'auto') {
+                settings.align = selectedAlignment;
+            }
+        }
+
+        const customActive = document.querySelector('.quality-btn[data-quality="custom"].active');
+        if (customActive) {
+            settings.quality = getNumericQuality();
+        } else {
+            const activeQuality = document.querySelector('.quality-btn[data-quality].active:not([data-quality="custom"])');
+            const qualityNum = activeQuality ? parseInt(activeQuality.dataset.quality, 10) : 70;
+            settings.quality = typeof UrlParams !== 'undefined'
+                ? UrlParams.qualityToUrlValue(qualityNum)
+                : String(qualityNum);
+        }
+
+        return settings;
+    }
+
+    function syncUrlFromSettings() {
+        if (suppressUrlSync || typeof UrlParams === 'undefined') {
+            return;
+        }
+        UrlParams.writeToLocation(collectUrlSettings());
+    }
+
+    function scheduleSyncUrlFromSettings() {
+        if (suppressUrlSync) {
+            return;
+        }
+        clearTimeout(syncUrlTimer);
+        syncUrlTimer = setTimeout(syncUrlFromSettings, 150);
+    }
+
+    function updatePreviewOutputLabels() {
+        document.querySelectorAll('.preview-output-info').forEach(function(el) {
+            el.textContent = getOutputPreviewLabel();
+        });
+    }
+
+    function setMode(mode, options) {
+        const opts = options || {};
+        const validModes = ['resize', 'crop', 'optimize', 'custom'];
+        if (!validModes.includes(mode)) {
+            return;
+        }
+
+        document.querySelectorAll('.mode-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        const btn = document.querySelector('.mode-btn[data-mode="' + mode + '"]');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        currentMode = mode;
+        updateModeOptions();
+        if (!opts.skipDefaults) {
+            handleModeDefaults();
+        }
+        if (mode === 'crop' && !opts.skipCropDefault && !hasCropInUrl()) {
+            setCropMode('manual');
+        }
+        syncUrlFromSettings();
+    }
+
+    function setDimension(dimension) {
+        if (dimension !== 'width' && dimension !== 'height') {
+            return;
+        }
+
+        document.querySelectorAll('.dimension-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        const btn = document.querySelector('.dimension-btn[data-dimension="' + dimension + '"]');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        selectedDimension = dimension;
+        updateDimensionInputs();
+        syncUrlFromSettings();
+    }
+
+    function setDimensions(dimensions) {
+        const widthField = document.getElementById('width');
+        const heightField = document.getElementById('height');
+
+        if (dimensions.width != null && widthField) {
+            widthField.value = String(dimensions.width);
+        }
+        if (dimensions.height != null && heightField) {
+            heightField.value = String(dimensions.height);
+        }
+
+        document.querySelectorAll('.resize-preset-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        if (dimensions.width != null && currentMode === 'resize' && selectedDimension === 'width') {
+            const resizeMatch = document.querySelector('.resize-preset-btn[data-width="' + dimensions.width + '"]');
+            if (resizeMatch) {
+                resizeMatch.classList.add('active');
+            }
+        }
+
+        document.querySelectorAll('.quality-btn[data-width][data-height]').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        if (dimensions.width != null && dimensions.height != null && currentMode === 'crop') {
+            const cropMatch = document.querySelector(
+                '.quality-btn[data-width="' + dimensions.width + '"][data-height="' + dimensions.height + '"]'
+            );
+            if (cropMatch) {
+                cropMatch.classList.add('active');
+            }
+        }
+
+        syncUrlFromSettings();
+    }
+
+    function setQuality(value) {
+        let targetQuality;
+        let useCustom = false;
+
+        if (value === 'custom') {
+            useCustom = true;
+            targetQuality = parseInt(document.getElementById('qualitySlider').value, 10) || 70;
+        } else if (typeof value === 'string' && typeof UrlParams !== 'undefined' && UrlParams.QUALITY_ALIASES[value]) {
+            targetQuality = UrlParams.QUALITY_ALIASES[value];
+        } else {
+            const num = typeof value === 'number' ? value : parseInt(value, 10);
+            if (!Number.isFinite(num) || num < 1 || num > 100) {
+                return;
+            }
+            if (typeof UrlParams !== 'undefined' && UrlParams.qualityAliasForValue(num)) {
+                targetQuality = num;
+            } else {
+                useCustom = true;
+                targetQuality = num;
+            }
+        }
+
+        document.querySelectorAll('.quality-btn[data-quality]').forEach(function(b) {
+            b.classList.remove('active');
+        });
+
+        if (useCustom) {
+            const customBtn = document.querySelector('.quality-btn[data-quality="custom"]');
+            if (customBtn) {
+                customBtn.classList.add('active');
+            }
+            const slider = document.getElementById('qualitySlider');
+            if (slider) {
+                slider.value = targetQuality;
+            }
+            const qualityValue = document.getElementById('qualityValue');
+            if (qualityValue) {
+                qualityValue.textContent = targetQuality + '%';
+            }
+            currentQuality = targetQuality;
+            currentQualityTier = 'lossy';
+        } else {
+            const presetBtn = document.querySelector('.quality-btn[data-quality="' + targetQuality + '"]');
+            if (presetBtn) {
+                presetBtn.classList.add('active');
+                currentQuality = targetQuality;
+                currentQualityTier = presetBtn.dataset.tier || 'lossy';
+            }
+        }
+
+        updateQualitySlider();
+        updatePreviewOutputLabels();
+        syncUrlFromSettings();
+    }
+
+    function setCropMode(mode) {
+        if (mode !== 'auto' && mode !== 'manual') {
+            return;
+        }
+
+        document.querySelectorAll('.quality-btn[data-crop-mode]').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        const btn = document.querySelector('.quality-btn[data-crop-mode="' + mode + '"]');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        updateCropModeOptions();
+        syncUrlFromSettings();
+    }
+
+    function setAlignment(align) {
+        const validAlignments = [
+            'top-left', 'top-center', 'top-right',
+            'left-middle', 'center-middle', 'right-middle',
+            'bottom-left', 'bottom-center', 'bottom-right'
+        ];
+        if (!validAlignments.includes(align)) {
+            return;
+        }
+
+        document.querySelectorAll('.alignment-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        const btn = document.querySelector('.alignment-btn[data-align="' + align + '"]');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        selectedAlignment = align;
+        syncUrlFromSettings();
+    }
+
+    function setFormat(format) {
+        if (format !== 'jpg' && format !== 'png' && format !== 'webp') {
+            return;
+        }
+
+        document.querySelectorAll('.format-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        const btn = document.querySelector('.format-btn[data-format="' + format + '"]');
+        if (btn) {
+            btn.classList.add('active');
+        }
+        selectedFormat = format;
+        updatePreviewOutputLabels();
+        syncUrlFromSettings();
+    }
+
+    function applyUrlSettingsFromLocation() {
+        suppressUrlSync = true;
+
+        if (typeof UrlParams === 'undefined') {
+            setCropMode('manual');
+            suppressUrlSync = false;
+            return;
+        }
+
+        const parsed = UrlParams.readFromLocation();
+        if (!UrlParams.hasSettings(parsed)) {
+            setCropMode('manual');
+            suppressUrlSync = false;
+            return;
+        }
+
+        if (parsed.mode) {
+            setMode(parsed.mode, { skipDefaults: true, skipCropDefault: true });
+        }
+        if (parsed.dimension) {
+            setDimension(parsed.dimension);
+        }
+        if (parsed.width != null || parsed.height != null) {
+            setDimensions({ width: parsed.width, height: parsed.height });
+        }
+        if (parsed.quality != null) {
+            setQuality(parsed.quality);
+        }
+        if (parsed.crop) {
+            setCropMode(parsed.crop);
+        } else if (currentMode === 'crop') {
+            setCropMode('manual');
+        }
+        if (parsed.align) {
+            setAlignment(parsed.align);
+        }
+        if (parsed.format) {
+            setFormat(parsed.format);
+        }
+
+        updateQualitySlider();
+        updatePreviewOutputLabels();
+        suppressUrlSync = false;
+        syncUrlFromSettings();
     }
 
     function handleDragOver(e) {
@@ -358,23 +1525,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (validFiles.length === 0) return;
 
-        // Check individual file sizes (MAMP FIX: Stricter limits for large images)
-        const maxFileSize = 50 * 1024 * 1024; // 50MB per file
-        const oversizedFiles = validFiles.filter(file => file.size > maxFileSize);
-        
+        // Check individual file sizes
+        const oversizedFiles = validFiles.filter(file => file.size > APP_MAX_FILE_BYTES);
+
         if (oversizedFiles.length > 0) {
             const fileNames = oversizedFiles.map(f => f.name).join(', ');
             alert(`The following files are too large (max 50MB each): ${fileNames}\n\nFor large images, try:\n1. Resizing them first\n2. Converting to WebP format\n3. Processing fewer images at once`);
             return;
         }
 
+        const serverLimitErrors = validFiles
+            .map(file => validateFileAgainstServerLimits(file))
+            .filter(Boolean);
+
+        if (serverLimitErrors.length > 0) {
+            alert(serverLimitErrors.join('\n\n'));
+            return;
+        }
+
         // Check total size of all files
         const totalSize = validFiles.reduce((sum, file) => sum + file.size, 0);
-        const maxTotalSize = 100 * 1024 * 1024; // 100MB limit (reduced for MAMP)
-        const maxFiles = 20; // Maximum number of files (reduced for MAMP)
+        const maxTotalSize = APP_MAX_TOTAL_BYTES;
+        const maxFiles = 100; // Maximum number of files
 
         if (totalSize > maxTotalSize) {
-            alert(`Total file size (${(totalSize / 1024 / 1024).toFixed(1)}MB) exceeds the maximum limit of 100MB. Please select fewer images or smaller images.`);
+            alert(`Total file size (${(totalSize / 1024 / 1024).toFixed(1)}MB) exceeds the maximum limit of 256MB. Please select fewer images or smaller images.`);
             return;
         }
 
@@ -402,32 +1577,93 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showPreviews() {
         previewContainer.innerHTML = '';
-        
+        revokePreviewThumbUrls();
+        fileDimensions = {};
+        fileFlags = {};
+
         if (uploadedFiles.length === 0) {
             previewContainer.classList.remove('has-images');
             return;
         }
-        
+
         previewContainer.classList.add('has-images');
-        
+
         uploadedFiles.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewItem = document.createElement('div');
-                previewItem.className = 'preview-item';
-                previewItem.innerHTML = `
-                    <img src="${e.target.result}" alt="${file.name}">
-                    <div class="preview-info">
-                        <p>${file.name}</p>
-                        <p>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                    <button class="remove-btn" onclick="removeFile(${index})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                previewContainer.appendChild(previewItem);
-            };
-            reader.readAsDataURL(file);
+            const previewItem = document.createElement('div');
+            previewItem.className = 'preview-item';
+            previewItem.innerHTML = `
+                <div class="preview-thumb-loading">Loading preview…</div>
+                <div class="preview-info">
+                    <p class="preview-name">
+                        <span class="preview-filename">${escapeHtml(file.name)}</span>
+                        <span class="preview-filesize">(${formatPreviewFileSize(file.size)})</span>
+                    </p>
+                    <p class="preview-dimensions">—</p>
+                </div>
+                <button class="remove-btn" onclick="removeFile(${index})" type="button" aria-label="Remove ${escapeHtml(file.name)}">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            previewContainer.appendChild(previewItem);
+
+            createPreviewThumbnail(file).then((thumb) => {
+                if (!uploadedFiles[index] || uploadedFiles[index] !== file) {
+                    if (thumb.url.startsWith('blob:')) {
+                        URL.revokeObjectURL(thumb.url);
+                    }
+                    return;
+                }
+
+                fileDimensions[index] = {
+                    width: thumb.width,
+                    height: thumb.height
+                };
+                fileFlags[index] = computeFileLargeFlag(file, thumb.width, thumb.height);
+                logClientOrientationPreview(file);
+
+                const dimsEl = previewItem.querySelector('.preview-dimensions');
+                if (dimsEl) {
+                    dimsEl.textContent = `${thumb.width} × ${thumb.height} px`;
+                }
+
+                const loadingEl = previewItem.querySelector('.preview-thumb-loading');
+                if (loadingEl) {
+                    loadingEl.remove();
+                }
+
+                const img = document.createElement('img');
+                img.src = thumb.url;
+                img.alt = file.name;
+                if (thumb.url.startsWith('blob:')) {
+                    previewThumbUrls.push(thumb.url);
+                }
+                previewItem.insertBefore(img, previewItem.firstChild);
+
+                if (fileFlags[index].isLarge) {
+                    const badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'preview-badge-large';
+                    badge.setAttribute('role', 'button');
+                    badge.setAttribute('aria-label', 'Large image — click for guidance');
+                    badge.innerHTML = 'Large <i class="fas fa-info-circle" aria-hidden="true"></i>';
+                    badge.title = 'Large image — click for guidance';
+                    badge.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        showLargeImageInfo(index);
+                    });
+                    previewItem.appendChild(badge);
+                }
+            }).catch(() => {
+                const loadingEl = previewItem.querySelector('.preview-thumb-loading');
+                if (loadingEl) {
+                    loadingEl.textContent = 'Preview unavailable';
+                }
+                fileFlags[index] = computeFileLargeFlag(file, 0, 0);
+                if (file.size > (Config.LARGE_FILE_BYTES || 10 * 1024 * 1024)) {
+                    fileFlags[index].isLarge = true;
+                    fileFlags[index].reason = 'size';
+                }
+            });
         });
     }
 
@@ -442,633 +1678,1061 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    window.processImages = async function() {
-        console.log('=== PROCESS IMAGES START ===');
-        console.log('Uploaded files count:', uploadedFiles.length);
-        console.log('Current mode:', currentMode);
-        
-        if (!uploadedFiles || uploadedFiles.length === 0) {
-            console.log('ERROR: No uploaded files');
-            alert('Please upload at least one image');
-            return;
+    async function runServerProcessing(settings, files, cropDataMap = {}) {
+        const activeProcessBtn = document.querySelector('.settings-controls .process-btn');
+        const cropControlsBtn = document.getElementById('applyCropBtn');
+        const cropStep = document.getElementById('cropStep');
+        const failures = [];
+        let lastError = null;
+        lastOrientationDebugReports = [];
+        lastOrientationLogFile = null;
+
+        if (!serverLimits.loaded) {
+            await loadServerLimits();
         }
 
-        // Get current settings
-        const activeCropModeBtn = document.querySelector('.quality-btn[data-crop-mode].active');
-        console.log('Active crop mode button:', activeCropModeBtn);
-        console.log('Active crop mode:', activeCropModeBtn ? activeCropModeBtn.dataset.cropMode : 'none');
-        
-        if (!activeCropModeBtn && currentMode === 'crop') {
-            console.log('ERROR: No crop mode selected');
-            alert('Please select a crop mode (Automatic or Manual)');
-            return;
+        const hasCropData = Object.keys(cropDataMap).length > 0;
+        const hasPreCropped = Object.values(preCroppedFiles).some(Boolean);
+        if (hasCropData) {
+            validateCropDataForAllFiles(files, cropDataMap);
         }
 
-        // Always get dimensions from input fields
-        let width = parseInt(document.getElementById('width').value) || 0;
-        let height = parseInt(document.getElementById('height').value) || 0;
-        console.log('Dimensions - Width:', width, 'Height:', height);
+        const forceSingleFile = files.length > 1 || hasCropData || hasPreCropped || anyLargeFiles(files);
+        const batches = buildUploadBatches(files, forceSingleFile);
 
-        const settings = {
-            mode: currentMode,
-            cropMode: activeCropModeBtn ? activeCropModeBtn.dataset.cropMode : 'manual',
-            width: width,
-            height: height,
-            quality: currentQuality || 70,
-            alignment: selectedAlignment || 'top-left',
-            format: selectedFormat || 'jpg',
-            effects: {
-                // Basic effects
-                blur: parseInt(effectSettings.blur) || 0,
-                sharpen: parseInt(effectSettings.sharpen) || 0,
-                brightness: parseInt(effectSettings.brightness) || 100,
-                contrast: parseInt(effectSettings.contrast) || 100,
-                saturation: parseInt(effectSettings.saturation) || 100,
-                // Special effects
-                normalize: effectSettings.normalize || false,
-                equalize: effectSettings.equalize || false,
-                enhance: effectSettings.enhance || false,
-                emboss: effectSettings.emboss || false,
-                edge: effectSettings.edge || false,
-                charcoal: effectSettings.charcoal || false
+        const setProgress = (message) => {
+            if (activeProcessBtn) {
+                activeProcessBtn.innerHTML = message;
+            }
+            if (cropControlsBtn) {
+                cropControlsBtn.innerHTML = message;
             }
         };
-        
-        console.log('Settings object:', settings);
-        console.log('Effects settings being sent:', settings.effects);
-        console.log('Current effectSettings object:', effectSettings);
-        console.log('Selected format for processing:', settings.format);
-        console.log('Current selectedFormat variable:', selectedFormat);
 
-        // Validate settings
-        if (settings.mode === 'crop' && (!settings.width || !settings.height)) {
-            console.log('ERROR: Missing dimensions for crop mode');
-            alert('Please enter both width and height for crop mode');
-            return;
+        if (activeProcessBtn) {
+            activeProcessBtn.disabled = true;
         }
-
-        if (settings.mode === 'resize' && selectedDimension === 'width' && !settings.width) {
-            console.log('ERROR: Missing width for resize mode');
-            alert('Please enter a width for resize mode');
-            return;
+        if (cropControlsBtn) {
+            cropControlsBtn.disabled = true;
         }
+        setProgress('<i class="fas fa-cog spinning"></i> Processing...');
 
-        if (settings.mode === 'resize' && selectedDimension === 'height' && !settings.height) {
-            console.log('ERROR: Missing height for resize mode');
-            alert('Please enter a height for resize mode');
-            return;
-        }
-
-        // If in manual crop mode, show crop step for first image
-        if (settings.mode === 'crop' && settings.cropMode === 'manual') {
-            console.log('=== MANUAL CROP MODE DETECTED ===');
-            console.log('Starting manual crop for image index:', 0);
-            currentImageIndex = 0;
-            editCrop(currentImageIndex);
-            return;
-        }
-
-        console.log('=== STARTING SERVER PROCESSING ===');
-        try {
-            // Disable process button and show loading
-            if (processBtn) {
-                console.log('Disabling process button');
-                processBtn.disabled = true;
-                processBtn.innerHTML = '<i class="fas fa-cog spinning"></i> Processing...';
+        const allProcessedImages = [];
+        const totalBatches = batches.length;
+        let tossToyWait = Promise.resolve();
+        if (window.TossToyBridge) {
+            try {
+                tossToyWait = window.TossToyBridge.start(files, fileFlags) || Promise.resolve();
+            } catch (tossToyError) {
+                console.warn('[TossToy] start failed:', tossToyError);
             }
+        }
 
-            // Process images in smaller batches
-            const batchSize = 3;
-            const allProcessedImages = [];
-            const totalBatches = Math.ceil(uploadedFiles.length / batchSize);
-            console.log('Processing in batches - Total batches:', totalBatches, 'Batch size:', batchSize);
-            
-            for (let i = 0; i < uploadedFiles.length; i += batchSize) {
-                const batch = uploadedFiles.slice(i, i + batchSize);
-                const currentBatch = Math.floor(i / batchSize) + 1;
-                console.log(`Processing batch ${currentBatch}/${totalBatches} with ${batch.length} images`);
-                
-                // Update progress message
-                if (processBtn) {
-                    processBtn.innerHTML = `<i class="fas fa-cog spinning"></i> Processing batch ${currentBatch}/${totalBatches}...`;
+        try {
+            for (let batchNum = 0; batchNum < batches.length; batchNum++) {
+                const batchEntry = batches[batchNum];
+                const batch = batchEntry.files;
+                const i = batchEntry.startIndex;
+                const currentBatch = batchNum + 1;
+
+                const batchValidationError = validateBatchAgainstServerLimits(batch);
+                if (batchValidationError) {
+                    lastError = new Error(batchValidationError);
+                    batch.forEach((file, batchIndex) => {
+                        failures.push({
+                            index: i + batchIndex,
+                            name: file.name,
+                            error: batchValidationError
+                        });
+                    });
+                    continue;
                 }
 
-                const formData = new FormData();
-                formData.append('settings', JSON.stringify(settings));
-                console.log('FormData settings:', JSON.stringify(settings));
+                const batchSettings = Object.assign({}, settings);
+                const batchCropData = {};
 
-                batch.forEach((file, index) => {
+                batch.forEach((file, batchIndex) => {
+                    const globalIndex = i + batchIndex;
+                    if (cropDataMap[globalIndex]) {
+                        batchCropData[batchIndex] = cropDataMap[globalIndex];
+                    }
+                });
+
+                const batchPreCropped = {};
+                batch.forEach((file, batchIndex) => {
+                    const globalIndex = i + batchIndex;
+                    if (preCroppedFiles[globalIndex]) {
+                        batchPreCropped[batchIndex] = true;
+                    }
+                });
+
+                if (Object.keys(batchCropData).length > 0) {
+                    batchSettings.cropData = batchCropData;
+                }
+                if (Object.keys(batchPreCropped).length > 0) {
+                    batchSettings.preCropped = batchPreCropped;
+                }
+
+                const usePerImageProgress = forceSingleFile && files.length > 1;
+                const progressLabel = usePerImageProgress
+                    ? `Processing image ${currentBatch}/${files.length}...`
+                    : `Processing batch ${currentBatch}/${totalBatches}...`;
+                setProgress(`<i class="fas fa-cog spinning"></i> ${progressLabel}`);
+
+                const formData = new FormData();
+                formData.append('settings', JSON.stringify(batchSettings));
+
+                batch.forEach((file, batchIndex) => {
                     formData.append('images[]', file);
-                    console.log(`Added file ${index + 1} to batch:`, file.name);
+                    if (batchCropData[batchIndex]) {
+                        formData.append(`cropData[${batchIndex}]`, JSON.stringify(batchCropData[batchIndex]));
+                    }
                 });
 
                 try {
-                    console.log('Sending request to process.php...');
                     const response = await fetch('process.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    console.log('Response status:', response.status);
-                    console.log('Response ok:', response.ok);
+                    const responseText = await response.text();
+                    let result;
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Server response error:', errorText);
-                        
-                        // MAMP FIX: Better error messages for large images
-                        if (response.status === 500) {
-                            throw new Error(`Server error (500) - This usually means your images are too large for the server to process. Try:\n1. Using smaller images (under 10MB each)\n2. Processing fewer images at once\n3. Converting to WebP format first\n\nTechnical details: ${errorText}`);
-                        } else {
-                            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        if (responseText.includes('Internal Server Error') || responseText.includes('<!DOCTYPE')) {
+                            throw new Error(
+                                'Server error while processing (often a PHP timeout on large images). ' +
+                                'Try one image at a time, or increase max_execution_time in MAMP PHP settings.'
+                            );
                         }
+                        throw new Error(responseText || 'Invalid server response');
                     }
 
-                    const result = await response.json();
-                    console.log('Server response result:', result);
-                    
+                    if (!response.ok) {
+                        throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                    }
+
                     if (result.success) {
-                        allProcessedImages.push(...result.images);
-                        console.log(`Batch ${currentBatch} processed successfully. Total processed:`, allProcessedImages.length);
-                        // Update progress
-                        const progress = Math.min(100, Math.round((i + batch.length) / uploadedFiles.length * 100));
-                        if (processBtn) {
-                            processBtn.innerHTML = `<i class="fas fa-cog spinning"></i> Processing... ${progress}%`;
+                        result.images.forEach((image, batchIndex) => {
+                            const globalIndex = i + batchIndex;
+                            allProcessedImages.push({
+                                ...image,
+                                sourceIndex: globalIndex,
+                                originalName: image.originalName || batch[batchIndex].name,
+                                userRotation: 0
+                            });
+                            if (window.TossToyBridge) {
+                                try {
+                                    window.TossToyBridge.imageDone(globalIndex);
+                                } catch (tossToyError) {
+                                    console.warn('[TossToy] imageDone failed:', tossToyError);
+                                }
+                            }
+                        });
+
+                        if (Array.isArray(result.errors) && result.errors.length > 0) {
+                            result.errors.forEach((errorMessage) => {
+                                failures.push({
+                                    index: i,
+                                    name: batch[0]?.name || `Image ${i + 1}`,
+                                    error: errorMessage
+                                });
+                            });
                         }
+
+                        if (ORIENT_DEBUG && Array.isArray(result.orientationDebug)) {
+                            lastOrientationDebugReports = lastOrientationDebugReports.concat(result.orientationDebug);
+                            if (result.orientationLogFile) {
+                                lastOrientationLogFile = result.orientationLogFile;
+                            }
+                        }
+
+                        const progress = Math.min(100, Math.round((i + batch.length) / files.length * 100));
+                        setProgress(`<i class="fas fa-cog spinning"></i> Processing... ${progress}%`);
                     } else {
-                        console.error('Server returned error:', result.error);
                         throw new Error(result.error || 'Processing failed');
                     }
                 } catch (error) {
-                    console.error(`Error processing batch ${currentBatch}:`, error);
-                    // Continue with next batch even if current batch fails
-                    continue;
-                }
-
-                // Add a small delay between batches to prevent server overload
-                console.log('Waiting 1 second before next batch...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            console.log('All batches processed. Total images:', allProcessedImages.length);
-            if (allProcessedImages.length > 0) {
-                processedImages = allProcessedImages;
-                console.log('About to show download step with images:', allProcessedImages);
-                
-                // Direct inline approach - no function calls
-                console.log('=== DIRECT DOWNLOAD STEP START ===');
-                
-                // Hide split screen
-                const splitScreen = document.querySelector('.split-screen');
-                console.log('Split screen element:', splitScreen);
-                if (splitScreen) {
-                    splitScreen.style.display = 'none';
-                    console.log('Split screen hidden');
-                }
-                
-                // Hide crop step if it's visible
-                const cropStep = document.getElementById('cropStep');
-                if (cropStep && cropStep.style.display !== 'none') {
-                    cropStep.style.display = 'none';
-                    cropStep.classList.remove('active');
-                    console.log('Crop step hidden');
-                }
-                
-                // Show download step
-                const downloadStep = document.getElementById('downloadStep');
-                console.log('Download step element:', downloadStep);
-                if (downloadStep) {
-                    downloadStep.style.display = 'block';
-                    downloadStep.classList.add('active');
-                    console.log('Download step shown and active class added');
-                } else {
-                    console.error('Download step element not found!');
-                }
-                
-                // Show processed images directly
-                console.log('=== SHOWING PROCESSED IMAGES DIRECTLY ===');
-                const container = document.getElementById('processedImages');
-                console.log('Processed images container:', container);
-                if (container) {
-                    container.innerHTML = '';
-                    console.log('Container cleared');
-
-                    allProcessedImages.forEach((image, index) => {
-                        console.log(`Creating display item for image ${index + 1}:`, image);
-                        const item = document.createElement('div');
-                        item.className = 'processed-item';
-                        item.innerHTML = `
-                            <img src="${image.url}" alt="Processed image">
-                            <div class="processed-item-info">
-                                <p>${image.name}</p>
-                                <p>${image.size ? (image.size / 1024 / 1024).toFixed(2) + ' MB' : ''}</p>
-                            </div>
-                            <div class="processed-item-actions">
-                                <button class="download-btn" onclick="downloadImage('${image.url}', '${image.name}')">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="delete-btn" onclick="deleteProcessedImage(${index})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        `;
-                        container.appendChild(item);
-                        console.log(`Image ${index + 1} added to container`);
+                    lastError = error;
+                    batch.forEach((file, batchIndex) => {
+                        failures.push({
+                            index: i + batchIndex,
+                            name: file.name,
+                            error: error.message
+                        });
                     });
-
-                    // Show download all button if multiple images
-                    if (allProcessedImages.length > 1) {
-                        console.log('Multiple images detected, showing download all button');
-                        const downloadAllBtn = document.querySelector('.download-all');
-                        if (downloadAllBtn) {
-                            downloadAllBtn.style.display = 'inline-flex';
-                            console.log('Download all button shown');
-                        } else {
-                            console.log('Download all button not found');
-                        }
-                    } else {
-                        console.log('Single image, download all button not needed');
-                    }
-                } else {
-                    console.error('Processed images container not found!');
                 }
-                
-                console.log('=== DIRECT DOWNLOAD STEP END ===');
-            } else {
-                console.error('No images were successfully processed');
-                throw new Error('No images were successfully processed');
+
+                if (batchNum < batches.length - 1) {
+                    const nextFile = batches[batchNum + 1].files[0];
+                    const nextIndex = batches[batchNum + 1].startIndex;
+                    const delayMs = getInterBatchDelayMs(nextFile, nextIndex);
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
             }
 
+            if (allProcessedImages.length === 0) {
+                throw lastError || new Error('No images were successfully processed');
+            }
+
+            if (window.TossToyBridge) {
+                try {
+                    window.TossToyBridge.finishProcessing();
+                } catch (tossToyError) {
+                    console.warn('[TossToy] finishProcessing failed:', tossToyError);
+                }
+            }
+            await tossToyWait;
+
+            allProcessedImages.sort((a, b) => (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0));
+            processedImages = allProcessedImages.map((image) => ({
+                ...image,
+                userRotation: normalizeRotationDegrees(image.userRotation || 0)
+            }));
+            lastDownloadRequestedCount = files.length;
+            lastDownloadFailures = failures;
+            showDownloadStep(processedImages, files.length, failures);
+            renderOrientationDebugPanel(lastOrientationDebugReports, lastOrientationLogFile);
+
+            if (cropStep) {
+                cropStep.style.display = 'none';
+                cropStep.classList.remove('active');
+            }
         } catch (error) {
-            console.error('Error processing images:', error);
+            if (window.TossToyBridge) {
+                try {
+                    window.TossToyBridge.abort();
+                } catch (tossToyError) {
+                    console.warn('[TossToy] abort failed:', tossToyError);
+                }
+            }
             alert('Error processing images: ' + error.message);
         } finally {
-            // Reset process button
-            console.log('Resetting process button');
-            if (processBtn) {
-                processBtn.disabled = false;
-                processBtn.innerHTML = '<i class="fas fa-cog"></i> Process Images';
+            if (activeProcessBtn) {
+                activeProcessBtn.disabled = false;
+                activeProcessBtn.innerHTML = '<i class="fas fa-cog"></i> Process Images';
+            }
+            if (cropControlsBtn) {
+                cropControlsBtn.disabled = false;
+                cropControlsBtn.innerHTML = '<i class="fas fa-check"></i> Apply & Next <i class="fas fa-chevron-right"></i>';
             }
         }
-        console.log('=== PROCESS IMAGES END ===');
+    }
+
+    function showDownloadStep(allProcessedImages, requestedCount = allProcessedImages.length, failures = []) {
+        const splitScreen = document.querySelector('.split-screen');
+        if (splitScreen) {
+            splitScreen.style.display = 'none';
+        }
+
+        const cropStep = document.getElementById('cropStep');
+        if (cropStep) {
+            cropStep.style.display = 'none';
+            cropStep.classList.remove('active');
+        }
+
+        const downloadStep = document.getElementById('downloadStep');
+        if (downloadStep) {
+            downloadStep.style.display = 'block';
+            downloadStep.classList.add('active');
+        }
+
+        const summaryEl = document.getElementById('downloadSummary');
+        if (summaryEl) {
+            summaryEl.textContent = `${allProcessedImages.length} of ${requestedCount} image${requestedCount === 1 ? '' : 's'} ready to download.`;
+        }
+
+        const warningsEl = document.getElementById('downloadWarnings');
+        if (warningsEl) {
+            if (failures.length > 0) {
+                const failureList = failures
+                    .map((failure) => `${failure.name}: ${failure.error}`)
+                    .join(' · ');
+                warningsEl.style.display = 'block';
+                warningsEl.textContent = `Some images could not be processed: ${failureList}`;
+            } else {
+                warningsEl.style.display = 'none';
+                warningsEl.textContent = '';
+            }
+        }
+
+        const container = document.getElementById('processedImages');
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+        allProcessedImages.forEach((image, index) => {
+            const item = document.createElement('div');
+            item.className = 'processed-item';
+            const cacheBust = `?t=${Date.now()}-${index}`;
+            const imageUrl = `${image.url}${cacheBust}`;
+            const rotation = normalizeRotationDegrees(image.userRotation || 0);
+
+            const thumbWrap = document.createElement('div');
+            thumbWrap.className = 'processed-item-thumb';
+
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = image.name;
+            if (rotation) {
+                img.style.transform = `rotate(${rotation}deg)`;
+            }
+
+            thumbWrap.appendChild(img);
+
+            const info = document.createElement('div');
+            info.className = 'processed-item-info';
+
+            const { base: filenameBase, extension: filenameExtension } = splitFilename(image.name);
+            const filenameRow = document.createElement('div');
+            filenameRow.className = 'processed-item-filename';
+
+            const filenameInput = document.createElement('input');
+            filenameInput.type = 'text';
+            filenameInput.className = 'processed-item-filename-input';
+            filenameInput.value = filenameBase;
+            filenameInput.setAttribute('aria-label', `Filename for ${image.name}`);
+            filenameInput.addEventListener('blur', () => commitProcessedImageFilename(index, filenameInput));
+            filenameInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitProcessedImageFilename(index, filenameInput);
+                    filenameInput.blur();
+                }
+            });
+
+            const filenameExt = document.createElement('span');
+            filenameExt.className = 'processed-item-filename-ext';
+            filenameExt.textContent = filenameExtension;
+
+            filenameRow.appendChild(filenameInput);
+            filenameRow.appendChild(filenameExt);
+            info.appendChild(filenameRow);
+
+            const meta = document.createElement('p');
+            meta.className = 'processed-item-meta';
+            meta.textContent = formatProcessedImageMeta(image);
+            info.appendChild(meta);
+
+            const actions = document.createElement('div');
+            actions.className = 'processed-item-actions';
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'download-btn';
+            downloadBtn.type = 'button';
+            downloadBtn.title = 'Download';
+            downloadBtn.setAttribute('aria-label', `Download ${image.name}`);
+            downloadBtn.innerHTML = '<i class="fas fa-download"></i>';
+            downloadBtn.addEventListener('click', () => downloadProcessedImage(index));
+
+            const rotateBtn = document.createElement('button');
+            rotateBtn.className = 'rotate-btn';
+            rotateBtn.type = 'button';
+            rotateBtn.title = rotation ? `Rotate (${rotation}°)` : 'Rotate';
+            rotateBtn.setAttribute('aria-label', `Rotate ${image.name}`);
+            rotateBtn.innerHTML = '<i class="fas fa-rotate-right"></i>';
+            rotateBtn.addEventListener('click', () => rotateProcessedImage(index));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.type = 'button';
+            deleteBtn.title = 'Remove';
+            deleteBtn.setAttribute('aria-label', `Remove ${image.name}`);
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.addEventListener('click', () => deleteProcessedImage(index));
+
+            actions.appendChild(downloadBtn);
+            actions.appendChild(rotateBtn);
+            actions.appendChild(deleteBtn);
+            item.appendChild(thumbWrap);
+            item.appendChild(info);
+            item.appendChild(actions);
+            container.appendChild(item);
+        });
+
+        const downloadAllBtn = document.querySelector('.download-all');
+        if (downloadAllBtn) {
+            downloadAllBtn.style.display = allProcessedImages.length > 1 ? 'inline-flex' : 'none';
+        }
+    }
+
+    window.renderProcessedDownloadStep = function() {
+        showDownloadStep(processedImages, lastDownloadRequestedCount, lastDownloadFailures);
+    };
+
+    window.processImages = async function() {
+        if (!uploadedFiles || uploadedFiles.length === 0) {
+            alert('Please upload at least one image');
+            return;
+        }
+
+        const settings = buildSettings();
+        const activeCropModeBtn = document.querySelector('.quality-btn[data-crop-mode].active');
+
+        if (!activeCropModeBtn && settings.mode === 'crop') {
+            alert('Please select a crop mode (Automatic or Manual)');
+            return;
+        }
+
+        if (settings.mode === 'crop' && (!settings.width || !settings.height)) {
+            alert('Please enter both width and height for crop mode');
+            return;
+        }
+
+        if (settings.mode === 'resize' && selectedDimension === 'width' && !settings.width) {
+            alert('Please enter a width for resize mode');
+            return;
+        }
+
+        if (settings.mode === 'resize' && selectedDimension === 'height' && !settings.height) {
+            alert('Please enter a height for resize mode');
+            return;
+        }
+
+        if (settings.mode === 'crop' && settings.cropMode === 'manual') {
+            pendingCropData = {};
+            preCroppedFiles = {};
+            cropEditorMode = 'crop';
+            currentImageIndex = 0;
+            editCrop(0);
+            return;
+        }
+
+        if (settings.mode === 'custom') {
+            pendingCropData = {};
+            preCroppedFiles = {};
+            cropEditorMode = 'custom';
+            currentImageIndex = 0;
+            editCrop(0);
+            return;
+        }
+
+        await runServerProcessing(settings, uploadedFiles, {});
     };
 
     // Initialize the interface
     updateModeOptions();
     updateDimensionInputs();
     updateQualitySlider();
-    
-    // Set default crop mode to manual
-    const manualCropBtn = document.querySelector('.quality-btn[data-crop-mode="manual"]');
-    if (manualCropBtn) {
-        manualCropBtn.classList.add('active');
-        updateCropModeOptions();
+    applyUrlSettingsFromLocation();
+
+    async function loadProcessingStats() {
+        try {
+            const response = await fetch('metrics.php', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data) return;
+
+            const images = document.getElementById('statsImages');
+            const processedMB = document.getElementById('statsProcessedMB');
+            const savedMB = document.getElementById('statsSavedMB');
+            const subtitle = document.getElementById('statsSubtitle');
+            const container = document.getElementById('processingStats');
+
+            if (!images || !processedMB || !savedMB || !container) return;
+
+            const totalImages = data.totalImages || 0;
+            const totalProcessed = data.totalBytesProcessed || 0;
+            const totalSaved = data.totalBytesSaved || 0;
+
+            images.textContent = totalImages.toLocaleString();
+            const processedMegabytes = totalProcessed / 1024 / 1024;
+            const savedMegabytes = totalSaved / 1024 / 1024;
+
+            processedMB.textContent = processedMegabytes >= 100 ? Math.round(processedMegabytes).toString() : processedMegabytes.toFixed(1);
+            savedMB.textContent = savedMegabytes >= 100 ? Math.round(savedMegabytes).toString() : savedMegabytes.toFixed(1);
+
+            if (subtitle && data.lastUpdated) {
+                const now = Date.now();
+                const delta = now - (data.lastUpdated * 1000);
+                let relative = 'just now';
+                const minute = 60 * 1000;
+                const hour = 60 * minute;
+                const day = 24 * hour;
+
+                if (delta > day) {
+                    const days = Math.round(delta / day);
+                    relative = `${days} day${days !== 1 ? 's' : ''} ago`;
+                } else if (delta > hour) {
+                    const hours = Math.round(delta / hour);
+                    relative = `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+                } else if (delta > minute) {
+                    const minutes = Math.round(delta / minute);
+                    relative = `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+                }
+
+                subtitle.textContent = `Totals refreshed ${relative}`;
+            }
+
+            container.style.display = 'block';
+        } catch (error) {
+            // Stats are optional; hide the block when unavailable.
+        }
     }
 
-    // Crop functionality
-    function editCrop(index) {
-        console.log('=== EDIT CROP START ===');
-        console.log('Editing crop for image index:', index);
-        console.log('Total uploaded files:', uploadedFiles.length);
-        
+    if (SHOW_STATS) {
+        loadProcessingStats();
+        setInterval(loadProcessingStats, 60 * 1000);
+    }
+
+    async function loadCropPreviewSrc(file, index) {
+        const sourceMeta = await readDisplayDimensions(file);
+        const sourceWidth = sourceMeta.width;
+        const sourceHeight = sourceMeta.height;
+        const maxEdge = Config.CROP_PREVIEW_MAX_EDGE || 2048;
+        const previewScale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+        const previewWidth = Math.max(1, Math.round(sourceWidth * previewScale));
+        const previewHeight = Math.max(1, Math.round(sourceHeight * previewScale));
+
+        const meta = {
+            sourceWidth,
+            sourceHeight,
+            previewScale,
+            usesFullPreview: previewScale >= 1
+        };
+        cropSourceMeta[index] = meta;
+
+        revokeCropPreviewUrl();
+        if (previewScale >= 1) {
+            cropPreviewObjectUrl = URL.createObjectURL(file);
+        } else {
+            cropPreviewObjectUrl = await downscaleFileToBlobUrl(file, previewWidth, previewHeight);
+        }
+
+        return Object.assign({ url: cropPreviewObjectUrl }, meta);
+    }
+
+    function validateCropDataForAllFiles(files, cropDataMap) {
+        const missing = [];
+        for (let i = 0; i < files.length; i++) {
+            if (preCroppedFiles[i]) {
+                continue;
+            }
+            if (!cropDataMap[i]) {
+                missing.push(files[i].name || `Image ${i + 1}`);
+            }
+        }
+        if (missing.length > 0) {
+            throw new Error(`Crop selection missing for: ${missing.join(', ')}`);
+        }
+    }
+
+    function updateCropStepProgress(index, total) {
+        const cropStepTitle = document.getElementById('cropStepTitle');
+        const applyCropBtn = document.getElementById('applyCropBtn');
+        const isLast = index >= total - 1;
+        const progressLabel = `Image ${index + 1} of ${total}`;
+
+        if (cropEditorMode === 'custom') {
+            if (cropStepTitle) {
+                cropStepTitle.innerHTML = `<i class="fas fa-cut"></i> Trim Image <span class="crop-progress">(${progressLabel})</span>`;
+            }
+        } else if (cropStepTitle) {
+            cropStepTitle.innerHTML = `<i class="fas fa-crop"></i> Crop Image <span class="crop-progress">(${progressLabel})</span>`;
+        }
+
+        if (applyCropBtn) {
+            applyCropBtn.innerHTML = isLast
+                ? '<i class="fas fa-check"></i> Apply & Process All'
+                : '<i class="fas fa-check"></i> Apply & Next <i class="fas fa-chevron-right"></i>';
+        }
+    }
+
+    function getNaturalCropData() {
+        if (!cropper) {
+            return null;
+        }
+
+        const data = cropper.getData(true);
+        return {
+            x: Math.max(0, Math.round(data.x || 0)),
+            y: Math.max(0, Math.round(data.y || 0)),
+            width: Math.max(1, Math.round(data.width || 1)),
+            height: Math.max(1, Math.round(data.height || 1))
+        };
+    }
+
+    function setNaturalCropData(natural) {
+        if (!cropper || cropEnforcing) {
+            return;
+        }
+
+        cropEnforcing = true;
+        cropper.setData({
+            x: Math.round(natural.x),
+            y: Math.round(natural.y),
+            width: Math.round(natural.width),
+            height: Math.round(natural.height)
+        });
+
+        requestAnimationFrame(() => {
+            cropEnforcing = false;
+        });
+    }
+
+    function cropCoordsChanged(a, b, tolerance = 1) {
+        return Math.abs(a.x - b.x) > tolerance ||
+            Math.abs(a.y - b.y) > tolerance ||
+            Math.abs(a.width - b.width) > tolerance ||
+            Math.abs(a.height - b.height) > tolerance;
+    }
+
+    function clampCropPosition(x, y, width, height, imageWidth, imageHeight) {
+        const newW = Math.min(width, imageWidth);
+        const newH = Math.min(height, imageHeight);
+        let newX = x;
+        let newY = y;
+
+        if (newX + newW > imageWidth) {
+            newX = imageWidth - newW;
+        }
+        if (newY + newH > imageHeight) {
+            newY = imageHeight - newH;
+        }
+
+        return {
+            x: Math.max(0, Math.round(newX)),
+            y: Math.max(0, Math.round(newY)),
+            width: newW,
+            height: newH
+        };
+    }
+
+    function getMaxCropFit(targetW, targetH, imageW, imageH) {
+        const aspect = targetW / targetH;
+        let width;
+        let height;
+
+        if (imageW / imageH >= aspect) {
+            height = imageH;
+            width = Math.round(height * aspect);
+        } else {
+            width = imageW;
+            height = Math.round(width / aspect);
+        }
+
+        return {
+            width: Math.min(width, imageW),
+            height: Math.min(height, imageH)
+        };
+    }
+
+    function configureCropMinConstraints() {
+        if (!cropper || cropEditorMode === 'custom') {
+            return;
+        }
+
+        const imageData = cropper.getImageData();
+        if (!imageData.naturalWidth || !imageData.width) {
+            return;
+        }
+
+        const meta = getCropPreviewMeta(currentImageIndex);
+        const sourceNatW = meta.sourceWidth || imageData.naturalWidth;
+        const sourceNatH = meta.sourceHeight || imageData.naturalHeight;
+        const ratioW = imageData.naturalWidth / sourceNatW;
+        const ratioH = imageData.naturalHeight / sourceNatH;
+        const { width: targetW, height: targetH } = getTargetCropDimensions();
+        const minW = Math.min(targetW, sourceNatW);
+        const minH = Math.min(targetH, sourceNatH);
+
+        cropper.options.minCropBoxWidth = minW * ratioW;
+        cropper.options.minCropBoxHeight = minH * ratioH;
+    }
+
+    function updateCropDimensionReadout() {
+        if (!cropper) {
+            return;
+        }
+
+        const imageData = cropper.getImageData();
+        const cropData = getNaturalCropData();
+        if (!cropData) {
+            return;
+        }
+
+        const meta = getCropPreviewMeta(currentImageIndex);
+        const naturalWidth = meta.sourceWidth || Math.round(imageData.naturalWidth);
+        const naturalHeight = meta.sourceHeight || Math.round(imageData.naturalHeight);
+        const { scaleX, scaleY } = getPreviewToSourceScale(meta, imageData);
+        const selW = Math.max(1, Math.round(cropData.width * scaleX));
+        const selH = Math.max(1, Math.round(cropData.height * scaleY));
+        const trimLeft = Math.max(0, Math.round(cropData.x * scaleX));
+        const trimTop = Math.max(0, Math.round(cropData.y * scaleY));
+        const trimRight = Math.max(0, naturalWidth - trimLeft - selW);
+        const trimBottom = Math.max(0, naturalHeight - trimTop - selH);
+
+        const originalEl = document.getElementById('cropOriginalSize');
+        const trimEl = document.getElementById('cropTrimSize');
+        const selectionEl = document.getElementById('cropSelectionSize');
+        const outputEl = document.getElementById('cropOutputSize');
+
+        if (originalEl) {
+            originalEl.textContent = `${naturalWidth} × ${naturalHeight} px`;
+        }
+        if (trimEl) {
+            trimEl.textContent = `left ${trimLeft} · top ${trimTop} · right ${trimRight} · bottom ${trimBottom}`;
+        }
+        if (selectionEl) {
+            selectionEl.textContent = `${selW} × ${selH} px`;
+        }
+        if (outputEl) {
+            if (cropEditorMode === 'custom') {
+                outputEl.textContent = `${selW} × ${selH} px`;
+            } else {
+                const { width: targetW, height: targetH } = getTargetCropDimensions();
+                outputEl.textContent = `${targetW} × ${targetH} px`;
+            }
+        }
+    }
+
+    function getTargetCropDimensions() {
+        const width = parseInt(document.getElementById('width').value, 10) || 400;
+        const height = parseInt(document.getElementById('height').value, 10) || 300;
+        return { width, height };
+    }
+
+    let cropEnforcing = false;
+
+    function isCropOutOfBounds(data, imageWidth, imageHeight, tolerance = 2) {
+        return data.x < -tolerance ||
+            data.y < -tolerance ||
+            (data.x + data.width) > (imageWidth + tolerance) ||
+            (data.y + data.height) > (imageHeight + tolerance);
+    }
+
+    function enforceCropBounds() {
+        if (!cropper || cropEnforcing) {
+            return;
+        }
+
+        const imageData = cropper.getImageData();
+        const data = getNaturalCropData();
+        if (!data || !isCropOutOfBounds(data, imageData.naturalWidth, imageData.naturalHeight)) {
+            return;
+        }
+
+        const clamped = clampCropPosition(
+            data.x,
+            data.y,
+            data.width,
+            data.height,
+            imageData.naturalWidth,
+            imageData.naturalHeight
+        );
+
+        if (cropCoordsChanged(data, clamped)) {
+            setNaturalCropData(clamped);
+        }
+    }
+
+    function enforceMinCropSize() {
+        if (!cropper || cropEditorMode === 'custom' || cropEnforcing) {
+            return;
+        }
+
+        const { width: targetW, height: targetH } = getTargetCropDimensions();
+        const imageData = cropper.getImageData();
+        const meta = getCropPreviewMeta(currentImageIndex);
+        const data = getNaturalCropData();
+        if (!data) {
+            return;
+        }
+
+        const ratioW = imageData.naturalWidth / meta.sourceWidth;
+        const ratioH = imageData.naturalHeight / meta.sourceHeight;
+        const minW = Math.min(targetW, meta.sourceWidth) * ratioW;
+        const minH = Math.min(targetH, meta.sourceHeight) * ratioH;
+
+        if (data.width >= minW && data.height >= minH) {
+            return;
+        }
+
+        const aspect = targetW / targetH;
+        const centerX = data.x + (data.width / 2);
+        const centerY = data.y + (data.height / 2);
+
+        let newW = Math.max(minW, data.width);
+        let newH = Math.max(minH, data.height);
+
+        if (Math.abs((newW / newH) - aspect) > 0.001) {
+            if ((newW / newH) > aspect) {
+                newW = Math.round(newH * aspect);
+            } else {
+                newH = Math.round(newW / aspect);
+            }
+        }
+
+        newW = Math.max(minW, Math.min(newW, imageData.naturalWidth));
+        newH = Math.max(minH, Math.min(newH, imageData.naturalHeight));
+
+        const clamped = clampCropPosition(
+            Math.round(centerX - (newW / 2)),
+            Math.round(centerY - (newH / 2)),
+            newW,
+            newH,
+            imageData.naturalWidth,
+            imageData.naturalHeight
+        );
+
+        setNaturalCropData(clamped);
+    }
+
+    function initializeMaxCropBox() {
+        if (!cropper || cropEditorMode === 'custom') {
+            return;
+        }
+
+        const { width: targetW, height: targetH } = getTargetCropDimensions();
+        const imageData = cropper.getImageData();
+        const meta = getCropPreviewMeta(currentImageIndex);
+        const sourceW = meta.sourceWidth || imageData.naturalWidth;
+        const sourceH = meta.sourceHeight || imageData.naturalHeight;
+        const ratioW = imageData.naturalWidth / sourceW;
+        const ratioH = imageData.naturalHeight / sourceH;
+        const fit = getMaxCropFit(targetW, targetH, sourceW, sourceH);
+        const x = Math.max(0, Math.round(((sourceW - fit.width) / 2) * ratioW));
+        const y = Math.max(0, Math.round(((sourceH - fit.height) / 2) * ratioH));
+
+        setNaturalCropData({
+            x: x,
+            y: y,
+            width: Math.round(fit.width * ratioW),
+            height: Math.round(fit.height * ratioH)
+        });
+    }
+
+    function initializeMaxCustomCropBox() {
+        if (!cropper || cropEditorMode !== 'custom') {
+            return;
+        }
+
+        const imageData = cropper.getImageData();
+        setNaturalCropData({
+            x: 0,
+            y: 0,
+            width: imageData.naturalWidth,
+            height: imageData.naturalHeight
+        });
+    }
+
+    function onCropperCrop() {
+        updateCropDimensionReadout();
+    }
+
+    function onCropperCropEnd() {
+        if (cropEditorMode === 'custom') {
+            enforceCropBounds();
+        } else {
+            enforceMinCropSize();
+        }
+        updateCropDimensionReadout();
+    }
+
+    async function editCrop(index) {
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        revokeCropPreviewUrl();
+        cropperReady = false;
+
+        const applyCropBtn = document.getElementById('applyCropBtn');
+        if (applyCropBtn) {
+            applyCropBtn.disabled = true;
+        }
+
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
         currentImageIndex = index;
         const file = uploadedFiles[index];
-        console.log('File to crop:', file.name, 'Size:', file.size);
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            console.log('File loaded successfully, showing crop step');
-            document.getElementById('cropImage').src = e.target.result;
-            showCropStep();
-            
-            // Wait for image to load before initializing cropper
-            document.getElementById('cropImage').onload = () => {
-                console.log('Image loaded, initializing cropper');
+        const cropImage = document.getElementById('cropImage');
+
+        updateCropStepProgress(index, uploadedFiles.length);
+        showCropStep();
+
+        try {
+            const preview = await loadCropPreviewSrc(file, index);
+            cropImage.src = preview.url;
+
+            const startCropper = () => {
+                cropImage.onload = null;
                 initCropper();
             };
-        };
-        reader.onerror = (e) => {
-            console.error('Error reading file:', e);
-        };
-        reader.readAsDataURL(file);
-        console.log('=== EDIT CROP END ===');
+            cropImage.onload = startCropper;
+            if (cropImage.complete && cropImage.naturalWidth > 0) {
+                startCropper();
+            }
+        } catch (error) {
+            alert('Failed to load image for cropping: ' + error.message);
+            if (applyCropBtn) {
+                applyCropBtn.disabled = false;
+            }
+        }
     }
 
     function initCropper() {
-        console.log('=== INIT CROPPER START ===');
         if (cropper) {
-            console.log('Destroying existing cropper');
             cropper.destroy();
         }
 
-        const width = parseInt(document.getElementById('width').value) || 400;
-        const height = parseInt(document.getElementById('height').value) || 300;
-        const aspectRatio = width / height;
-        console.log('Cropper settings - Width:', width, 'Height:', height, 'Aspect ratio:', aspectRatio);
-
-        try {
-            cropper = new Cropper(document.getElementById('cropImage'), {
-                aspectRatio: aspectRatio,
-                viewMode: 2,
-                dragMode: 'move',
-                autoCropArea: 1,
-                restore: false,
-                guides: true,
-                center: true,
-                highlight: true,
-                cropBoxMovable: true,
-                cropBoxResizable: true,
-                toggleDragModeOnDblclick: false,
-                zoomable: false,
-                minCropBoxWidth: width,
-                minCropBoxHeight: height
-            });
-            console.log('Cropper initialized successfully');
-        } catch (error) {
-            console.error('Error initializing cropper:', error);
+        cropperReady = false;
+        const applyCropBtn = document.getElementById('applyCropBtn');
+        if (applyCropBtn) {
+            applyCropBtn.disabled = true;
         }
-        console.log('=== INIT CROPPER END ===');
+
+        const cropStepTitle = document.getElementById('cropStepTitle');
+        const cropImage = document.getElementById('cropImage');
+        const commonOptions = {
+            viewMode: 1,
+            autoCropArea: 1,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: true,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false,
+            zoomable: true,
+            zoomOnWheel: true,
+            background: true,
+            modal: true,
+            crop: onCropperCrop,
+            cropend: onCropperCropEnd
+        };
+
+        if (cropEditorMode === 'custom') {
+            if (cropStepTitle) {
+                cropStepTitle.innerHTML = '<i class="fas fa-cut"></i> Trim Image';
+            }
+            updateCropStepProgress(currentImageIndex, uploadedFiles.length);
+            cropper = new Cropper(cropImage, Object.assign({}, commonOptions, {
+                aspectRatio: NaN,
+                dragMode: 'crop',
+                ready() {
+                    syncCropPreviewMetaFromCropper(currentImageIndex);
+                    initializeMaxCustomCropBox();
+                    updateCropDimensionReadout();
+                    cropperReady = true;
+                    if (applyCropBtn) {
+                        applyCropBtn.disabled = false;
+                    }
+                }
+            }));
+        } else {
+            if (cropStepTitle) {
+                cropStepTitle.innerHTML = '<i class="fas fa-crop"></i> Crop Image';
+            }
+            updateCropStepProgress(currentImageIndex, uploadedFiles.length);
+            const { width, height } = getTargetCropDimensions();
+            cropper = new Cropper(cropImage, Object.assign({}, commonOptions, {
+                aspectRatio: width / height,
+                dragMode: 'crop',
+                ready() {
+                    syncCropPreviewMetaFromCropper(currentImageIndex);
+                    configureCropMinConstraints();
+                    initializeMaxCropBox();
+                    updateCropDimensionReadout();
+                    cropperReady = true;
+                    if (applyCropBtn) {
+                        applyCropBtn.disabled = false;
+                    }
+                }
+            }));
+        }
     }
 
     function showCropStep() {
-        console.log('=== SHOW CROP STEP ===');
-        // Hide split screen
         document.querySelector('.split-screen').style.display = 'none';
-        console.log('Split screen hidden');
-        
-        // Show crop step
         const cropStep = document.getElementById('cropStep');
         cropStep.style.display = 'block';
         cropStep.classList.add('active');
-        console.log('Crop step shown');
     }
 
-    window.applyCrop = function() {
-        console.log('=== APPLY CROP START ===');
-        if (!cropper) {
-            console.error('No cropper instance found');
+    window.applyCrop = async function() {
+        if (!cropper || !cropperReady) {
             return;
         }
-        
-        console.log('Applying crop for image index:', currentImageIndex);
-        
-        // Add loading state to the button
-        const cropButton = document.querySelector('.crop-controls .btn');
+
+        const cropButton = document.getElementById('applyCropBtn') || document.querySelector('.crop-controls .btn');
         const originalButtonContent = cropButton.innerHTML;
         cropButton.disabled = true;
-        cropButton.innerHTML = '<i class="fas fa-cog spinning"></i> Processing...';
-        console.log('Crop button disabled and showing loading state');
+        cropButton.innerHTML = '<i class="fas fa-cog spinning"></i> Saving...';
 
         try {
-            // Get the cropped canvas
-            const canvas = cropper.getCroppedCanvas({
-                width: parseInt(document.getElementById('width').value),
-                height: parseInt(document.getElementById('height').value)
-            });
-            console.log('Cropped canvas created');
+            const data = getNaturalCropData();
+            if (!data) {
+                return;
+            }
 
-            // Convert canvas to blob
-            canvas.toBlob(async (blob) => {
-                console.log('Canvas converted to blob, size:', blob.size);
-                
-                // Create a new file from the blob
-                const croppedFile = new File([blob], uploadedFiles[currentImageIndex].name, {
-                    type: 'image/jpeg'
-                });
-                console.log('Cropped file created:', croppedFile.name, 'Size:', croppedFile.size);
+            const meta = getCropPreviewMeta(currentImageIndex);
+            const imageData = cropper.getImageData();
+            const { scaleX, scaleY } = getPreviewToSourceScale(meta, imageData);
+            const sourceCropWidth = Math.max(1, Math.round(data.width * scaleX));
+            const sourceCropHeight = Math.max(1, Math.round(data.height * scaleY));
 
-                // Store the cropped file
-                uploadedFiles[currentImageIndex] = croppedFile;
-                console.log('Cropped file stored in uploadedFiles array');
-
-                // Move to next image or process all images
-                if (currentImageIndex < uploadedFiles.length - 1) {
-                    console.log('Moving to next image. Current:', currentImageIndex, 'Total:', uploadedFiles.length);
-                    editCrop(currentImageIndex + 1);
-                    // Reset button state after a short delay
-                    setTimeout(() => {
-                        cropButton.disabled = false;
-                        cropButton.innerHTML = originalButtonContent;
-                        console.log('Crop button reset for next image');
-                    }, 500);
-                } else {
-                    console.log('All images cropped, starting final processing');
-                    // All images have been cropped, now process them
-                    processImagesAfterCrop();
+            if (cropEditorMode !== 'custom') {
+                const { width: minW, height: minH } = getTargetCropDimensions();
+                if (sourceCropWidth < minW || sourceCropHeight < minH) {
+                    alert(`Selection must be at least ${minW}×${minH} pixels.`);
+                    return;
                 }
-            }, 'image/jpeg', currentQuality / 100);
+            }
+
+            if (!data.width || !data.height) {
+                alert('Please select a valid trim area before continuing.');
+                return;
+            }
+
+            const file = uploadedFiles[currentImageIndex];
+
+            if (meta.usesFullPreview) {
+                uploadedFiles[currentImageIndex] = await createCroppedFileFromCropper(file, cropper, {
+                    mode: cropEditorMode,
+                    targetWidth: getTargetCropDimensions().width,
+                    targetHeight: getTargetCropDimensions().height,
+                    sourceWidth: meta.sourceWidth,
+                    sourceHeight: meta.sourceHeight
+                });
+                preCroppedFiles[currentImageIndex] = true;
+                delete pendingCropData[currentImageIndex];
+            } else {
+                pendingCropData[currentImageIndex] = mapCropDataToSourceSpace(data, meta, imageData);
+                delete preCroppedFiles[currentImageIndex];
+            }
+
+            if (currentImageIndex < uploadedFiles.length - 1) {
+                editCrop(currentImageIndex + 1);
+                setTimeout(() => {
+                    cropButton.disabled = false;
+                    cropButton.innerHTML = originalButtonContent;
+                }, 300);
+                return;
+            }
+
+            const settings = buildSettings();
+            if (cropEditorMode === 'custom') {
+                settings.mode = 'custom';
+                settings.width = null;
+                settings.height = null;
+            } else {
+                settings.cropMode = 'manual';
+            }
+
+            await runServerProcessing(settings, uploadedFiles, pendingCropData);
         } catch (error) {
-            console.error('Error during crop:', error);
             alert('Error processing images: ' + error.message);
+        } finally {
             cropButton.disabled = false;
             cropButton.innerHTML = originalButtonContent;
         }
-        console.log('=== APPLY CROP END ===');
-    };
-
-    async function processImagesAfterCrop() {
-        console.log('=== PROCESS IMAGES AFTER CROP START ===');
-        console.log('Processing', uploadedFiles.length, 'cropped images');
-        
-        // Get current settings
-        const activeCropModeBtn = document.querySelector('.quality-btn[data-crop-mode].active');
-        let width = parseInt(document.getElementById('width').value) || 0;
-        let height = parseInt(document.getElementById('height').value) || 0;
-
-        const settings = {
-            mode: currentMode,
-            cropMode: activeCropModeBtn ? activeCropModeBtn.dataset.cropMode : 'manual',
-            width: width,
-            height: height,
-            quality: currentQuality || 70,
-            alignment: selectedAlignment || 'top-left',
-            format: selectedFormat || 'jpg',
-            effects: {
-                blur: parseInt(effectSettings.blur) || 0,
-                sharpen: parseInt(effectSettings.sharpen) || 0,
-                brightness: parseInt(effectSettings.brightness) || 100,
-                contrast: parseInt(effectSettings.contrast) || 100,
-                saturation: parseInt(effectSettings.saturation) || 100,
-                normalize: effectSettings.normalize || false,
-                equalize: effectSettings.equalize || false,
-                enhance: effectSettings.enhance || false,
-                emboss: effectSettings.emboss || false,
-                edge: effectSettings.edge || false,
-                charcoal: effectSettings.charcoal || false
-            }
-        };
-        
-        console.log('Settings for final processing:', settings);
-
-        try {
-            // Process images in batches
-            const batchSize = 3;
-            const allProcessedImages = [];
-            const totalBatches = Math.ceil(uploadedFiles.length / batchSize);
-            console.log('Processing cropped images in batches - Total batches:', totalBatches);
-            
-            // Get the crop controls button for progress updates
-            const cropControlsBtn = document.querySelector('.crop-controls .btn');
-            
-            for (let i = 0; i < uploadedFiles.length; i += batchSize) {
-                const batch = uploadedFiles.slice(i, i + batchSize);
-                const currentBatch = Math.floor(i / batchSize) + 1;
-                console.log(`Processing batch ${currentBatch}/${totalBatches} with ${batch.length} cropped images`);
-
-                // Update progress message
-                if (cropControlsBtn) {
-                    const progress = Math.min(100, Math.round((i + batch.length) / uploadedFiles.length * 100));
-                    cropControlsBtn.innerHTML = `<i class="fas fa-cog spinning"></i> Processing batch ${currentBatch}/${totalBatches}... ${progress}%`;
-                    cropControlsBtn.disabled = true;
-                }
-
-                const formData = new FormData();
-                formData.append('settings', JSON.stringify(settings));
-
-                batch.forEach((file, index) => {
-                    formData.append('images[]', file);
-                    console.log(`Added cropped file ${index + 1} to batch:`, file.name);
-                });
-
-                try {
-                    console.log('Sending cropped images to process.php...');
-                    const response = await fetch('process.php', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    console.log('Response status:', response.status);
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Server response error:', errorText);
-                        
-                        // MAMP FIX: Better error messages for large images
-                        if (response.status === 500) {
-                            throw new Error(`Server error (500) - This usually means your images are too large for the server to process. Try:\n1. Using smaller images (under 10MB each)\n2. Processing fewer images at once\n3. Converting to WebP format first\n\nTechnical details: ${errorText}`);
-                        } else {
-                            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-                        }
-                    }
-
-                    const result = await response.json();
-                    console.log('Server response for cropped images:', result);
-                    
-                    if (result.success) {
-                        allProcessedImages.push(...result.images);
-                        console.log(`Batch ${currentBatch} processed successfully. Total processed:`, allProcessedImages.length);
-                    } else {
-                        console.error('Server returned error:', result.error);
-                        throw new Error(result.error || 'Processing failed');
-                    }
-                } catch (error) {
-                    console.error(`Error processing batch ${currentBatch}:`, error);
-                    continue;
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            // Reset button after processing
-            if (cropControlsBtn) {
-                cropControlsBtn.disabled = false;
-                cropControlsBtn.innerHTML = '<i class="fas fa-check"></i> Apply & Next <i class="fas fa-chevron-right"></i>';
-            }
-
-            console.log('All cropped images processed. Total:', allProcessedImages.length);
-            if (allProcessedImages.length > 0) {
-                processedImages = allProcessedImages;
-                console.log('About to show download step with images:', allProcessedImages);
-                
-                // Direct inline approach - no function calls
-                console.log('=== DIRECT DOWNLOAD STEP START ===');
-                
-                // Hide split screen
-                const splitScreen = document.querySelector('.split-screen');
-                console.log('Split screen element:', splitScreen);
-                if (splitScreen) {
-                    splitScreen.style.display = 'none';
-                    console.log('Split screen hidden');
-                }
-                
-                // Hide crop step if it's visible
-                const cropStep = document.getElementById('cropStep');
-                if (cropStep && cropStep.style.display !== 'none') {
-                    cropStep.style.display = 'none';
-                    cropStep.classList.remove('active');
-                    console.log('Crop step hidden');
-                }
-                
-                // Show download step
-                const downloadStep = document.getElementById('downloadStep');
-                console.log('Download step element:', downloadStep);
-                if (downloadStep) {
-                    downloadStep.style.display = 'block';
-                    downloadStep.classList.add('active');
-                    console.log('Download step shown and active class added');
-                } else {
-                    console.error('Download step element not found!');
-                }
-                
-                // Show processed images directly
-                console.log('=== SHOWING PROCESSED IMAGES DIRECTLY ===');
-                const container = document.getElementById('processedImages');
-                console.log('Processed images container:', container);
-                if (container) {
-                    container.innerHTML = '';
-                    console.log('Container cleared');
-
-                    allProcessedImages.forEach((image, index) => {
-                        console.log(`Creating display item for image ${index + 1}:`, image);
-                        const item = document.createElement('div');
-                        item.className = 'processed-item';
-                        item.innerHTML = `
-                            <img src="${image.url}" alt="Processed image">
-                            <div class="processed-item-info">
-                                <p>${image.name}</p>
-                                <p>${image.size ? (image.size / 1024 / 1024).toFixed(2) + ' MB' : ''}</p>
-                            </div>
-                            <div class="processed-item-actions">
-                                <button class="download-btn" onclick="downloadImage('${image.url}', '${image.name}')">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="delete-btn" onclick="deleteProcessedImage(${index})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        `;
-                        container.appendChild(item);
-                        console.log(`Image ${index + 1} added to container`);
-                    });
-
-                    // Show download all button if multiple images
-                    if (allProcessedImages.length > 1) {
-                        console.log('Multiple images detected, showing download all button');
-                        const downloadAllBtn = document.querySelector('.download-all');
-                        if (downloadAllBtn) {
-                            downloadAllBtn.style.display = 'inline-flex';
-                            console.log('Download all button shown');
-                        } else {
-                            console.log('Download all button not found');
-                        }
-                    } else {
-                        console.log('Single image, download all button not needed');
-                    }
-                } else {
-                    console.error('Processed images container not found!');
-                }
-                
-                console.log('=== DIRECT DOWNLOAD STEP END ===');
-            } else {
-                console.error('No cropped images were successfully processed');
-                throw new Error('No cropped images were successfully processed');
-            }
-
-        } catch (error) {
-            console.error('Error processing cropped images:', error);
-            alert('Error processing cropped images: ' + error.message);
-        }
-        console.log('=== PROCESS IMAGES AFTER CROP END ===');
     };
 
     function handlePageDragOver(e) {
@@ -1096,9 +2760,127 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.remove('page-dragover');
         }
     }
+
+    window.showLargeImageInfo = function(index) {
+        const file = uploadedFiles[index];
+        if (!file) {
+            return;
+        }
+
+        const dims = fileDimensions[index] || {};
+        const flags = fileFlags[index] || {};
+        const modal = document.getElementById('largeImageModal');
+        const body = document.getElementById('largeImageModalBody');
+        if (!modal || !body) {
+            return;
+        }
+
+        const reasons = [];
+        if (flags.reason === 'size' || flags.reason === 'both') {
+            reasons.push('file size exceeds 10MB');
+        }
+        if (flags.reason === 'dimensions' || flags.reason === 'both') {
+            reasons.push('dimensions exceed 5000px');
+        }
+
+        body.innerHTML = `
+            <p><strong>${escapeHtml(file.name)}</strong></p>
+            <p>${formatSizeMb(file.size)}MB · ${dims.width || '—'} × ${dims.height || '—'} px</p>
+            <p>This image is flagged as large (${reasons.join(' and ') || 'size or dimensions'}). You can still try processing it.</p>
+            <p>If you run into errors or odd results, process your images <strong>one at a time</strong>.</p>
+            <p><strong>Tips:</strong></p>
+            <ul>
+                <li>Try your batch as usual — many large images work fine</li>
+                <li>If processing fails, upload and process <strong>one image at a time</strong></li>
+                <li>Or resize below 5000px / 10MB before uploading</li>
+                <li>For crop mode, crop each image separately before processing the next batch</li>
+            </ul>
+            <div class="large-image-modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="resizeLargeImageFirst(${index})">
+                    <i class="fas fa-compress"></i> Resize this image first
+                </button>
+            </div>
+        `;
+        modal.style.display = 'block';
+    };
+
+    window.closeLargeImageInfo = function() {
+        const modal = document.getElementById('largeImageModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    window.resizeLargeImageFirst = async function(index) {
+        const file = uploadedFiles[index];
+        if (!file) {
+            return;
+        }
+
+        window.closeLargeImageInfo();
+
+        const resizeModeBtn = document.querySelector('.mode-btn[data-mode="resize"]');
+        if (resizeModeBtn) {
+            resizeModeBtn.click();
+        }
+
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
+        const widthDimBtn = document.querySelector('.dimension-btn[data-dimension="width"]');
+        if (widthDimBtn) {
+            widthDimBtn.click();
+        }
+        if (widthInput) {
+            widthInput.value = String(Config.LARGE_RESIZE_TARGET || 5000);
+        }
+        if (heightInput) {
+            heightInput.value = '';
+        }
+
+        const settings = buildSettings({
+            mode: 'resize',
+            width: Config.LARGE_RESIZE_TARGET || 5000,
+            height: null
+        });
+
+        await runServerProcessing(settings, [file], {});
+    };
 });
 
 // Download functions
+window.rotateProcessedImage = function(index) {
+    const image = processedImages[index];
+    if (!image) {
+        return;
+    }
+
+    image.userRotation = normalizeRotationDegrees((image.userRotation || 0) + 90);
+    if (typeof window.renderProcessedDownloadStep === 'function') {
+        window.renderProcessedDownloadStep();
+    }
+};
+
+window.downloadProcessedImage = async function(index) {
+    const image = processedImages[index];
+    if (!image) {
+        return;
+    }
+
+    try {
+        const blob = await exportProcessedImageBlob(image);
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = image.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        alert('Error downloading image: ' + error.message);
+    }
+};
+
 window.downloadImage = function(url, filename) {
     const link = document.createElement('a');
     link.href = url;
@@ -1116,16 +2898,13 @@ window.downloadAll = async function() {
 
     try {
         const zip = new JSZip();
-        
-        // Add each image to the zip
+
         for (let i = 0; i < processedImages.length; i++) {
             const image = processedImages[i];
-            const response = await fetch(image.url);
-            const blob = await response.blob();
+            const blob = await exportProcessedImageBlob(image);
             zip.file(image.name, blob);
         }
-        
-        // Generate and download zip
+
         const content = await zip.generateAsync({type: 'blob'});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
@@ -1133,8 +2912,8 @@ window.downloadAll = async function() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
     } catch (error) {
-        console.error('Error creating zip:', error);
         alert('Error creating zip file. Please try downloading images individually.');
     }
 };
@@ -1142,99 +2921,11 @@ window.downloadAll = async function() {
 window.deleteProcessedImage = function(index) {
     if (confirm('Are you sure you want to delete this image?')) {
         processedImages.splice(index, 1);
-        
-        // Re-render the processed images
-        const container = document.getElementById('processedImages');
-        if (container) {
-            container.innerHTML = '';
-            
-            processedImages.forEach((image, idx) => {
-                const item = document.createElement('div');
-                item.className = 'processed-item';
-                item.innerHTML = `
-                    <img src="${image.url}" alt="Processed image">
-                    <div class="processed-item-info">
-                        <p>${image.name}</p>
-                        <p>${image.size ? (image.size / 1024 / 1024).toFixed(2) + ' MB' : ''}</p>
-                    </div>
-                    <div class="processed-item-actions">
-                        <button class="download-btn" onclick="downloadImage('${image.url}', '${image.name}')">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        <button class="delete-btn" onclick="deleteProcessedImage(${idx})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-            
-            // Update download all button visibility
-            const downloadAllBtn = document.querySelector('.download-all');
-            if (downloadAllBtn) {
-                downloadAllBtn.style.display = processedImages.length > 1 ? 'inline-flex' : 'none';
-            }
+
+        if (typeof window.renderProcessedDownloadStep === 'function') {
+            window.renderProcessedDownloadStep();
         }
     }
-};
-
-// Global test function for effects
-window.testEffects = function() {
-    console.log('=== EFFECTS TEST ===');
-    console.log('Current effectSettings:', effectSettings);
-    
-    // Test clicking all effect buttons
-    document.querySelectorAll('.effect-btn').forEach(btn => {
-        console.log('Testing button:', btn.dataset.effect);
-        btn.click();
-        console.log('After click - Active:', btn.classList.contains('active'));
-    });
-    
-    console.log('Final effectSettings:', effectSettings);
-    
-    // Test creating settings object
-    const testSettings = {
-        mode: 'resize',
-        width: 800,
-        height: 600,
-        quality: 80,
-        format: 'jpg',
-        effects: {
-            blur: parseInt(effectSettings.blur) || 0,
-            sharpen: parseInt(effectSettings.sharpen) || 0,
-            brightness: parseInt(effectSettings.brightness) || 50,
-            contrast: parseInt(effectSettings.contrast) || 50,
-            saturation: parseInt(effectSettings.saturation) || 50,
-            normalize: effectSettings.normalize || false,
-            equalize: effectSettings.equalize || false,
-            enhance: effectSettings.enhance || false,
-            emboss: effectSettings.emboss || false,
-            edge: effectSettings.edge || false,
-            charcoal: effectSettings.charcoal || false
-        }
-    };
-    
-    console.log('Test settings object:', testSettings);
-    console.log('Effects in settings:', testSettings.effects);
-    
-    return testSettings;
-};
-
-// Global test function for format buttons
-window.testFormats = function() {
-    console.log('=== FORMAT TEST ===');
-    console.log('Current selectedFormat:', selectedFormat);
-    
-    // Test clicking all format buttons
-    document.querySelectorAll('.format-btn').forEach(btn => {
-        console.log('Testing format button:', btn.dataset.format);
-        btn.click();
-        console.log('After click - Active:', btn.classList.contains('active'));
-        console.log('Selected format after click:', selectedFormat);
-    });
-    
-    console.log('Final selectedFormat:', selectedFormat);
-    return selectedFormat;
 };
 
 // Effects info modal functions
@@ -1285,6 +2976,7 @@ window.onclick = function(event) {
     const formatModal = document.getElementById('formatInfoModal');
     const cropModal = document.getElementById('cropInfoModal');
     const effectsModal = document.getElementById('effectsInfoModal');
+    const largeModal = document.getElementById('largeImageModal');
     if (event.target === qualityModal) {
         closeQualityInfo();
     }
@@ -1296,5 +2988,8 @@ window.onclick = function(event) {
     }
     if (event.target === effectsModal) {
         closeEffectsInfo();
+    }
+    if (event.target === largeModal) {
+        closeLargeImageInfo();
     }
 }

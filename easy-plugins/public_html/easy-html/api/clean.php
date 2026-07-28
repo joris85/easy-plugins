@@ -4,12 +4,22 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
+function sendJsonResponse(array $data, int $status = 200): void
+{
+    http_response_code($status);
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        $json = json_encode(['success' => false, 'error' => 'Failed to encode response']);
+    }
+    echo $json;
+    exit;
+}
+
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
 if (!$input || !isset($input['html'])) {
-    echo json_encode(['success' => false, 'error' => 'No HTML content provided']);
-    exit;
+    sendJsonResponse(['success' => false, 'error' => 'No HTML content provided'], 400);
 }
 
 $html = $input['html'];
@@ -19,16 +29,92 @@ $options = $input['options'] ?? [];
 error_log('Received options: ' . json_encode($options));
 error_log('removeInlineStyles value: ' . ($options['removeInlineStyles'] ?? 'not set'));
 
-
 try {
     $cleanedHtml = cleanHtml($html, $options);
-    echo json_encode(['success' => true, 'cleanedHtml' => $cleanedHtml]);
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    sendJsonResponse(['success' => true, 'cleanedHtml' => $cleanedHtml]);
+} catch (Throwable $e) {
+    error_log('HTML clean error: ' . $e->getMessage());
+    sendJsonResponse(['success' => false, 'error' => $e->getMessage()], 500);
 }
 
 function cleanHtml($html, $options) {
     // Only clean what's explicitly checked - no default cleaning!
+    
+    // STEP 0: PROTECT ALL URLs - URLs must NEVER be modified
+    // Extract and protect URLs in href attributes and as plain text
+    $urlPlaceholders = [];
+    $urlIndex = 0;
+    
+    // First, fix any already-truncated URLs with ellipsis patterns
+    // This handles URLs that were truncated before reaching the cleaning function
+    $html = preg_replace_callback(
+        '/(https?:\/\/[^\s<>"\'\)]*)\[%E2%80%A6\]([^\s<>"\'\)]*)/i',
+        function($matches) {
+            // Try to reconstruct the URL by removing the ellipsis
+            // Note: We can't fully restore truncated URLs, but we can remove the ellipsis marker
+            return $matches[1] . $matches[2];
+        },
+        $html
+    );
+    $html = preg_replace('/(https?:\/\/[^\s<>"\'\)]*)…([^\s<>"\'\)]*)/iu', '$1$2', $html);
+    $html = preg_replace('/(https?:\/\/[^\s<>"\'\)]*)\[\.\.\.\]([^\s<>"\'\)]*)/i', '$1$2', $html);
+    
+    // Pattern to match complete URLs (http, https, ftp, mailto, etc.)
+    // More precise pattern that matches full URLs
+    $urlPattern = '/(https?:\/\/[^\s<>"\'\)\]\[]+|ftp:\/\/[^\s<>"\'\)\]\[]+|mailto:[^\s<>"\'\)\]\[]+)/i';
+    
+    // First, protect URLs in href attributes (most important - these must be preserved exactly)
+    $html = preg_replace_callback(
+        '/href\s*=\s*["\']([^"\']+)["\']/i',
+        function($matches) use (&$urlPlaceholders, &$urlIndex) {
+            $url = $matches[1];
+            // Remove any ellipsis patterns that might be in the URL
+            $url = preg_replace('/\[%E2%80%A6\]/', '', $url);
+            $url = preg_replace('/…/u', '', $url);
+            $url = preg_replace('/\[\.\.\.\]/', '', $url);
+            
+            $placeholder = '___URL_PLACEHOLDER_' . $urlIndex . '___';
+            $urlPlaceholders[$urlIndex] = $url;
+            $urlIndex++;
+            return 'href="' . $placeholder . '"';
+        },
+        $html
+    );
+    
+    // Then, protect URLs as plain text (in text content between tags)
+    // Split HTML into tags and text content, only process text content
+    $parts = preg_split('/(<[^>]+>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $processedParts = [];
+    foreach ($parts as $part) {
+        // If it's a tag, keep it as-is
+        if (preg_match('/^<[^>]+>$/', $part)) {
+            $processedParts[] = $part;
+        } else {
+            // It's text content - protect URLs here
+            $processedPart = preg_replace_callback(
+                $urlPattern,
+                function($matches) use (&$urlPlaceholders, &$urlIndex) {
+                    $url = $matches[0];
+                    // Skip if this is already a placeholder
+                    if (strpos($url, '___URL_PLACEHOLDER_') !== false) {
+                        return $url;
+                    }
+                    // Remove any ellipsis patterns
+                    $url = preg_replace('/\[%E2%80%A6\]/', '', $url);
+                    $url = preg_replace('/…/u', '', $url);
+                    $url = preg_replace('/\[\.\.\.\]/', '', $url);
+                    
+                    $placeholder = '___URL_PLACEHOLDER_' . $urlIndex . '___';
+                    $urlPlaceholders[$urlIndex] = $url;
+                    $urlIndex++;
+                    return $placeholder;
+                },
+                $part
+            );
+            $processedParts[] = $processedPart;
+        }
+    }
+    $html = implode('', $processedParts);
     
     // Convert Google Docs bold styling to <strong> tags (FIRST OPERATION)
     // EXCLUDES heading elements (h1-h6) to preserve their semantic meaning
@@ -316,6 +402,12 @@ function cleanHtml($html, $options) {
         $html = htmlentities($html, ENT_QUOTES, 'UTF-8');
     }
     
+    // FINAL STEP: Restore all protected URLs (in reverse order to avoid conflicts)
+    for ($i = $urlIndex - 1; $i >= 0; $i--) {
+        $placeholder = '___URL_PLACEHOLDER_' . $i . '___';
+        $originalUrl = $urlPlaceholders[$i];
+        $html = str_replace($placeholder, $originalUrl, $html);
+    }
+    
     return $html;
 }
-?>

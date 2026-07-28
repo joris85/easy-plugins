@@ -15,7 +15,7 @@ You're getting 500 Internal Server Error with larger images because MAMP has res
 ```ini
 ; File Upload Limits
 upload_max_filesize = 100M
-post_max_size = 200M
+post_max_size = 256M
 max_file_uploads = 100
 
 ; Memory and Execution Limits
@@ -40,8 +40,8 @@ This will show you the current limits and recommendations.
 
 The app now has built-in protection:
 - **Maximum file size**: 50MB per image
-- **Maximum total size**: 100MB for all images
-- **Maximum files**: 20 images at once
+- **Maximum total size**: 256MB for all images
+- **Maximum files**: 100 images at once
 
 If you get errors, try:
 1. **Smaller images** (under 10MB each)
@@ -63,5 +63,4 @@ If you can't change MAMP settings, the app will now:
 3. **Suggest solutions** for large image problems
 
 Try uploading smaller images first to test the functionality!
-
 

@@ -1,6 +1,9 @@
 <?php
-header('Content-Type: application/json');
+require_once __DIR__ . '/src/security.php';
+easyImageSendSecurityHeaders();
 
-echo json_encode([
-    'available' => extension_loaded('imagick')
-]); 
+$imagickAvailable = extension_loaded('imagick') && class_exists('Imagick', false);
+
+easyImageSendJson([
+    'available' => $imagickAvailable,
+]);

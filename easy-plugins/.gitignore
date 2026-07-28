@@ -51,7 +51,3 @@ public_html/easy-image/cleanup_log.txt
 public_html/easy-image/*.zip
 public_html.zip
 
-# PDF Preflight extracted images (session temp files)
-public_html/easy-pdf-preflight/extracted_images/*
-!public_html/easy-pdf-preflight/extracted_images/.htaccess
-
