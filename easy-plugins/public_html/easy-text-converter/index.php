@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Text - Transform Your Text';
+$metaDescription = 'Convert text case online: UPPERCASE, lowercase, Title Case, sentence case and more. Count words and characters instantly. Free, no account.';
+$canonicalPath = '/easy-text-converter/';
 include '../shared/header.php'; 
 ?>
     
@@ -96,7 +98,7 @@ include '../shared/header.php';
                                         </button>
                                     </div>
                                     <div class="col-md-3 col-sm-6">
-                                        <button class="btn btn-outline-success w-100" onclick="convertText('capitalized')">
+                                        <button class="btn btn-outline-success w-100" onclick="convertText('capitalize')">
                                             <i class="fas fa-text-height me-1"></i><span data-translate="TEXT_TO_TITLECASE">Capitalized</span>
                                         </button>
                                     </div>
@@ -178,4 +180,4 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2026-07-18"></script>

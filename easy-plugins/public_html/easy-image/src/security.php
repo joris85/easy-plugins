@@ -274,6 +274,15 @@ if (!function_exists('easyImageNormalizeEffects')) {
         $allowedBools = ['normalize', 'equalize', 'enhance', 'emboss', 'edge', 'charcoal'];
         $normalized = [];
 
+        // Auto-enhance first: manual adjustments then build on the corrected base
+        if (!empty($effects['autoEnhance'])) {
+            $normalized['autoEnhance'] = true;
+            if (isset($effects['autoEnhanceStrength'])) {
+                // 100 = the full adaptive recipe; above that the blend extrapolates
+                $normalized['autoEnhanceStrength'] = max(10, min(400, (int) $effects['autoEnhanceStrength']));
+            }
+        }
+
         if (isset($effects['blur'])) {
             $normalized['blur'] = max(0, min(100, (int) $effects['blur']));
         }
@@ -302,5 +311,144 @@ if (!function_exists('easyImageNormalizeEffects')) {
 if (!function_exists('easyImageGenerateOutputToken')) {
     function easyImageGenerateOutputToken() {
         return bin2hex(random_bytes(4));
+    }
+}
+
+if (!function_exists('easyImageSupportedFormats')) {
+    /**
+     * What the server's ImageMagick build can actually do. HEIC/AVIF need
+     * delegate libraries that some builds (e.g. MAMP) lack, so the features
+     * they power are switched on per-server at runtime.
+     */
+    function easyImageSupportedFormats() {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $cached = ['heicInput' => false, 'avifOutput' => false];
+        if (!extension_loaded('imagick') || !class_exists('Imagick', false)) {
+            return $cached;
+        }
+
+        try {
+            $known = Imagick::queryFormats();
+            $cached['heicInput'] = in_array('HEIC', $known, true) || in_array('HEIF', $known, true);
+
+            if (in_array('AVIF', $known, true)) {
+                // Coder listed is not always writable — do a tiny write test
+                try {
+                    $probe = new Imagick();
+                    $probe->newImage(4, 4, 'red');
+                    $probe->setImageFormat('avif');
+                    $cached['avifOutput'] = strlen($probe->getImageBlob()) > 0;
+                    $probe->destroy();
+                } catch (Throwable $e) {
+                    $cached['avifOutput'] = false;
+                }
+            }
+        } catch (Throwable $e) {
+            // Leave defaults
+        }
+
+        return $cached;
+    }
+}
+
+if (!function_exists('easyImagePingDimensions')) {
+    /**
+     * Image dimensions via Imagick ping (header-only read) for formats
+     * getimagesize() cannot parse, like HEIC.
+     */
+    function easyImagePingDimensions($path) {
+        try {
+            $ping = new Imagick();
+            $ping->pingImage($path);
+            $dims = [(int) $ping->getImageWidth(), (int) $ping->getImageHeight()];
+            $ping->destroy();
+            if ($dims[0] > 0 && $dims[1] > 0) {
+                return $dims;
+            }
+        } catch (Throwable $e) {
+            // fall through
+        }
+        return null;
+    }
+}
+
+if (!function_exists('easyImageLazyCleanup')) {
+    /**
+     * Fallback for when the cleanup cron is not installed: occasionally sweep
+     * old output files during a processing request. Cheap (one pass, marker
+     * file throttles it to once per interval) and safe to run alongside the
+     * cron version.
+     */
+    function easyImageLazyCleanup($baseDir, $maxAgeMinutes = 30, $minIntervalSeconds = 60) {
+        // Cleanup must never break a processing request (process.php promotes
+        // even suppressed warnings to exceptions), so everything is guarded.
+        try {
+            $uploadsDir = rtrim($baseDir, '/') . '/uploads';
+            if (!is_dir($uploadsDir)) {
+                return;
+            }
+
+            $marker = $uploadsDir . '/.last-lazy-cleanup';
+            $now = time();
+            if (is_file($marker)) {
+                $last = filemtime($marker);
+                if ($last !== false && ($now - $last) < $minIntervalSeconds) {
+                    return;
+                }
+            }
+            // Touch first so concurrent requests skip while this one sweeps
+            touch($marker);
+
+            $cutoff = $now - ($maxAgeMinutes * 60);
+            foreach (['resize', 'crop', 'optimize', 'custom'] as $subdir) {
+                $dir = $uploadsDir . '/' . $subdir;
+                if (!is_dir($dir)) {
+                    continue;
+                }
+                $entries = scandir($dir);
+                if ($entries === false) {
+                    continue;
+                }
+                foreach ($entries as $entry) {
+                    if ($entry === '.' || $entry === '..' || $entry === '.htaccess') {
+                        continue;
+                    }
+                    $path = $dir . '/' . $entry;
+                    try {
+                        if (is_file($path) && filemtime($path) < $cutoff) {
+                            unlink($path);
+                        }
+                    } catch (Throwable $e) {
+                        // File vanished mid-sweep; ignore
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // Never let cleanup interfere with the actual request
+        }
+    }
+}
+
+if (!function_exists('easyImageScheduleCleanup')) {
+    /**
+     * Background variant: registered as soon as a request starts, the sweep
+     * runs after the response is finished so the user never waits for it.
+     */
+    function easyImageScheduleCleanup($baseDir) {
+        register_shutdown_function(function () use ($baseDir) {
+            try {
+                // Under PHP-FPM this releases the connection before sweeping
+                if (function_exists('fastcgi_finish_request')) {
+                    fastcgi_finish_request();
+                }
+            } catch (Throwable $e) {
+                // Response is already complete; ignore
+            }
+            easyImageLazyCleanup($baseDir);
+        });
     }
 }

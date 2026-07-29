@@ -259,9 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize korting calculator
     function initializeKortingCalculator() {
         const kortingCalculator = document.getElementById('korting-calculator');
-        console.log('Korting calculator found:', kortingCalculator);
         if (kortingCalculator) {
-            console.log('Initializing korting calculator');
             
             // Toggle discount type inputs
             const discountTypeRadios = document.querySelectorAll('input[name="discount-type"]');
@@ -286,11 +284,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             kortingCalculator.addEventListener('submit', function(e) {
                 e.preventDefault();
-                console.log('Korting calculator form submitted');
                 
                 const originalPrice = parseFloat(document.getElementById('original-price').value);
                 const discountType = document.querySelector('input[name="discount-type"]:checked').value;
-                console.log('Original price:', originalPrice, 'Discount type:', discountType);
                 
                 if (isNaN(originalPrice) || originalPrice < 0) {
                     showError('korting-result', 'Voer een geldige originele prijs in');
@@ -344,18 +340,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize BTW calculator
     function initializeBTWCalculator() {
         const btwCalculator = document.getElementById('btw-calculator');
-        console.log('BTW calculator found:', btwCalculator);
         if (btwCalculator) {
-            console.log('Initializing BTW calculator');
             
             btwCalculator.addEventListener('submit', function(e) {
                 e.preventDefault();
-                console.log('BTW calculator form submitted');
                 
                 const amount = parseFloat(document.getElementById('btw-amount').value);
                 const btwRate = parseFloat(document.getElementById('btw-rate').value);
                 const btwType = document.querySelector('input[name="btw-type"]:checked').value;
-                console.log('Amount:', amount, 'BTW Rate:', btwRate, 'BTW Type:', btwType);
                 
                 if (isNaN(amount) || amount < 0) {
                     showError('btw-result', 'Voer een geldig bedrag in (groter dan of gelijk aan 0)');

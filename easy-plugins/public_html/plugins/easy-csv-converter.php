@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-file-csv me-3" style="color: #4CAF50; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-csv-converter.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy CSV Converter</h1>
                         <p class="text-muted lead">Convert CSV Delimiters & Date Formats</p>
@@ -83,6 +83,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Handle CSV files from international sources</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-csv-converter'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-csv-converter'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

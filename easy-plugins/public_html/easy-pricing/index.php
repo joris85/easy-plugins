@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Pricing - Calculate Tools';
+$metaDescription = 'Free calculators for percentages, discounts and VAT. Quick and accurate pricing sums for shops, freelancers and businesses.';
+$canonicalPath = '/easy-pricing/';
 include '../shared/header.php'; 
 ?>
     
@@ -428,4 +430,4 @@ include '../shared/header.php';
 
     <?php include '../shared/footer.php'; ?>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2026-07-13"></script>

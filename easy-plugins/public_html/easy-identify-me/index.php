@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Identify Me - System Information Tool';
+$metaDescription = 'See your IP address, location, browser and device details in one overview, easy to copy and share with a developer or support desk.';
+$canonicalPath = '/easy-identify-me/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -16,14 +18,33 @@ if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
 
 $locationData = null;
 if ($ip && $ip !== 'Unknown' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-    $url = "https://ip-api.com/json/{$ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as";
+    // ipwho.is: keyless and works over HTTPS (ip-api.com's free tier is HTTP-only)
+    $url = "https://ipwho.is/{$ip}";
     $context = stream_context_create([
         'http' => ['timeout' => 3, 'method' => 'GET'],
         'https' => ['timeout' => 3, 'method' => 'GET'],
     ]);
     $response = @file_get_contents($url, false, $context);
     if ($response) {
-        $locationData = json_decode($response, true);
+        $who = json_decode($response, true);
+        if (is_array($who) && !empty($who['success'])) {
+            // Map to the ip-api-style shape the frontend expects
+            $locationData = [
+                'status' => 'success',
+                'country' => $who['country'] ?? null,
+                'countryCode' => $who['country_code'] ?? null,
+                'regionName' => $who['region'] ?? null,
+                'city' => $who['city'] ?? null,
+                'zip' => $who['postal'] ?? null,
+                'lat' => $who['latitude'] ?? null,
+                'lon' => $who['longitude'] ?? null,
+                'timezone' => $who['timezone']['id'] ?? null,
+                'isp' => $who['connection']['isp'] ?? null,
+                'org' => $who['connection']['org'] ?? null,
+                'as' => isset($who['connection']['asn']) && $who['connection']['asn']
+                    ? 'AS' . $who['connection']['asn'] : null,
+            ];
+        }
     }
 }
 
@@ -51,7 +72,7 @@ include '../shared/header.php';
     
     <div class="container-fluid">
         <div class="container tool-page-inner">
-            <?php $toolInfoSlug = 'easy-identify-me'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
+            <?php $toolInfoSlug = 'easy-identify-me'; $toolPageHasOwnHeading = true; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
             <div class="identify-me-container">
                 <h1><i class="fas fa-id-card me-2"></i> Easy Identify Me</h1>
                 <p class="subtitle">Get comprehensive system information to share with developers</p>
@@ -126,7 +147,7 @@ include '../shared/header.php';
         const serverData = <?= easyPluginsJsonEncode($serverData, JSON_PRETTY_PRINT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     </script>
     
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
 </body>
 </html>
 

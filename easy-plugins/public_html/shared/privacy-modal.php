@@ -91,7 +91,7 @@
                                     <div class="card-body text-center">
                                         <i class="fas fa-file-image text-success mb-2" style="font-size: 2rem;"></i>
                                         <h6 class="card-title">Easy PNG</h6>
-                                        <p class="card-text small">Add backgrounds to PNG, WebP, and SVG</p>
+                                        <p class="card-text small">Add backgrounds to PNG and WebP</p>
                                         <span class="badge bg-success">100% Local</span>
                                     </div>
                                 </div>

@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy SASS - SASS/SCSS to CSS Compiler';
+$metaDescription = 'Compile SASS and SCSS to CSS in your browser with live output and error messages. Free online Sass compiler, no install needed.';
+$canonicalPath = '/easy-sass/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';

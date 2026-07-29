@@ -24,20 +24,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add debug function to window for troubleshooting
     window.debugEasyHTML = function() {
-        console.log('=== Easy HTML Debug Info ===');
-        console.log('isCleaning:', isCleaning);
-        console.log('isShowingCleanedContent:', isShowingCleanedContent);
-        console.log('isUpdatingFromCodeMirror:', isUpdatingFromCodeMirror);
-        console.log('isUpdatingFromTinyMCE:', isUpdatingFromTinyMCE);
-        console.log('Editor initialized:', !!editor);
-        console.log('CodeViewer initialized:', !!codeViewer);
         
         const cleanBtn = document.getElementById('cleanBtn');
-        console.log('Clean button disabled:', cleanBtn ? cleanBtn.disabled : 'not found');
-        console.log('Clean button text:', cleanBtn ? cleanBtn.innerHTML : 'not found');
         
         const options = getCleaningOptions();
-        console.log('Current cleaning options:', options);
     };
     
     // Add function to force reset all checkboxes
@@ -53,38 +43,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkbox = document.getElementById(id);
             if (checkbox) {
                 checkbox.checked = false;
-                console.log(`Reset ${id} to unchecked`);
             } else {
-                console.log(`Checkbox ${id} not found`);
             }
         });
         
-        console.log('All checkboxes reset to unchecked');
     };
     
     // Add function to force sync between editors
     window.forceSync = function() {
-        console.log('=== Force Sync Between Editors ===');
         if (editor && codeViewer) {
             const tinyMCEContent = editor.getContent();
             const codeMirrorContent = codeViewer.getValue();
             
-            console.log('TinyMCE content length:', tinyMCEContent.length);
-            console.log('CodeMirror content length:', codeMirrorContent.length);
             
             // Force sync from TinyMCE to CodeMirror
             codeViewer.setValue(tinyMCEContent);
             codeViewer.refresh();
             
-            console.log('Forced sync: TinyMCE -> CodeMirror');
         } else {
-            console.log('Editors not initialized');
         }
     };
     
     // Add function to reset sync state
     window.resetSyncState = function() {
-        console.log('=== Resetting Sync State ===');
         isShowingCleanedContent = false;
         isUpdatingFromCodeMirror = false;
         isUpdatingFromTinyMCE = false;
@@ -95,7 +76,6 @@ document.addEventListener('DOMContentLoaded', function() {
             label.innerHTML = '<i class="fas fa-code me-2"></i>Live HTML Editor';
         }
         
-        console.log('Sync state reset - all flags cleared');
     };
 });
 
@@ -106,8 +86,6 @@ function initializeEditor() {
         return;
     }
     
-    console.log('TinyMCE version:', tinymce.majorVersion);
-    console.log('Initializing TinyMCE editor...');
     
     try {
         tinymce.init({
@@ -228,8 +206,6 @@ function initializeEditor() {
         },
         // Add success callback
         init_instance_callback: function(ed) {
-            console.log('TinyMCE editor initialized successfully!');
-            console.log('Editor ID:', ed.id);
         }
     });
     } catch (error) {
@@ -316,8 +292,6 @@ function initializeEditor() {
             },
             // Add success callback for fallback
             init_instance_callback: function(ed) {
-                console.log('TinyMCE fallback editor initialized successfully!');
-                console.log('Editor ID:', ed.id);
             }
         });
     }
@@ -392,7 +366,6 @@ function syncTinyMCEToCodeMirror() {
             bookmark = editor.selection.getBookmark(2);
         }
     } catch (e) {
-        console.log('Could not preserve cursor position:', e);
     }
     
     // Get HTML content from TinyMCE
@@ -466,7 +439,6 @@ function syncCodeMirrorToTinyMCE() {
             // Mark that we're updating TinyMCE to prevent loops
             isUpdatingFromCodeMirror = true;
             
-            console.log('Syncing CodeMirror to TinyMCE');
             editor.setContent(htmlContent);
             
             // Reset flag after a brief delay
@@ -491,7 +463,6 @@ function cleanHTML() {
     
     // Prevent multiple simultaneous cleaning requests
     if (isCleaning) {
-        console.log('Cleaning already in progress, please wait...');
         return;
     }
     
@@ -510,9 +481,6 @@ function cleanHTML() {
 
     // Get cleaning options (fresh check every time)
     const options = getCleaningOptions();
-    console.log('Current cleaning options:', options);
-    console.log('removeInlineStyles checkbox element:', document.getElementById('removeInlineStyles'));
-    console.log('removeInlineStyles checked state:', document.getElementById('removeInlineStyles').checked);
     
     // Set cleaning flag
     isCleaning = true;
@@ -586,7 +554,6 @@ function cleanHTML() {
             setTimeout(() => {
                 codeViewer.setValue(data.cleanedHtml);
                 codeViewer.refresh();
-                console.log('Forced sync after cleaning');
             }, 100);
             
             // Update the label to show it's cleaned HTML
@@ -627,6 +594,120 @@ function cleanHTML() {
     });
 }
 
+// One-click cleaning profiles; every UI checkbox gets an explicit value
+const CLEANER_PRESETS = {
+    google: {
+        removeInlineStyles: true, removeClasses: true, removeSpans: true,
+        removeDivs: true, replaceDivsWithP: false,
+        removeEmptyTags: true, removeComments: true,
+        removeSuccessiveSpaces: true, convertNbspToSpace: true,
+        convertTags: true, convertGoogleBold: true,
+        removeImages: false, removeLinks: false, removeTables: false,
+        removeTrackingParams: false, convertSmartQuotes: false
+    },
+    cms: {
+        removeInlineStyles: true, removeClasses: true, removeSpans: true,
+        removeDivs: false, replaceDivsWithP: true,
+        removeEmptyTags: true, removeComments: true,
+        removeSuccessiveSpaces: true, convertNbspToSpace: true,
+        convertTags: true, convertGoogleBold: true,
+        removeImages: false, removeLinks: false, removeTables: false,
+        removeTrackingParams: false, convertSmartQuotes: false
+    },
+    plain: {
+        removeInlineStyles: true, removeClasses: true, removeSpans: true,
+        removeDivs: false, replaceDivsWithP: true,
+        removeEmptyTags: true, removeComments: true,
+        removeSuccessiveSpaces: true, convertNbspToSpace: true,
+        convertTags: true, convertGoogleBold: true,
+        removeImages: true, removeLinks: false, removeTables: true,
+        removeTrackingParams: false, convertSmartQuotes: false
+    },
+    emailStyled: {
+        removeInlineStyles: false, removeClasses: true, removeSpans: false,
+        removeDivs: false, replaceDivsWithP: false,
+        removeEmptyTags: true, removeComments: true,
+        removeSuccessiveSpaces: false, convertNbspToSpace: false,
+        convertTags: true, convertGoogleBold: false,
+        removeImages: false, removeLinks: false, removeTables: false,
+        removeTrackingParams: false, convertSmartQuotes: false
+    },
+    emailClean: {
+        removeInlineStyles: true, removeClasses: true, removeSpans: true,
+        removeDivs: false, replaceDivsWithP: true,
+        removeEmptyTags: true, removeComments: true,
+        removeSuccessiveSpaces: true, convertNbspToSpace: true,
+        convertTags: true, convertGoogleBold: true,
+        removeImages: false, removeLinks: false, removeTables: false,
+        removeTrackingParams: false, convertSmartQuotes: false
+    }
+};
+
+function applyCleanerPreset(name) {
+    const preset = CLEANER_PRESETS[name];
+    if (!preset) {
+        return;
+    }
+    Object.entries(preset).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.checked = value;
+        }
+    });
+    document.querySelectorAll('.cleaner-preset').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.preset === name);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.cleaner-preset').forEach((btn) => {
+        btn.addEventListener('click', () => applyCleanerPreset(btn.dataset.preset));
+    });
+    // Touching any checkbox by hand means the preset no longer fully applies
+    document.querySelectorAll('.form-check-input').forEach((cb) => {
+        cb.addEventListener('change', () => {
+            document.querySelectorAll('.cleaner-preset').forEach((btn) => btn.classList.remove('active'));
+        });
+    });
+});
+
+window.addCleanerSearchRow = function() {
+    const container = document.getElementById('cleanerSearchRows');
+    if (!container) {
+        return;
+    }
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 cleaner-search-row';
+    row.innerHTML = `
+        <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm cleaner-search-input" placeholder="Search in text" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm cleaner-replace-input" placeholder="Replace with (empty removes)" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" title="Remove this rule" aria-label="Remove this rule">
+                <i class="fas fa-minus"></i>
+            </button>
+        </div>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+    row.querySelector('.cleaner-search-input').focus();
+};
+
+function getSearchReplacePairs() {
+    const pairs = [];
+    document.querySelectorAll('#cleanerSearchRows .cleaner-search-row').forEach((row) => {
+        const search = row.querySelector('.cleaner-search-input')?.value ?? '';
+        const replace = row.querySelector('.cleaner-replace-input')?.value ?? '';
+        if (search !== '') {
+            pairs.push([search, replace]);
+        }
+    });
+    return pairs;
+}
+
 function getCleaningOptions() {
     // Force refresh of all checkbox elements to ensure we get current state
     const removeInlineStylesEl = document.getElementById('removeInlineStyles');
@@ -645,8 +726,14 @@ function getCleaningOptions() {
     const replaceDivsWithPEl = document.getElementById('replaceDivsWithP');
     const convertGoogleBoldEl = document.getElementById('convertGoogleBold');
     
+    const convertNbspToSpaceEl = document.getElementById('convertNbspToSpace');
+
     const options = {
+        searchReplace: getSearchReplacePairs(),
+        removeTrackingParams: document.getElementById('removeTrackingParams')?.checked ?? false,
+        convertSmartQuotes: document.getElementById('convertSmartQuotes')?.checked ?? false,
         convertGoogleBold: convertGoogleBoldEl ? convertGoogleBoldEl.checked : false,
+        convertNbspToSpace: convertNbspToSpaceEl ? convertNbspToSpaceEl.checked : false,
         removeInlineStyles: removeInlineStylesEl ? removeInlineStylesEl.checked : false,
         removeClasses: removeClassesEl ? removeClassesEl.checked : false,
         removeSpans: removeSpansEl ? removeSpansEl.checked : false,
@@ -664,8 +751,6 @@ function getCleaningOptions() {
     };
     
     // Debug: Log each checkbox state
-    console.log('removeInlineStyles element found:', !!removeInlineStylesEl);
-    console.log('removeInlineStyles checked:', removeInlineStylesEl ? removeInlineStylesEl.checked : 'element not found');
     
     return options;
 }

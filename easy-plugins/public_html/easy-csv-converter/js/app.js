@@ -72,6 +72,14 @@ function readFileAsText(file) {
         showAlert('Please select a CSV or text file!', 'warning');
         return;
     }
+
+    // The parser runs on the main thread; very large files would freeze the tab
+    const MAX_CSV_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_CSV_BYTES) {
+        showAlert('This file is ' + (file.size / 1024 / 1024).toFixed(1)
+            + 'MB — larger than the 10MB this tool can handle in the browser. Please split it first.', 'warning');
+        return;
+    }
     
     const reader = new FileReader();
     
@@ -340,9 +348,9 @@ function performSearchReplace() {
             const fullyQuoteAll = document.getElementById('fullyQuoteAll').checked;
             const converted = convertToCSV(parsed, delimiter, quoteChar, fullyQuoteAll);
             
-            // Update input with transformed data
-            csvInput.value = converted;
-            showAlert(`Search and replace completed! Replaced in ${replacementCount} row(s).`, 'success');
+            // Write to the output pane so the source text stays untouched
+            document.getElementById('csvOutput').value = converted;
+            showAlert(`Search and replace completed! Replaced in ${replacementCount} row(s). Result is in the output field.`, 'success');
         } else {
             // Replace in entire CSV text
             let flags = 'g';
@@ -352,9 +360,10 @@ function performSearchReplace() {
             
             const regex = new RegExp(escapeRegex(searchText), flags);
             const newText = text.replace(regex, replaceText);
-            
-            csvInput.value = newText;
-            showAlert('Search and replace completed!', 'success');
+
+            // Write to the output pane so the source text stays untouched
+            document.getElementById('csvOutput').value = newText;
+            showAlert('Search and replace completed! Result is in the output field.', 'success');
         }
     } catch (error) {
         showAlert('Error performing search and replace: ' + error.message, 'danger');
@@ -419,9 +428,9 @@ function performDateTransform() {
         const fullyQuoteAll = document.getElementById('fullyQuoteAll').checked;
         const converted = convertToCSV(parsed, delimiter, quoteChar, fullyQuoteAll);
         
-        // Update input with transformed data
-        csvInput.value = converted;
-        showAlert('Date transformation completed!', 'success');
+        // Write to the output pane so the source text stays untouched
+        document.getElementById('csvOutput').value = converted;
+        showAlert('Date transformation completed! Result is in the output field.', 'success');
         
     } catch (error) {
         console.error('Date transformation error:', error);
@@ -517,10 +526,11 @@ function parseDate(dateString, format) {
         }
     }
     
-    if (!year || !month || !day) {
+    // month is 0-indexed, so January (0) is valid — check undefined/NaN explicitly
+    if (!year || month == null || Number.isNaN(month) || month < 0 || month > 11 || !day) {
         return null;
     }
-    
+
     return new Date(year, month, day);
 }
 

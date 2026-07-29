@@ -8,7 +8,7 @@ include '../shared/header.php';
 $articleUrl = easyPluginsArticleUrl();
 ?>
 
-<meta name="description" content="Easy PNG adds solid or gradient backgrounds to PNG, WebP, and SVG images. Transform transparent images with customizable backgrounds and real-time preview.">
+<meta name="description" content="Easy PNG adds solid or gradient backgrounds to PNG and WebP images. Transform transparent images with customizable backgrounds and real-time preview.">
 <meta name="keywords" content="easy png, add background to png, transparent image background, gradient background, png tool, image background">
 <meta property="og:title" content="Easy PNG - Add Backgrounds to Transparent Images">
 <meta property="og:description" content="Add solid or gradient backgrounds to transparent images with Easy PNG. Free online tool with real-time preview.">
@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-file-image me-3" style="color: #4CAF50; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-png.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy PNG</h1>
                         <p class="text-muted lead">Add Backgrounds to Transparent Images</p>
@@ -36,7 +36,7 @@ $articleUrl = easyPluginsArticleUrl();
                     <section class="mb-5">
                         <p class="lead">
                             Easy PNG is a specialized tool for adding backgrounds to transparent images. Whether you need a solid color background 
-                            or a beautiful gradient, Easy PNG makes it easy to transform PNG, WebP, and SVG images with real-time preview.
+                            or a beautiful gradient, Easy PNG makes it easy to transform PNG and WebP images with real-time preview.
                         </p>
                     </section>
 
@@ -65,7 +65,7 @@ $articleUrl = easyPluginsArticleUrl();
                     <section class="mb-5">
                         <h2 class="h3 mb-4"><i class="fas fa-question-circle me-2"></i>How to Use Easy PNG</h2>
                         <ol>
-                            <li class="mb-3"><strong>Upload Image:</strong> Drag and drop or select your PNG, WebP, or SVG image</li>
+                            <li class="mb-3"><strong>Upload Image:</strong> Drag and drop or select your PNG or WebP image</li>
                             <li class="mb-3"><strong>Choose Background Type:</strong> Select solid color or gradient background</li>
                             <li class="mb-3"><strong>Customize:</strong> Pick colors, adjust gradient direction, or set radial position</li>
                             <li class="mb-3"><strong>Preview:</strong> See the result in real-time as you make changes</li>
@@ -83,6 +83,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Design website graphics with gradient backgrounds</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-png'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-png'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

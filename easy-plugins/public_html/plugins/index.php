@@ -76,7 +76,7 @@ include '../shared/header.php';
                             <h2 class="card-title h4 mb-0">Easy PNG</h2>
                         </div>
                         <p class="card-text text-muted">
-                            Add solid or gradient backgrounds to PNG, WebP, and SVG images with real-time preview. Transform transparent images into beautiful designs with customizable background colors and gradients.
+                            Add solid or gradient backgrounds to PNG and WebP images with real-time preview. Transform transparent images into beautiful designs with customizable background colors and gradients.
                         </p>
                         <a href="easy-png" class="btn btn-primary">
                             Read More <i class="fas fa-arrow-right ms-2"></i>

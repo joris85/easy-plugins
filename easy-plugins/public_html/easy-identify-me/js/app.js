@@ -337,8 +337,11 @@ function formatDataForDisplay(serverData, clientData) {
         if (serverData.location.isp) networkInfo.items.push({ label: 'ISP', value: serverData.location.isp });
         if (serverData.location.org) networkInfo.items.push({ label: 'Organization', value: serverData.location.org });
         if (serverData.location.timezone) networkInfo.items.push({ label: 'Timezone (IP)', value: serverData.location.timezone });
+    } else {
+        // Say so instead of silently showing nothing
+        networkInfo.items.push({ label: 'Location', value: 'Lookup unavailable right now' });
     }
-    
+
     sections.push(networkInfo);
     
     // Browser Information
@@ -857,39 +860,63 @@ async function initializeQuickCopyIPButton() {
     setQuickCopyIPButton(null);
 }
 
-// Fetch public IP address
+// Map an ipwho.is response to the ip-api-style shape the display code expects
+function mapIpWhoLocation(data) {
+    if (!data || data.success === false || !data.ip) {
+        return null;
+    }
+    return {
+        status: 'success',
+        country: data.country || null,
+        countryCode: data.country_code || null,
+        regionName: data.region || null,
+        city: data.city || null,
+        zip: data.postal || null,
+        lat: data.latitude != null ? data.latitude : null,
+        lon: data.longitude != null ? data.longitude : null,
+        timezone: (data.timezone && data.timezone.id) || null,
+        isp: (data.connection && data.connection.isp) || null,
+        org: (data.connection && data.connection.org) || null,
+        as: (data.connection && data.connection.asn) ? 'AS' + data.connection.asn : null
+    };
+}
+
+// Fetch public IP address (ipwho.is is keyless and HTTPS-capable)
 async function fetchPublicIP() {
     try {
-        // Try ip-api.com first (no API key needed)
-        const response = await fetch('https://ip-api.com/json/?fields=status,query,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as');
+        const response = await fetch('https://ipwho.is/');
         const data = await response.json();
-        if (data.status === 'success' && data.query) {
+        if (data && data.ip) {
             return {
-                ip: data.query,
-                location: data
+                ip: data.ip,
+                location: mapIpWhoLocation(data)
             };
         }
     } catch (err) {
-        console.log('ip-api.com failed, trying alternative');
+        // Provider unreachable; try the fallback below
     }
-    
+
     try {
-        // Fallback to ipify.org
+        // Fallback: ipify for the IP, then ipwho.is for location
         const response = await fetch('https://api.ipify.org?format=json');
         const data = await response.json();
         if (data.ip) {
-            // Get location for this IP
-            const locResponse = await fetch(`https://ip-api.com/json/${data.ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as`);
-            const locData = await locResponse.json();
+            let location = null;
+            try {
+                const locResponse = await fetch('https://ipwho.is/' + encodeURIComponent(data.ip));
+                location = mapIpWhoLocation(await locResponse.json());
+            } catch (locErr) {
+                // Location stays unavailable; IP is still useful
+            }
             return {
                 ip: data.ip,
-                location: locData.status === 'success' ? locData : null
+                location
             };
         }
     } catch (err) {
-        console.log('ipify.org also failed');
+        // Both providers failed
     }
-    
+
     return null;
 }
 
@@ -909,26 +936,27 @@ async function gatherInformation(consentBtn) {
     let displayData = serverData;
     const loadingIndicator = document.getElementById('loadingIndicator');
     
-    if (serverData.isLocalhost) {
+    // Retry client-side when on localhost OR when the server-side lookup failed
+    if (serverData.isLocalhost || !serverData.location) {
         // Show loading indicator
         if (loadingIndicator) {
             loadingIndicator.style.display = 'block';
         }
-        
+
         const publicIPData = await fetchPublicIP();
-        
+
         // Hide loading indicator
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
         }
-        
+
         if (publicIPData) {
             displayData = {
-                ip: publicIPData.ip,
+                ip: serverData.isLocalhost ? publicIPData.ip : serverData.ip,
                 isLocalhost: false,
-                location: publicIPData.location
+                location: serverData.location || publicIPData.location
             };
-        } else {
+        } else if (serverData.isLocalhost) {
             // Show localhost with note
             displayData.ip = serverData.ip + ' (Localhost - Public IP unavailable)';
         }

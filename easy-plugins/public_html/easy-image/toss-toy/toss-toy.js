@@ -17,6 +17,7 @@
 
         backdrop.innerHTML = `
             <div class="toss-toy-overlay">
+                <button type="button" class="toss-toy-close" aria-label="Close">&times;</button>
                 <div class="toss-toy-head">
                     <h2 class="toss-toy-title"><span class="toss-toy-spark" aria-hidden="true">✨</span> Working on your images…</h2>
                     <p class="toss-toy-hint"></p>
@@ -48,7 +49,8 @@
             stageEl: backdrop.querySelector('.toss-toy-stage'),
             continueEl: backdrop.querySelector('.toss-toy-continue'),
             keepPlayingEl: backdrop.querySelector('.toss-toy-keep-playing'),
-            readyMsgEl: backdrop.querySelector('.toss-toy-ready-msg')
+            readyMsgEl: backdrop.querySelector('.toss-toy-ready-msg'),
+            closeEl: backdrop.querySelector('.toss-toy-close')
         };
     }
 
@@ -107,6 +109,7 @@
             imageMap: {},
             staticCards: {},
             onContinue: typeof opts.onContinue === 'function' ? opts.onContinue : null,
+            onCancel: typeof opts.onCancel === 'function' ? opts.onCancel : null,
             _continueResolve: null,
             _continuePromise: null
         };
@@ -353,6 +356,7 @@
             instance.closed = true;
             clearCountdownTimer();
             destroyActiveGame();
+            document.removeEventListener('keydown', onEscapeKey, true);
             document.body.classList.remove('toss-toy-scroll-lock');
             if (dom.backdrop.parentNode) {
                 dom.backdrop.parentNode.removeChild(dom.backdrop);
@@ -362,6 +366,52 @@
                 instance._continueResolve = null;
             }
         };
+
+        // The overlay must never trap the user: the close control is always
+        // available. Closing before processing finishes cancels the batch, so
+        // ask first.
+        function requestClose() {
+            if (instance.closed) {
+                return;
+            }
+            if (isPlayground) {
+                instance.close();
+                if (instance.onContinue) {
+                    instance.onContinue();
+                }
+                return;
+            }
+            if (instance.allDone) {
+                continueToDownload();
+                return;
+            }
+            const stop = global.confirm(
+                'Your images are still being processed. Closing this window will stop the processing.\n\nStop processing and close?'
+            );
+            if (!stop) {
+                return;
+            }
+            if (instance.onCancel) {
+                try {
+                    instance.onCancel();
+                } catch (e) {
+                    console.warn('[TossToy] onCancel failed:', e);
+                }
+            }
+            instance.close();
+        }
+
+        function onEscapeKey(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                requestClose();
+            }
+        }
+
+        if (dom.closeEl) {
+            dom.closeEl.addEventListener('click', requestClose);
+        }
+        document.addEventListener('keydown', onEscapeKey, true);
 
         dom.continueEl.addEventListener('click', () => {
             if (dom.continueEl.disabled) {

@@ -1,25 +1,18 @@
 // Make functions available globally
-window.toggleAdvanced = function() {
-    const header = document.querySelector('.advanced-header');
-    const content = document.querySelector('.advanced-content');
-    const icon = header.querySelector('i');
-    
-    if (content.style.display === 'none') {
-        content.style.display = 'block';
-        header.classList.add('active');
-        icon.classList.remove('fa-chevron-down');
-        icon.classList.add('fa-chevron-up');
-    } else {
-        content.style.display = 'none';
-        header.classList.remove('active');
-        icon.classList.remove('fa-chevron-up');
-        icon.classList.add('fa-chevron-down');
-    }
-};
-
 window.showQualityInfo = function() {
     document.getElementById('qualityInfoModal').style.display = 'block';
 };
+
+window.showEnhanceInfo = function() {
+    document.getElementById('enhanceInfoModal').style.display = 'block';
+};
+
+window.showCropUpscaleInfo = function() {
+    document.getElementById('cropUpscaleInfoModal').style.display = 'block';
+};
+
+// Whether a too-small crop selection may be enlarged to the target size
+window.allowCropUpscale = false;
 
 window.showFormatInfo = function() {
     document.getElementById('formatInfoModal').style.display = 'block';
@@ -27,10 +20,23 @@ window.showFormatInfo = function() {
 
 // Global variables
 const BATCH_SIZE = 8;
-const BATCH_DELAY_MS = 200;
+const MAX_PARALLEL_UPLOADS = 3;
+const RETRY_DELAY_MS = 750;
 const UPLOAD_OVERHEAD_BYTES = 64 * 1024;
 const APP_MAX_FILE_BYTES = 50 * 1024 * 1024;
 const APP_MAX_TOTAL_BYTES = 256 * 1024 * 1024;
+
+// What the server's ImageMagick supports; updated from check_imagick.php
+let serverFormats = { heicInput: false, avifOutput: false };
+
+function isHeicFile(file) {
+    const type = (file && file.type ? file.type : '').toLowerCase();
+    if (type === 'image/heic' || type === 'image/heif') {
+        return true;
+    }
+    const extension = (file && file.name ? file.name : '').split('.').pop().toLowerCase();
+    return extension === 'heic' || extension === 'heif';
+}
 
 const ORIENT_DEBUG = new URLSearchParams(window.location.search).has('orient_debug');
 const SHOW_STATS = new URLSearchParams(window.location.search).has('stats');
@@ -58,7 +64,6 @@ let selectedFormat = 'webp';
 let currentImageIndex = 0;
 let cropper = null;
 let pendingCropData = {};
-let preCroppedFiles = {};
 let lastDownloadRequestedCount = 0;
 let lastDownloadFailures = [];
 let fileDimensions = {};
@@ -74,6 +79,7 @@ let effectSettings = {
     brightness: 100,
     contrast: 100,
     saturation: 100,
+    autoEnhance: false,
     normalize: false,
     equalize: false,
     enhance: false,
@@ -142,37 +148,6 @@ function syncCropPreviewMetaFromCropper(index) {
         && Math.abs(imageData.naturalHeight - meta.sourceHeight) <= 2;
 }
 
-async function createCroppedFileFromCropper(file, cropperInstance, options = {}) {
-    const mimeType = getMimeTypeForFile(file);
-    const quality = getNumericQuality() / 100;
-    const preserveAlpha = mimeType === 'image/png' || mimeType === 'image/webp' || mimeType === 'image/gif';
-    const canvasOptions = {
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-        fillColor: preserveAlpha ? 'transparent' : '#ffffff'
-    };
-    let canvas;
-
-    if (options.mode === 'custom') {
-        canvas = cropperInstance.getCroppedCanvas(Object.assign({}, canvasOptions, {
-            maxWidth: options.sourceWidth,
-            maxHeight: options.sourceHeight
-        }));
-    } else {
-        canvas = cropperInstance.getCroppedCanvas(Object.assign({}, canvasOptions, {
-            width: options.targetWidth,
-            height: options.targetHeight
-        }));
-    }
-
-    if (!canvas) {
-        throw new Error('Could not create cropped image');
-    }
-
-    const blob = await canvasToBlob(canvas, mimeType, quality);
-    return new File([blob], file.name, { type: mimeType });
-}
-
 function computeFileLargeFlag(file, width, height) {
     const reasons = [];
     const largeBytes = Config.LARGE_FILE_BYTES || (10 * 1024 * 1024);
@@ -196,17 +171,6 @@ function anyLargeFiles(files) {
         const globalIndex = uploadedFiles.indexOf(file);
         return globalIndex >= 0 && fileFlags[globalIndex]?.isLarge;
     });
-}
-
-function getInterBatchDelayMs(file, index) {
-    const largeBytes = Config.LARGE_FILE_BYTES || (10 * 1024 * 1024);
-    if (file.size > largeBytes) {
-        return 1000;
-    }
-    if (fileFlags[index]?.isLarge) {
-        return 500;
-    }
-    return BATCH_DELAY_MS;
 }
 
 function revokeCropPreviewUrl() {
@@ -442,6 +406,12 @@ function getMimeTypeForFilename(filename) {
     if (extension === 'webp') {
         return 'image/webp';
     }
+    if (extension === 'avif') {
+        return 'image/avif';
+    }
+    if (extension === 'heic' || extension === 'heif') {
+        return 'image/heic';
+    }
     if (extension === 'png') {
         return 'image/png';
     }
@@ -488,6 +458,15 @@ function buildFilename(base, extension) {
     return safeBase ? `${safeBase}${extension}` : '';
 }
 
+// Shown/downloaded names keep the uploaded filename (with the new extension).
+// The token-prefixed name in image.url exists only to keep files from
+// different visitors apart on the server.
+function displayFilenameFor(originalName, serverName) {
+    const extension = splitFilename(serverName || '').extension || '';
+    const base = sanitizeFilenameBase(splitFilename(originalName || '').base) || 'image';
+    return base + extension;
+}
+
 function commitProcessedImageFilename(index, inputEl) {
     const image = processedImages[index];
     if (!image || !inputEl) {
@@ -505,6 +484,690 @@ function commitProcessedImageFilename(index, inputEl) {
     image.name = newName;
     inputEl.value = splitFilename(newName).base;
 }
+
+// ===== Enhancement selector: none / auto / custom =====
+
+const EFFECT_DEFAULTS = {
+    blur: 0, sharpen: 0, brightness: 100, contrast: 100, saturation: 100,
+    autoEnhance: false, normalize: false, equalize: false, enhance: false,
+    emboss: false, edge: false, charcoal: false
+};
+let enhanceMode = 'none';
+// UI percentage: 50% equals the full adaptive recipe, 100% doubles it
+let autoEnhanceStrength = 50;
+
+function countActiveEffects() {
+    return Object.keys(EFFECT_DEFAULTS).reduce(
+        (count, key) => count + (effectSettings[key] !== EFFECT_DEFAULTS[key] ? 1 : 0), 0
+    );
+}
+
+function updateEnhanceUi() {
+    document.querySelectorAll('.enhance-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.enhance === enhanceMode);
+    });
+    const badge = document.getElementById('customEffectsCount');
+    if (badge) {
+        const n = countActiveEffects();
+        badge.textContent = enhanceMode === 'custom' && n > 0 ? ` (${n})` : '';
+    }
+    // Custom Enhance block only exists in Custom mode
+    const customGroup = document.getElementById('customEnhanceGroup');
+    if (customGroup) {
+        customGroup.style.display = enhanceMode === 'custom' ? '' : 'none';
+    }
+    // Strength slider only applies to Auto enhance
+    const strengthGroup = document.getElementById('autoStrengthGroup');
+    if (strengthGroup) {
+        strengthGroup.style.display = enhanceMode === 'auto' ? '' : 'none';
+    }
+
+    const hasWork = enhanceMode !== 'none' || countActiveEffects() > 0;
+    document.querySelectorAll('.enhance-preview-trigger').forEach((btn) => {
+        btn.style.display = hasWork && uploadedFiles.length ? '' : 'none';
+    });
+}
+
+function resetEffectsToDefaults() {
+    Object.assign(effectSettings, EFFECT_DEFAULTS);
+    const sliderMap = {
+        blurSlider: 'blur', sharpenSlider: 'sharpen', brightnessSlider: 'brightness',
+        contrastSlider: 'contrast', saturationSlider: 'saturation'
+    };
+    Object.entries(sliderMap).forEach(([id, key]) => {
+        const slider = document.getElementById(id);
+        if (slider) {
+            slider.value = EFFECT_DEFAULTS[key];
+            const valueSpan = slider.parentElement?.querySelector('.effect-value');
+            if (valueSpan) {
+                valueSpan.textContent = EFFECT_DEFAULTS[key] + '%';
+            }
+        }
+    });
+    document.querySelectorAll('.effect-btn').forEach((b) => b.classList.remove('active'));
+}
+
+function setEnhanceMode(mode) {
+    if (mode !== 'none' && mode !== 'auto' && mode !== 'custom') {
+        return;
+    }
+    enhanceMode = mode;
+    if (mode === 'none' || mode === 'auto') {
+        resetEffectsToDefaults();
+        if (mode === 'auto') {
+            effectSettings.autoEnhance = true;
+        }
+    } else {
+        // Custom has no Auto Enhance button; it belongs to Auto mode only
+        effectSettings.autoEnhance = false;
+    }
+    updateEnhanceUi();
+    syncEnhanceUrl();
+}
+
+// Slider % -> server strength. 50% is the full adaptive recipe; the upper
+// half climbs faster so 100% is a clearly bigger jump (quadruple the recipe)
+function uiToServerStrength(ui) {
+    return ui <= 50 ? ui * 2 : 100 + (ui - 50) * 6;
+}
+
+// Keep Auto enhance shareable (URL) and refresh/revisit-proof (localStorage)
+function syncEnhanceUrl() {
+    try {
+        localStorage.setItem('easyImageEnhance', JSON.stringify({
+            mode: enhanceMode === 'auto' ? 'auto' : 'none',
+            strength: autoEnhanceStrength
+        }));
+    } catch (e) {
+        // Private browsing without storage; the URL still carries the setting
+    }
+    if (!window.history || !window.history.replaceState) {
+        return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (enhanceMode === 'auto') {
+        params.set('enhance', 'auto');
+        params.set('strength', String(autoEnhanceStrength));
+    } else {
+        params.delete('enhance');
+        params.delete('strength');
+    }
+    const qs = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+}
+
+// Any manual effect change means the user is in Custom territory
+function noteManualEffectChange() {
+    if (enhanceMode !== 'custom') {
+        enhanceMode = 'custom';
+    }
+    updateEnhanceUi();
+}
+
+// --- Before/after comparison slider ---
+
+function setComparePosition(percent) {
+    const clamped = Math.max(0, Math.min(100, percent));
+    const clip = document.getElementById('compareBeforeClip');
+    const handle = document.getElementById('compareHandle');
+    if (clip) clip.style.width = clamped + '%';
+    if (handle) handle.style.left = clamped + '%';
+}
+
+function syncCompareImageWidth() {
+    // The clipped "before" image must be sized to the full wrap width,
+    // otherwise it would squeeze instead of reveal
+    const wrap = document.getElementById('compareWrap');
+    const beforeImg = document.getElementById('compareBeforeImg');
+    if (wrap && beforeImg) {
+        beforeImg.style.width = wrap.clientWidth + 'px';
+    }
+}
+
+function openComparePreview(beforeUrl, afterUrl, filename) {
+    const modal = document.getElementById('comparePreviewModal');
+    const beforeImg = document.getElementById('compareBeforeImg');
+    const afterImg = document.getElementById('compareAfterImg');
+    const nameEl = document.getElementById('compareFilename');
+
+    if (nameEl) nameEl.textContent = filename;
+    afterImg.onload = () => {
+        syncCompareImageWidth();
+        setComparePosition(50);
+    };
+    beforeImg.src = beforeUrl;
+    afterImg.src = afterUrl;
+    modal.style.display = 'block';
+    // In case images are cached and load instantly
+    setTimeout(() => { syncCompareImageWidth(); setComparePosition(50); }, 50);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const wrap = document.getElementById('compareWrap');
+    if (wrap) {
+        let dragging = false;
+        const positionFromEvent = (e) => {
+            const rect = wrap.getBoundingClientRect();
+            setComparePosition(((e.clientX - rect.left) / rect.width) * 100);
+        };
+        wrap.addEventListener('pointerdown', (e) => {
+            e.preventDefault(); // block the browser's native image drag
+            dragging = true;
+            try {
+                wrap.setPointerCapture(e.pointerId);
+            } catch (captureError) {
+                // Not all pointer types support capture; dragging still works
+            }
+            positionFromEvent(e);
+        });
+        wrap.addEventListener('dragstart', (e) => e.preventDefault());
+        wrap.addEventListener('pointermove', (e) => {
+            if (dragging) positionFromEvent(e);
+        });
+        wrap.addEventListener('pointerup', () => { dragging = false; });
+        wrap.addEventListener('pointercancel', () => { dragging = false; });
+    }
+    window.addEventListener('resize', syncCompareImageWidth);
+});
+
+window.previewEnhancement = async function(triggerBtn, fileIndex = 0) {
+    const file = uploadedFiles[fileIndex];
+    if (!file) {
+        return;
+    }
+    const btn = triggerBtn || document.getElementById('enhancePreviewBtn');
+    const originalLabel = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = btn.classList.contains('preview-eye-btn')
+        ? '<i class="fas fa-cog spinning"></i>'
+        : '<i class="fas fa-cog spinning"></i> Making preview...';
+
+    try {
+        // Small client-side copy for a fast round-trip
+        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const scale = Math.min(1, 700 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+        const beforeUrl = URL.createObjectURL(blob);
+
+        const formData = new FormData();
+        formData.append('settings', JSON.stringify({
+            mode: 'optimize', quality: 92, qualityTier: 'lossy', format: 'jpg',
+            effects: buildEffectsSettings()
+        }));
+        formData.append('images[]', new File([blob], 'enhance-preview.jpg', { type: 'image/jpeg' }));
+        const response = await fetch('process.php', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (!result.success || !result.images || !result.images.length) {
+            throw new Error(result.error || 'Preview failed');
+        }
+
+        openComparePreview(beforeUrl, result.images[0].url, file.name);
+    } catch (error) {
+        alert('Could not create the preview: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalLabel;
+    }
+};
+
+// ===== Renamer: batch-rename results before downloading =====
+
+// Common replacers: toggleable transforms applied to the final name
+const renamerReplacers = {
+    lowercase: false, spaceToDash: false, spaceToUnderscore: false,
+    removeSpaces: false, removeAccents: false, removeCopyMarkers: false, urlSafe: false
+};
+
+function stripAccents(text) {
+    return text
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/ø/g, 'o').replace(/Ø/g, 'O')
+        .replace(/æ/g, 'ae').replace(/Æ/g, 'AE')
+        .replace(/œ/g, 'oe').replace(/Œ/g, 'OE')
+        .replace(/ß/g, 'ss');
+}
+
+// Fixed, predictable order: copy markers -> accents -> case -> spaces -> URL safe
+function applyRenamerReplacers(base) {
+    if (renamerReplacers.removeCopyMarkers) {
+        base = base
+            .replace(/\s*\(\d+\)/g, '')
+            .replace(/\s*[-–]?\s*(copy|kopie)(\s*\d+)?$/i, '');
+    }
+    if (renamerReplacers.removeAccents || renamerReplacers.urlSafe) {
+        base = stripAccents(base);
+    }
+    if (renamerReplacers.lowercase || renamerReplacers.urlSafe) {
+        base = base.toLowerCase();
+    }
+    if (renamerReplacers.spaceToDash) {
+        base = base.replace(/\s+/g, '-');
+    }
+    if (renamerReplacers.spaceToUnderscore) {
+        base = base.replace(/\s+/g, '_');
+    }
+    if (renamerReplacers.removeSpaces) {
+        base = base.replace(/\s+/g, '');
+    }
+    if (renamerReplacers.urlSafe) {
+        base = base
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9._-]/g, '')
+            .replace(/-{2,}/g, '-')
+            .replace(/^[-_.]+|[-_.]+$/g, '');
+    }
+    return base;
+}
+
+function getRenamerSettings() {
+    // Every search/replace row with a non-empty search becomes a rule,
+    // applied top to bottom
+    const pairs = [];
+    document.querySelectorAll('#renamerSearchRows .renamer-search-row').forEach((row) => {
+        const search = row.querySelector('.renamer-search-input')?.value ?? '';
+        const replace = row.querySelector('.renamer-replace-input')?.value ?? '';
+        if (search !== '') {
+            pairs.push([search, replace]);
+        }
+    });
+    return {
+        pattern: document.getElementById('renamerPattern')?.value ?? '{name}',
+        pairs,
+        start: parseInt(document.getElementById('renamerStart')?.value, 10) || 1,
+        prefix: document.getElementById('renamerPrefix')?.value ?? '',
+        suffix: document.getElementById('renamerSuffix')?.value ?? '',
+        regex: (document.getElementById('renamerRegex')?.value ?? '').slice(0, 200),
+        regexReplace: document.getElementById('renamerRegexReplace')?.value ?? '',
+        regexIgnoreCase: !!document.getElementById('renamerRegexIgnoreCase')?.checked
+    };
+}
+
+window.toggleRenamerSection = function(headerBtn) {
+    const body = headerBtn.nextElementSibling;
+    const chevron = headerBtn.querySelector('i');
+    if (!body) {
+        return;
+    }
+    const opening = body.style.display === 'none';
+    body.style.display = opening ? '' : 'none';
+    headerBtn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    if (chevron) {
+        chevron.classList.toggle('fa-chevron-right', !opening);
+        chevron.classList.toggle('fa-chevron-down', opening);
+    }
+};
+
+window.showRegexInfo = function() {
+    document.getElementById('regexInfoModal').style.display = 'block';
+};
+
+window.addRenamerSearchRow = function() {
+    const container = document.getElementById('renamerSearchRows');
+    if (!container) {
+        return;
+    }
+    const row = document.createElement('div');
+    row.className = 'renamer-row renamer-search-row renamer-search-row-extra';
+    row.innerHTML = `
+        <div class="renamer-field">
+            <input type="text" class="renamer-search-input" placeholder="Search" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="renamer-field">
+            <input type="text" class="renamer-replace-input" placeholder="leave empty to remove" autocomplete="off" spellcheck="false">
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm renamer-row-btn" title="Remove this rule" aria-label="Remove this rule">
+            <i class="fas fa-minus"></i>
+        </button>
+    `;
+    row.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', updateRenamerPreview));
+    row.querySelector('.renamer-row-btn').addEventListener('click', () => {
+        row.remove();
+        updateRenamerPreview();
+    });
+    container.appendChild(row);
+    row.querySelector('.renamer-search-input').focus();
+};
+
+// Only show the helper fields the current pattern actually uses
+function updateRenamerFieldVisibility() {
+    const pattern = document.getElementById('renamerPattern')?.value ?? '';
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+    show('renamerStartField', /\{n{1,3}\}/.test(pattern));
+    show('renamerPrefixField', pattern.includes('{prefix}'));
+    show('renamerSuffixField', pattern.includes('{suffix}'));
+}
+
+function computeRenamedNames() {
+    const { pattern, pairs, start, prefix, suffix, regex, regexReplace, regexIgnoreCase } = getRenamerSettings();
+    let regexRule = null;
+    if (regex) {
+        try {
+            regexRule = new RegExp(regex, regexIgnoreCase ? 'gi' : 'g');
+        } catch (e) {
+            regexRule = null; // invalid pattern: skip silently, error shown in the preview UI
+        }
+    }
+    const today = new Date();
+    const yyyy = String(today.getFullYear());
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    let sawIllegalChar = false;
+    let duplicateCount = 0;
+    const takenNames = new Set();
+
+    const results = processedImages.map((image, index) => {
+        // Base on the CURRENT name so Apply can be used multiple times,
+        // each round building on the previous one
+        let base = splitFilename(image.name).base;
+        pairs.forEach(([search, replace]) => {
+            base = base.split(search).join(replace);
+        });
+        if (regexRule) {
+            base = base.replace(regexRule, regexReplace);
+        }
+
+        const counter = start + index;
+        let newBase = pattern
+            .split('{prefix}').join(prefix)
+            .split('{suffix}').join(suffix)
+            .split('{name}').join(base)
+            .split('{nnn}').join(String(counter).padStart(3, '0'))
+            .split('{nn}').join(String(counter).padStart(2, '0'))
+            .split('{n}').join(String(counter))
+            .split('{date}').join(dateStr)
+            .split('{yyyy}').join(yyyy)
+            .split('{yy}').join(yyyy.slice(-2))
+            .split('{mm}').join(mm)
+            .split('{dd}').join(dd);
+
+        newBase = applyRenamerReplacers(newBase);
+
+        // Slashes, backslashes and colons are folder/drive separators
+        if (/[\\/:]/.test(newBase)) {
+            sawIllegalChar = true;
+            newBase = newBase.replace(/[\\/:]+/g, '-');
+        }
+        newBase = sanitizeFilenameBase(newBase) || 'image';
+
+        const extension = splitFilename(image.name).extension || '';
+        let candidate = newBase + extension;
+        let dupCounter = 1;
+        while (takenNames.has(candidate.toLowerCase())) {
+            candidate = newBase + '-' + dupCounter + extension;
+            dupCounter++;
+        }
+        if (dupCounter > 1) {
+            duplicateCount++;
+        }
+        takenNames.add(candidate.toLowerCase());
+
+        return {
+            before: image.name,
+            beforeHtml: markRenamerMatches(splitFilename(image.name).base, pairs, regexRule) +
+                escapeHtml(splitFilename(image.name).extension || ''),
+            after: candidate
+        };
+    });
+
+    return { results, sawIllegalChar, duplicateCount };
+}
+
+// Strike through the parts of the original name that the search rules
+// and the regex will replace or remove
+function markRenamerMatches(base, pairs, regexRule) {
+    const ranges = [];
+    pairs.forEach(([search]) => {
+        if (!search) {
+            return;
+        }
+        let idx = 0;
+        while ((idx = base.indexOf(search, idx)) !== -1) {
+            ranges.push([idx, idx + search.length]);
+            idx += search.length;
+        }
+    });
+    if (regexRule) {
+        regexRule.lastIndex = 0;
+        let match;
+        while ((match = regexRule.exec(base)) !== null) {
+            if (match[0] === '') {
+                regexRule.lastIndex++;
+                continue;
+            }
+            ranges.push([match.index, match.index + match[0].length]);
+        }
+        regexRule.lastIndex = 0;
+    }
+    if (!ranges.length) {
+        return escapeHtml(base);
+    }
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [ranges[0].slice()];
+    ranges.slice(1).forEach((range) => {
+        const last = merged[merged.length - 1];
+        if (range[0] <= last[1]) {
+            last[1] = Math.max(last[1], range[1]);
+        } else {
+            merged.push(range.slice());
+        }
+    });
+    let html = '';
+    let pos = 0;
+    merged.forEach(([start, end]) => {
+        html += escapeHtml(base.slice(pos, start)) + '<s>' + escapeHtml(base.slice(start, end)) + '</s>';
+        pos = end;
+    });
+    return html + escapeHtml(base.slice(pos));
+}
+
+let renamerPreviewExpanded = false;
+
+window.toggleRenamerPreviewExpand = function() {
+    renamerPreviewExpanded = !renamerPreviewExpanded;
+    updateRenamerPreview();
+};
+
+function updateRenamerPreview() {
+    updateRenamerFieldVisibility();
+    // Live regex validation feedback
+    const regexInput = document.getElementById('renamerRegex');
+    const regexErrorEl = document.getElementById('renamerRegexError');
+    if (regexInput && regexErrorEl) {
+        let regexOk = true;
+        if (regexInput.value) {
+            try {
+                new RegExp(regexInput.value);
+            } catch (e) {
+                regexOk = false;
+            }
+        }
+        regexErrorEl.style.display = regexOk ? 'none' : 'block';
+    }
+    const previewEl = document.getElementById('renamerPreview');
+    const hintEl = document.getElementById('renamerSlashHint');
+    if (!previewEl || !processedImages.length) {
+        return;
+    }
+
+    const { results, sawIllegalChar, duplicateCount } = computeRenamedNames();
+    const shown = renamerPreviewExpanded ? results : results.slice(0, 3);
+    let html = shown.map(r =>
+        `<div><span class="renamer-before">${r.beforeHtml || escapeHtml(r.before)}</span><span class="renamer-arrow">&rarr;</span><strong class="renamer-after">${escapeHtml(r.after)}</strong></div>`
+    ).join('');
+    if (results.length > 3) {
+        html += renamerPreviewExpanded
+            ? `<button type="button" class="renamer-more" onclick="toggleRenamerPreviewExpand()">Show fewer</button>`
+            : `<button type="button" class="renamer-more" onclick="toggleRenamerPreviewExpand()">&hellip;and ${results.length - 3} more &ndash; show all</button>`;
+    }
+    previewEl.innerHTML = html;
+
+    if (hintEl) {
+        hintEl.style.display = sawIllegalChar ? 'block' : 'none';
+    }
+
+    // Duplicate names get an automatic -1/-2 suffix; explain that
+    const dupHintEl = document.getElementById('renamerDupHint');
+    if (dupHintEl) {
+        if (duplicateCount > 0) {
+            const countEl = document.getElementById('renamerDupCount');
+            if (countEl) {
+                countEl.textContent = String(duplicateCount);
+            }
+            dupHintEl.style.display = 'block';
+        } else {
+            dupHintEl.style.display = 'none';
+        }
+    }
+}
+
+window.toggleRenamer = function() {
+    const panel = document.getElementById('renamerPanel');
+    if (!panel) {
+        return;
+    }
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? 'block' : 'none';
+    if (opening) {
+        updateRenamerPreview();
+    }
+};
+
+// Clears every rename control back to neutral (names stay as they are)
+function resetRenamerForm() {
+    const patternInput = document.getElementById('renamerPattern');
+    const searchInput = document.getElementById('renamerSearch');
+    const replaceInput = document.getElementById('renamerReplace');
+    const startInput = document.getElementById('renamerStart');
+    const prefixInput = document.getElementById('renamerPrefix');
+    const suffixInput = document.getElementById('renamerSuffix');
+    if (patternInput) patternInput.value = '{name}';
+    if (searchInput) searchInput.value = '';
+    if (replaceInput) replaceInput.value = '';
+    if (startInput) startInput.value = '1';
+    if (prefixInput) prefixInput.value = '';
+    if (suffixInput) suffixInput.value = '';
+    Object.keys(renamerReplacers).forEach((key) => { renamerReplacers[key] = false; });
+    document.querySelectorAll('.renamer-replacer').forEach((btn) => btn.classList.remove('active'));
+    document.querySelectorAll('.renamer-search-row-extra').forEach((row) => row.remove());
+    const regexInput = document.getElementById('renamerRegex');
+    const regexReplaceInput = document.getElementById('renamerRegexReplace');
+    const regexCase = document.getElementById('renamerRegexIgnoreCase');
+    if (regexInput) regexInput.value = '';
+    if (regexReplaceInput) regexReplaceInput.value = '';
+    if (regexCase) regexCase.checked = false;
+}
+
+window.applyRenamer = function() {
+    if (!processedImages.length) {
+        return;
+    }
+    const { results } = computeRenamedNames();
+    processedImages.forEach((image, index) => {
+        // Remember the very first name once, so Reset can always go back
+        if (image.defaultName === undefined) {
+            image.defaultName = image.name;
+        }
+        image.name = results[index].after;
+    });
+    window.renderProcessedDownloadStep();
+    // Start the next round clean: the applied result is now the base,
+    // so another search/replace builds on top instead of starting over
+    resetRenamerForm();
+    updateRenamerPreview();
+};
+
+window.resetRenamer = function() {
+    let restored = false;
+    processedImages.forEach((image) => {
+        if (image.defaultName !== undefined) {
+            image.name = image.defaultName;
+            restored = true;
+        }
+    });
+    resetRenamerForm();
+    if (restored) {
+        window.renderProcessedDownloadStep();
+    }
+    updateRenamerPreview();
+};
+
+function insertRenamerToken(token) {
+    const input = document.getElementById('renamerPattern');
+    if (!input) {
+        return;
+    }
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    input.value = input.value.slice(0, start) + token + input.value.slice(end);
+    const caret = start + token.length;
+    input.focus();
+    input.setSelectionRange(caret, caret);
+    updateRenamerPreview();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    ['renamerPattern', 'renamerSearch', 'renamerReplace', 'renamerStart', 'renamerPrefix', 'renamerSuffix', 'renamerRegex', 'renamerRegexReplace'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('input', updateRenamerPreview);
+    });
+    document.getElementById('renamerRegexIgnoreCase')?.addEventListener('change', updateRenamerPreview);
+    document.querySelectorAll('.renamer-regex-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const regexInput = document.getElementById('renamerRegex');
+            const replaceInput = document.getElementById('renamerRegexReplace');
+            const caseInput = document.getElementById('renamerRegexIgnoreCase');
+            if (regexInput) regexInput.value = btn.dataset.regex || '';
+            if (replaceInput) replaceInput.value = btn.dataset.replace || '';
+            if (caseInput) caseInput.checked = btn.dataset.icase === '1';
+            updateRenamerPreview();
+        });
+    });
+    document.querySelectorAll('.renamer-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const patternInput = document.getElementById('renamerPattern');
+            if (patternInput) {
+                patternInput.value = btn.dataset.pattern;
+                updateRenamerPreview();
+                // Put the cursor where the typing should happen next
+                if (btn.dataset.pattern.includes('{prefix}')) {
+                    document.getElementById('renamerPrefix')?.focus();
+                } else if (btn.dataset.pattern.includes('{suffix}')) {
+                    document.getElementById('renamerSuffix')?.focus();
+                }
+            }
+        });
+    });
+    document.querySelectorAll('.renamer-token').forEach((btn) => {
+        // mousedown, so the pattern field's cursor position is not lost first
+        btn.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            insertRenamerToken(btn.dataset.token);
+        });
+    });
+    document.querySelectorAll('.renamer-replacer').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.replacer;
+            if (!(key in renamerReplacers)) {
+                return;
+            }
+            renamerReplacers[key] = !renamerReplacers[key];
+            btn.classList.toggle('active', renamerReplacers[key]);
+            updateRenamerPreview();
+        });
+    });
+});
 
 function normalizeRotationDegrees(degrees) {
     const normalized = ((degrees % 360) + 360) % 360;
@@ -537,7 +1200,9 @@ function canvasToBlob(canvas, mimeType, quality) {
 async function exportProcessedImageBlob(image) {
     const rotation = normalizeRotationDegrees(image.userRotation || 0);
     const mimeType = getMimeTypeForFilename(image.name);
-    const quality = getNumericQuality() / 100;
+    // Rotation is a lossless operation conceptually; re-encode at high quality
+    // instead of the batch slider value so a rotated download doesn't degrade
+    const quality = 0.95;
 
     if (rotation === 0) {
         const response = await fetch(image.url);
@@ -752,6 +1417,82 @@ function getQualityTier() {
     return 'lossy';
 }
 
+// Quality control: percentage or a target file size (mutually exclusive tabs)
+let qualityControlMode = 'percent'; // 'percent' | 'target'
+let currentTargetKB = 200;
+
+function getTargetKB() {
+    if (currentTargetKB === 'custom') {
+        const val = parseInt(document.getElementById('targetSizeKb')?.value, 10);
+        return Number.isFinite(val) ? Math.max(10, Math.min(10240, val)) : null;
+    }
+    return currentTargetKB;
+}
+
+function isTargetSizeActive() {
+    return qualityControlMode === 'target' && selectedFormat !== 'png';
+}
+
+function setQualityControlMode(mode) {
+    if (mode !== 'percent' && mode !== 'target') {
+        return;
+    }
+    if (mode === 'target' && selectedFormat === 'png') {
+        return;
+    }
+    qualityControlMode = mode;
+    document.querySelectorAll('.quality-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.qualityTab === mode);
+    });
+    const percentPanel = document.getElementById('qualityPercentPanel');
+    const targetPanel = document.getElementById('qualityTargetPanel');
+    if (percentPanel) {
+        percentPanel.style.display = mode === 'percent' ? 'block' : 'none';
+    }
+    if (targetPanel) {
+        targetPanel.style.display = mode === 'target' ? 'block' : 'none';
+    }
+    if (typeof updatePreviewOutputLabels === 'function') {
+        updatePreviewOutputLabels();
+    }
+}
+
+function setTargetSizePreset(value) {
+    const customRow = document.getElementById('customTargetSize');
+    document.querySelectorAll('.target-size-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.targetKb === String(value));
+    });
+    if (value === 'custom') {
+        currentTargetKB = 'custom';
+        if (customRow) {
+            customRow.style.display = 'block';
+        }
+    } else {
+        currentTargetKB = parseInt(value, 10) || 200;
+        if (customRow) {
+            customRow.style.display = 'none';
+        }
+    }
+    if (typeof updatePreviewOutputLabels === 'function') {
+        updatePreviewOutputLabels();
+    }
+}
+
+function updateQualityTabsForFormat() {
+    const targetTab = document.getElementById('qualityTabTarget');
+    const pngHint = document.getElementById('targetPngHint');
+    const lossy = selectedFormat !== 'png';
+    if (targetTab) {
+        targetTab.disabled = !lossy;
+    }
+    if (pngHint) {
+        pngHint.style.display = lossy ? 'none' : 'block';
+    }
+    if (!lossy && qualityControlMode === 'target') {
+        setQualityControlMode('percent');
+    }
+}
+
 function buildEffectsSettings() {
     return {
         blur: parseInt(effectSettings.blur, 10) || 0,
@@ -759,6 +1500,8 @@ function buildEffectsSettings() {
         brightness: parseInt(effectSettings.brightness, 10) || 100,
         contrast: parseInt(effectSettings.contrast, 10) || 100,
         saturation: parseInt(effectSettings.saturation, 10) || 100,
+        autoEnhance: effectSettings.autoEnhance || false,
+        autoEnhanceStrength: enhanceMode === 'auto' ? uiToServerStrength(autoEnhanceStrength) : 100,
         normalize: effectSettings.normalize || false,
         equalize: effectSettings.equalize || false,
         enhance: effectSettings.enhance || false,
@@ -770,6 +1513,14 @@ function buildEffectsSettings() {
 
 function getOutputPreviewLabel() {
     const format = (selectedFormat || 'webp').toUpperCase();
+    if (isTargetSizeActive()) {
+        const kb = getTargetKB();
+        if (kb) {
+            const sizeLabel = kb >= 1024 ? (kb / 1024).toFixed(kb % 1024 === 0 ? 0 : 1) + 'MB' : kb + 'KB';
+            return `→ ${format} ≤ ${sizeLabel}`;
+        }
+        return `→ ${format} target size`;
+    }
     const tier = getQualityTier();
     if (tier === 'near-lossless') {
         return `→ ${format} near-lossless`;
@@ -789,6 +1540,15 @@ function buildSettings(overrides = {}) {
         height = null;
     }
 
+    if (currentMode === 'resize') {
+        // Only send the dimension(s) the user is actually resizing by
+        if (selectedDimension === 'width') {
+            height = null;
+        } else if (selectedDimension === 'height') {
+            width = null;
+        }
+    }
+
     return Object.assign({
         mode: currentMode,
         cropMode: currentMode === 'crop'
@@ -796,6 +1556,9 @@ function buildSettings(overrides = {}) {
             : null,
         width: width,
         height: height,
+        resizeMode: currentMode === 'resize' ? selectedDimension : null,
+        noUpscale: currentMode === 'resize' ? !!document.getElementById('noUpscale')?.checked : false,
+        targetKB: isTargetSizeActive() ? getTargetKB() : null,
         quality: getNumericQuality(),
         qualityTier: getQualityTier(),
         alignment: currentMode === 'crop' ? (selectedAlignment || 'center-middle') : null,
@@ -824,6 +1587,24 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('check_imagick.php')
         .then(response => response.json())
         .then(data => {
+            if (data.formats) {
+                serverFormats = Object.assign({}, serverFormats, data.formats);
+            }
+            if (serverFormats.avifOutput) {
+                const avifBtn = document.getElementById('avifFormatBtn');
+                if (avifBtn) {
+                    avifBtn.style.display = '';
+                }
+            }
+            if (serverFormats.heicInput) {
+                if (window.Config && Array.isArray(Config.SUPPORTED_EXTENSIONS)) {
+                    Config.SUPPORTED_EXTENSIONS.push('heic', 'heif');
+                }
+                const picker = document.getElementById('fileInput');
+                if (picker && picker.accept && picker.accept.indexOf('heic') === -1) {
+                    picker.accept += ',image/heic,image/heif,.heic,.heif';
+                }
+            }
             if (!data.available) {
                 alert('Please enable Imagick on your server.');
                 // Disable all interactive elements
@@ -919,9 +1700,68 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (btn.dataset.effect) {
                     btn.classList.toggle('active');
                     effectSettings[btn.dataset.effect] = btn.classList.contains('active');
+                } else if (btn.dataset.qualityTab) {
+                    setQualityControlMode(btn.dataset.qualityTab);
+                } else if (btn.dataset.targetKb) {
+                    setTargetSizePreset(btn.dataset.targetKb);
+                } else if (btn.dataset.enhance) {
+                    setEnhanceMode(btn.dataset.enhance);
                 }
             });
         });
+
+        // Auto enhance strength slider
+        const strengthSlider = document.getElementById('autoStrengthSlider');
+        if (strengthSlider) {
+            strengthSlider.addEventListener('input', () => {
+                autoEnhanceStrength = parseInt(strengthSlider.value, 10) || 50;
+                const valueEl = document.getElementById('autoStrengthValue');
+                if (valueEl) {
+                    valueEl.textContent = autoEnhanceStrength + '%';
+                }
+                syncEnhanceUrl();
+            });
+        }
+
+        // Restore Auto enhance: the URL wins (?enhance=auto&strength=70, shareable),
+        // otherwise the last choice saved in this browser is applied
+        const applyEnhanceStrengthUi = (value) => {
+            const parsed = parseInt(value, 10);
+            if (isNaN(parsed)) {
+                return;
+            }
+            autoEnhanceStrength = Math.max(10, Math.min(100, parsed));
+            if (strengthSlider) {
+                strengthSlider.value = autoEnhanceStrength;
+            }
+            const valueEl = document.getElementById('autoStrengthValue');
+            if (valueEl) {
+                valueEl.textContent = autoEnhanceStrength + '%';
+            }
+        };
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('enhance') === 'auto') {
+            applyEnhanceStrengthUi(urlParams.get('strength'));
+            setEnhanceMode('auto');
+        } else if (!urlParams.has('enhance')) {
+            try {
+                const saved = JSON.parse(localStorage.getItem('easyImageEnhance') || 'null');
+                if (saved && saved.mode === 'auto') {
+                    applyEnhanceStrengthUi(saved.strength);
+                    setEnhanceMode('auto');
+                }
+            } catch (e) {
+                // No storage available; nothing to restore
+            }
+        }
+
+        // Custom target size input
+        const targetSizeInput = document.getElementById('targetSizeKb');
+        if (targetSizeInput) {
+            targetSizeInput.addEventListener('input', () => {
+                updatePreviewOutputLabels();
+            });
+        }
 
         // Alignment selection - separate event listener for alignment buttons
         document.querySelectorAll('.alignment-btn').forEach(btn => {
@@ -965,8 +1805,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (slider) {
                 slider.addEventListener('input', (e) => {
                     const effectName = sliderId.replace('Slider', '');
-                    effectSettings[effectName] = e.target.value;
+                    effectSettings[effectName] = parseInt(e.target.value, 10);
                     e.target.nextElementSibling.textContent = e.target.value + '%';
+                    noteManualEffectChange();
                 });
             }
         });
@@ -1012,6 +1853,7 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', () => {
                 btn.classList.toggle('active');
                 effectSettings[btn.dataset.effect] = btn.classList.contains('active');
+                noteManualEffectChange();
             });
         });
 
@@ -1125,10 +1967,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const widthInput = document.getElementById('widthInput');
         const heightInput = document.getElementById('heightInput');
         const resizePresets = document.getElementById('resizePresets');
+        const fitBoxHelp = document.getElementById('fitBoxHelp');
+
+        if (fitBoxHelp) {
+            fitBoxHelp.style.display = currentMode === 'resize' && selectedDimension === 'fit' ? 'block' : 'none';
+        }
 
         if (currentMode === 'optimize' || currentMode === 'custom') {
             widthInput.style.display = 'none';
             heightInput.style.display = 'none';
+            if (resizePresets) {
+                resizePresets.style.display = 'none';
+            }
+            return;
+        }
+
+        if (currentMode === 'resize' && selectedDimension === 'fit') {
+            widthInput.style.display = 'block';
+            heightInput.style.display = 'block';
             if (resizePresets) {
                 resizePresets.style.display = 'none';
             }
@@ -1208,6 +2064,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 settings.width = parseInt(widthVal, 10);
             } else if (selectedDimension === 'height' && heightVal) {
                 settings.height = parseInt(heightVal, 10);
+            } else if (selectedDimension === 'fit') {
+                if (widthVal) {
+                    settings.width = parseInt(widthVal, 10);
+                }
+                if (heightVal) {
+                    settings.height = parseInt(heightVal, 10);
+                }
             }
         } else if (currentMode === 'crop') {
             const widthVal = document.getElementById('width')?.value;
@@ -1285,7 +2148,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setDimension(dimension) {
-        if (dimension !== 'width' && dimension !== 'height') {
+        if (dimension !== 'width' && dimension !== 'height' && dimension !== 'fit') {
             return;
         }
 
@@ -1430,7 +2293,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setFormat(format) {
-        if (format !== 'jpg' && format !== 'png' && format !== 'webp') {
+        if (format !== 'jpg' && format !== 'png' && format !== 'webp' && format !== 'avif') {
+            return;
+        }
+        if (format === 'avif' && !serverFormats.avifOutput) {
             return;
         }
 
@@ -1442,6 +2308,7 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.classList.add('active');
         }
         selectedFormat = format;
+        updateQualityTabsForFormat();
         updatePreviewOutputLabels();
         syncUrlFromSettings();
     }
@@ -1516,6 +2383,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleFiles(files) {
         const validFiles = Array.from(files).filter(file => {
+            if (isHeicFile(file) && !serverFormats.heicInput) {
+                alert(`${file.name}: HEIC photos are not supported on this server. Please convert to JPG first (on iPhone: Settings > Camera > Formats > Most Compatible).`);
+                return false;
+            }
             const isValid = Config.validateFile(file);
             if (!isValid) {
                 alert(`Invalid file: ${file.name}. Please select a valid image file.`);
@@ -1603,6 +2474,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="remove-btn" onclick="removeFile(${index})" type="button" aria-label="Remove ${escapeHtml(file.name)}">
                     <i class="fas fa-times"></i>
                 </button>
+                <button class="preview-eye-btn enhance-preview-trigger" onclick="previewEnhancement(this, ${index})" type="button" style="display: none;" title="Show enhance preview" aria-label="Show enhance preview of ${escapeHtml(file.name)}">
+                    <i class="fas fa-eye"></i>
+                </button>
             `;
             previewContainer.appendChild(previewItem);
 
@@ -1665,6 +2539,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+
+        // After the thumbnails exist, so the per-image eye buttons get their visibility
+        updateEnhanceUi();
     }
 
     window.removeFile = function(index) {
@@ -1692,12 +2569,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const hasCropData = Object.keys(cropDataMap).length > 0;
-        const hasPreCropped = Object.values(preCroppedFiles).some(Boolean);
         if (hasCropData) {
             validateCropDataForAllFiles(files, cropDataMap);
         }
 
-        const forceSingleFile = files.length > 1 || hasCropData || hasPreCropped || anyLargeFiles(files);
+        const forceSingleFile = files.length > 1 || hasCropData || anyLargeFiles(files);
         const batches = buildUploadBatches(files, forceSingleFile);
 
         const setProgress = (message) => {
@@ -1718,22 +2594,105 @@ document.addEventListener('DOMContentLoaded', function() {
         setProgress('<i class="fas fa-cog spinning"></i> Processing...');
 
         const allProcessedImages = [];
-        const totalBatches = batches.length;
+        const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        let cancelledByUser = false;
+
         let tossToyWait = Promise.resolve();
         if (window.TossToyBridge) {
             try {
-                tossToyWait = window.TossToyBridge.start(files, fileFlags) || Promise.resolve();
+                tossToyWait = window.TossToyBridge.start(files, fileFlags, {
+                    onCancel: function () {
+                        cancelledByUser = true;
+                        if (abortController) {
+                            abortController.abort();
+                        }
+                    }
+                }) || Promise.resolve();
             } catch (tossToyError) {
                 console.warn('[TossToy] start failed:', tossToyError);
             }
         }
 
         try {
-            for (let batchNum = 0; batchNum < batches.length; batchNum++) {
-                const batchEntry = batches[batchNum];
+            let completedFiles = 0;
+
+            const reportProgress = () => {
+                const progress = Math.min(100, Math.round(completedFiles / files.length * 100));
+                setProgress(
+                    `<i class="fas fa-cog spinning"></i> Processing... ${completedFiles}/${files.length} (${progress}%)`
+                );
+            };
+            reportProgress();
+
+            const sendBatchRequest = async (batch, batchSettings, batchCropData) => {
+                const formData = new FormData();
+                formData.append('settings', JSON.stringify(batchSettings));
+                batch.forEach((file, batchIndex) => {
+                    formData.append('images[]', file);
+                    if (batchCropData[batchIndex]) {
+                        formData.append(`cropData[${batchIndex}]`, JSON.stringify(batchCropData[batchIndex]));
+                    }
+                });
+
+                let response;
+                try {
+                    response = await fetch('process.php', {
+                        method: 'POST',
+                        body: formData,
+                        signal: abortController ? abortController.signal : undefined
+                    });
+                } catch (networkError) {
+                    if (cancelledByUser || networkError.name === 'AbortError') {
+                        const error = new Error('Processing stopped.');
+                        error.cancelled = true;
+                        throw error;
+                    }
+                    const error = new Error('Network error while uploading. Please check your connection.');
+                    error.transient = true;
+                    throw error;
+                }
+
+                const responseText = await response.text();
+                let result;
+
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    let error;
+                    if (responseText.includes('Internal Server Error') || responseText.includes('<!DOCTYPE')) {
+                        error = new Error(
+                            'Server error while processing (often a PHP timeout on large images). ' +
+                            'Try one image at a time, or increase max_execution_time in MAMP PHP settings.'
+                        );
+                    } else {
+                        error = new Error(responseText || 'Invalid server response');
+                    }
+                    error.transient = true;
+                    throw error;
+                }
+
+                if (!response.ok) {
+                    const error = new Error(result.error || `HTTP error! status: ${response.status}`);
+                    // Server errors are worth one retry; validation errors (4xx) are not
+                    error.transient = response.status >= 500;
+                    throw error;
+                }
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Processing failed');
+                }
+
+                return result;
+            };
+
+            const processBatch = async (batchEntry) => {
                 const batch = batchEntry.files;
                 const i = batchEntry.startIndex;
-                const currentBatch = batchNum + 1;
+
+                const finishBatch = () => {
+                    completedFiles += batch.length;
+                    reportProgress();
+                };
 
                 const batchValidationError = validateBatchAgainstServerLimits(batch);
                 if (batchValidationError) {
@@ -1745,7 +2704,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             error: batchValidationError
                         });
                     });
-                    continue;
+                    finishBatch();
+                    return;
                 }
 
                 const batchSettings = Object.assign({}, settings);
@@ -1758,103 +2718,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
 
-                const batchPreCropped = {};
-                batch.forEach((file, batchIndex) => {
-                    const globalIndex = i + batchIndex;
-                    if (preCroppedFiles[globalIndex]) {
-                        batchPreCropped[batchIndex] = true;
-                    }
-                });
-
                 if (Object.keys(batchCropData).length > 0) {
                     batchSettings.cropData = batchCropData;
                 }
-                if (Object.keys(batchPreCropped).length > 0) {
-                    batchSettings.preCropped = batchPreCropped;
-                }
 
-                const usePerImageProgress = forceSingleFile && files.length > 1;
-                const progressLabel = usePerImageProgress
-                    ? `Processing image ${currentBatch}/${files.length}...`
-                    : `Processing batch ${currentBatch}/${totalBatches}...`;
-                setProgress(`<i class="fas fa-cog spinning"></i> ${progressLabel}`);
-
-                const formData = new FormData();
-                formData.append('settings', JSON.stringify(batchSettings));
-
-                batch.forEach((file, batchIndex) => {
-                    formData.append('images[]', file);
-                    if (batchCropData[batchIndex]) {
-                        formData.append(`cropData[${batchIndex}]`, JSON.stringify(batchCropData[batchIndex]));
-                    }
-                });
-
+                let result;
                 try {
-                    const response = await fetch('process.php', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const responseText = await response.text();
-                    let result;
-
                     try {
-                        result = JSON.parse(responseText);
-                    } catch (parseError) {
-                        if (responseText.includes('Internal Server Error') || responseText.includes('<!DOCTYPE')) {
-                            throw new Error(
-                                'Server error while processing (often a PHP timeout on large images). ' +
-                                'Try one image at a time, or increase max_execution_time in MAMP PHP settings.'
-                            );
+                        result = await sendBatchRequest(batch, batchSettings, batchCropData);
+                    } catch (error) {
+                        if (error.cancelled || !error.transient) {
+                            throw error;
                         }
-                        throw new Error(responseText || 'Invalid server response');
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(result.error || `HTTP error! status: ${response.status}`);
-                    }
-
-                    if (result.success) {
-                        result.images.forEach((image, batchIndex) => {
-                            const globalIndex = i + batchIndex;
-                            allProcessedImages.push({
-                                ...image,
-                                sourceIndex: globalIndex,
-                                originalName: image.originalName || batch[batchIndex].name,
-                                userRotation: 0
-                            });
-                            if (window.TossToyBridge) {
-                                try {
-                                    window.TossToyBridge.imageDone(globalIndex);
-                                } catch (tossToyError) {
-                                    console.warn('[TossToy] imageDone failed:', tossToyError);
-                                }
-                            }
-                        });
-
-                        if (Array.isArray(result.errors) && result.errors.length > 0) {
-                            result.errors.forEach((errorMessage) => {
-                                failures.push({
-                                    index: i,
-                                    name: batch[0]?.name || `Image ${i + 1}`,
-                                    error: errorMessage
-                                });
-                            });
-                        }
-
-                        if (ORIENT_DEBUG && Array.isArray(result.orientationDebug)) {
-                            lastOrientationDebugReports = lastOrientationDebugReports.concat(result.orientationDebug);
-                            if (result.orientationLogFile) {
-                                lastOrientationLogFile = result.orientationLogFile;
-                            }
-                        }
-
-                        const progress = Math.min(100, Math.round((i + batch.length) / files.length * 100));
-                        setProgress(`<i class="fas fa-cog spinning"></i> Processing... ${progress}%`);
-                    } else {
-                        throw new Error(result.error || 'Processing failed');
+                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                        result = await sendBatchRequest(batch, batchSettings, batchCropData);
                     }
                 } catch (error) {
+                    if (error.cancelled) {
+                        // User chose to stop; not a failure worth reporting
+                        return;
+                    }
                     lastError = error;
                     batch.forEach((file, batchIndex) => {
                         failures.push({
@@ -1863,14 +2746,65 @@ document.addEventListener('DOMContentLoaded', function() {
                             error: error.message
                         });
                     });
+                    finishBatch();
+                    return;
                 }
 
-                if (batchNum < batches.length - 1) {
-                    const nextFile = batches[batchNum + 1].files[0];
-                    const nextIndex = batches[batchNum + 1].startIndex;
-                    const delayMs = getInterBatchDelayMs(nextFile, nextIndex);
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                result.images.forEach((image, batchIndex) => {
+                    const globalIndex = i + batchIndex;
+                    const originalName = image.originalName || batch[batchIndex].name;
+                    allProcessedImages.push({
+                        ...image,
+                        sourceIndex: globalIndex,
+                        originalName,
+                        name: displayFilenameFor(originalName, image.name),
+                        userRotation: 0
+                    });
+                    if (window.TossToyBridge) {
+                        try {
+                            window.TossToyBridge.imageDone(globalIndex);
+                        } catch (tossToyError) {
+                            console.warn('[TossToy] imageDone failed:', tossToyError);
+                        }
+                    }
+                });
+
+                if (Array.isArray(result.errors) && result.errors.length > 0) {
+                    result.errors.forEach((errorMessage) => {
+                        failures.push({
+                            index: i,
+                            name: batch[0]?.name || `Image ${i + 1}`,
+                            error: errorMessage
+                        });
+                    });
                 }
+
+                if (ORIENT_DEBUG && Array.isArray(result.orientationDebug)) {
+                    lastOrientationDebugReports = lastOrientationDebugReports.concat(result.orientationDebug);
+                    if (result.orientationLogFile) {
+                        lastOrientationLogFile = result.orientationLogFile;
+                    }
+                }
+
+                finishBatch();
+            };
+
+            // Worker pool: several uploads in flight at once instead of one
+            // request at a time with fixed sleeps in between
+            let nextBatchIndex = 0;
+            const workerCount = Math.max(1, Math.min(MAX_PARALLEL_UPLOADS, batches.length));
+            const workers = Array.from({ length: workerCount }, () => (async () => {
+                while (!cancelledByUser && nextBatchIndex < batches.length) {
+                    const batchEntry = batches[nextBatchIndex];
+                    nextBatchIndex += 1;
+                    await processBatch(batchEntry);
+                }
+            })());
+            await Promise.all(workers);
+
+            if (cancelledByUser && allProcessedImages.length === 0) {
+                // User stopped processing before anything finished; just restore the UI
+                return;
             }
 
             if (allProcessedImages.length === 0) {
@@ -1887,6 +2821,21 @@ document.addEventListener('DOMContentLoaded', function() {
             await tossToyWait;
 
             allProcessedImages.sort((a, b) => (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0));
+
+            // Two uploads with the same name must not download as the same file
+            const takenNames = new Set();
+            allProcessedImages.forEach((image) => {
+                const { base, extension } = splitFilename(image.name);
+                let candidate = image.name;
+                let counter = 1;
+                while (takenNames.has(candidate.toLowerCase())) {
+                    candidate = `${base}-${counter}${extension}`;
+                    counter++;
+                }
+                takenNames.add(candidate.toLowerCase());
+                image.name = candidate;
+            });
+
             processedImages = allProcessedImages.map((image) => ({
                 ...image,
                 userRotation: normalizeRotationDegrees(image.userRotation || 0)
@@ -2092,9 +3041,23 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if (settings.mode === 'resize' && selectedDimension === 'fit' && (!settings.width || !settings.height)) {
+            alert('Please enter both a width and a height for the fit box');
+            return;
+        }
+
+        if (isTargetSizeActive() && !getTargetKB()) {
+            alert('Please enter a target size in KB, or switch to Quality %.');
+            return;
+        }
+
+        if ((settings.mode === 'crop' || settings.mode === 'custom') && uploadedFiles.some(isHeicFile)) {
+            alert('HEIC photos can\'t be shown in the crop editor by the browser. Use Resize or Optimize for HEIC photos, or convert them to JPG first.');
+            return;
+        }
+
         if (settings.mode === 'crop' && settings.cropMode === 'manual') {
             pendingCropData = {};
-            preCroppedFiles = {};
             cropEditorMode = 'crop';
             currentImageIndex = 0;
             editCrop(0);
@@ -2103,7 +3066,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (settings.mode === 'custom') {
             pendingCropData = {};
-            preCroppedFiles = {};
             cropEditorMode = 'custom';
             currentImageIndex = 0;
             editCrop(0);
@@ -2117,6 +3079,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateModeOptions();
     updateDimensionInputs();
     updateQualitySlider();
+    updateQualityTabsForFormat();
     applyUrlSettingsFromLocation();
 
     async function loadProcessingStats() {
@@ -2211,9 +3174,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function validateCropDataForAllFiles(files, cropDataMap) {
         const missing = [];
         for (let i = 0; i < files.length; i++) {
-            if (preCroppedFiles[i]) {
-                continue;
-            }
             if (!cropDataMap[i]) {
                 missing.push(files[i].name || `Image ${i + 1}`);
             }
@@ -2390,7 +3350,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 outputEl.textContent = `${targetW} × ${targetH} px`;
             }
         }
+
+        // Selection smaller than the output: warn, and only allow
+        // continuing when the user explicitly accepts enlarging
+        let tooSmall = false;
+        if (cropEditorMode !== 'custom') {
+            const { width: targetW, height: targetH } = getTargetCropDimensions();
+            tooSmall = selW < targetW || selH < targetH;
+        }
+        if (selectionEl) {
+            selectionEl.classList.toggle('crop-selection-small', tooSmall);
+        }
+        const warnIcon = document.getElementById('cropSelectionWarnIcon');
+        if (warnIcon) {
+            warnIcon.style.display = tooSmall ? '' : 'none';
+        }
+        const upscaleSwitch = document.getElementById('cropUpscaleInline');
+        if (upscaleSwitch) {
+            upscaleSwitch.style.display = tooSmall ? '' : 'none';
+        }
+        const applyBtn = document.getElementById('applyCropBtn');
+        if (applyBtn && cropperReady) {
+            applyBtn.disabled = tooSmall && !window.allowCropUpscale;
+        }
     }
+    window.refreshCropReadout = updateCropDimensionReadout;
 
     function getTargetCropDimensions() {
         const width = parseInt(document.getElementById('width').value, 10) || 400;
@@ -2639,11 +3623,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     syncCropPreviewMetaFromCropper(currentImageIndex);
                     configureCropMinConstraints();
                     initializeMaxCropBox();
-                    updateCropDimensionReadout();
                     cropperReady = true;
                     if (applyCropBtn) {
                         applyCropBtn.disabled = false;
                     }
+                    // After enabling: re-evaluates the too-small state and
+                    // disables again when enlarging is not allowed
+                    updateCropDimensionReadout();
                 }
             }));
         }
@@ -2678,10 +3664,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const sourceCropWidth = Math.max(1, Math.round(data.width * scaleX));
             const sourceCropHeight = Math.max(1, Math.round(data.height * scaleY));
 
-            if (cropEditorMode !== 'custom') {
+            if (cropEditorMode !== 'custom' && !window.allowCropUpscale) {
                 const { width: minW, height: minH } = getTargetCropDimensions();
                 if (sourceCropWidth < minW || sourceCropHeight < minH) {
-                    alert(`Selection must be at least ${minW}×${minH} pixels.`);
+                    alert(`Selection must be at least ${minW}×${minH} pixels, or turn on "Allow enlarging" below the size info.`);
                     return;
                 }
             }
@@ -2691,22 +3677,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const file = uploadedFiles[currentImageIndex];
-
-            if (meta.usesFullPreview) {
-                uploadedFiles[currentImageIndex] = await createCroppedFileFromCropper(file, cropper, {
-                    mode: cropEditorMode,
-                    targetWidth: getTargetCropDimensions().width,
-                    targetHeight: getTargetCropDimensions().height,
-                    sourceWidth: meta.sourceWidth,
-                    sourceHeight: meta.sourceHeight
-                });
-                preCroppedFiles[currentImageIndex] = true;
-                delete pendingCropData[currentImageIndex];
-            } else {
-                pendingCropData[currentImageIndex] = mapCropDataToSourceSpace(data, meta, imageData);
-                delete preCroppedFiles[currentImageIndex];
-            }
+            // Always crop server-side from coordinates: the original file is uploaded
+            // untouched and Imagick does a single Lanczos resample + encode, instead
+            // of a lossy canvas re-encode followed by a second server encode.
+            pendingCropData[currentImageIndex] = mapCropDataToSourceSpace(data, meta, imageData);
 
             if (currentImageIndex < uploadedFiles.length - 1) {
                 editCrop(currentImageIndex + 1);
@@ -2881,6 +3855,19 @@ window.downloadProcessedImage = async function(index) {
     }
 };
 
+// Ask the server to sweep files older than 30 minutes; fire-and-forget
+function pingServerCleanup() {
+    try {
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('cleanup.php');
+        } else {
+            fetch('cleanup.php', { method: 'POST', keepalive: true }).catch(() => {});
+        }
+    } catch (e) {
+        // Cleanup is best-effort; never interrupt a download
+    }
+}
+
 window.downloadImage = function(url, filename) {
     const link = document.createElement('a');
     link.href = url;
@@ -2888,6 +3875,7 @@ window.downloadImage = function(url, filename) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    pingServerCleanup();
 };
 
 window.downloadAll = async function() {
@@ -2896,16 +3884,39 @@ window.downloadAll = async function() {
         return;
     }
 
+    const downloadAllBtn = document.querySelector('.download-all');
+    const originalLabel = downloadAllBtn ? downloadAllBtn.innerHTML : '';
+    const setLabel = (html) => {
+        if (downloadAllBtn) {
+            downloadAllBtn.innerHTML = html;
+        }
+    };
+    if (downloadAllBtn) {
+        downloadAllBtn.disabled = true;
+    }
+
     try {
         const zip = new JSZip();
+        let fetched = 0;
+        setLabel(`<i class="fas fa-cog spinning"></i> Zipping... 0/${processedImages.length}`);
 
-        for (let i = 0; i < processedImages.length; i++) {
-            const image = processedImages[i];
-            const blob = await exportProcessedImageBlob(image);
-            zip.file(image.name, blob);
-        }
+        // Fetch a few blobs at a time instead of strictly one-by-one
+        let nextIndex = 0;
+        const workers = Array.from({ length: Math.min(4, processedImages.length) }, () => (async () => {
+            while (nextIndex < processedImages.length) {
+                const index = nextIndex;
+                nextIndex += 1;
+                const image = processedImages[index];
+                const blob = await exportProcessedImageBlob(image);
+                zip.file(image.name, blob);
+                fetched += 1;
+                setLabel(`<i class="fas fa-cog spinning"></i> Zipping... ${fetched}/${processedImages.length}`);
+            }
+        })());
+        await Promise.all(workers);
 
-        const content = await zip.generateAsync({type: 'blob'});
+        // STORE: the images are already compressed; deflating them again is slow for nothing
+        const content = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
         link.download = 'processed_images.zip';
@@ -2913,8 +3924,14 @@ window.downloadAll = async function() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
+        pingServerCleanup();
     } catch (error) {
         alert('Error creating zip file. Please try downloading images individually.');
+    } finally {
+        if (downloadAllBtn) {
+            downloadAllBtn.disabled = false;
+            downloadAllBtn.innerHTML = originalLabel;
+        }
     }
 };
 

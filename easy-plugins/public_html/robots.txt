@@ -1,0 +1,51 @@
+# easy-plugins.com — welcome, crawlers.
+# Search engines and AI assistants are explicitly allowed.
+
+User-agent: *
+Allow: /
+Disallow: /uploads/
+Disallow: /easy-image/uploads/
+Disallow: /easy-image/check_imagick.php
+Disallow: /easy-image/check_limits.php
+Disallow: /easy-image/metrics.php
+Disallow: /easy-html/api/
+Disallow: /shared/
+
+# AI crawlers — explicitly welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+Sitemap: https://easy-plugins.com/sitemap.xml

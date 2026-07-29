@@ -1,0 +1,7 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Easy Plugins">
+  <!-- The nerd: glasses + smile. Tools that make life simple. -->
+  <circle cx="14" cy="17" r="7" fill="none" stroke="#4CAF50" stroke-width="4.4"/>
+  <circle cx="34" cy="17" r="7" fill="none" stroke="#66BB6A" stroke-width="4.4"/>
+  <line x1="21" y1="17" x2="27" y2="17" stroke="#4CAF50" stroke-width="3.8" stroke-linecap="round"/>
+  <path d="M9 33 C 15 41.5, 33 41.5, 39 33" fill="none" stroke="#43A047" stroke-width="5.2" stroke-linecap="round"/>
+</svg>

@@ -149,13 +149,19 @@ function toggleLanguage() {
 
 // Function to translate page
 function translatePage() {
-    // Translate elements with data-translate attribute
-    document.querySelectorAll('[data-translate]').forEach(element => {
-        const key = element.getAttribute('data-translate');
-        const translatedText = translate(key, element.textContent);
-        element.textContent = translatedText;
-    });
-    
+    // Keep the document language attribute in sync (accessibility + SEO)
+    document.documentElement.lang = currentLanguage === 'nl-NL' ? 'nl' : 'en';
+
+    const applyTranslations = () => {
+        document.querySelectorAll('[data-translate]').forEach(element => {
+            const key = element.getAttribute('data-translate');
+            const translatedText = translate(key, element.textContent);
+            element.textContent = translatedText;
+        });
+    };
+
+    applyTranslations();
+
     // Translate specific elements by ID
     const elementsToTranslate = {
         'title': 'HOME_TITLE',
@@ -166,51 +172,31 @@ function translatePage() {
         'nav-easy-pricing': 'NAV_EASY_PRICING',
         'nav-home': 'NAV_HOME'
     };
-    
+
     for (const [elementId, translationKey] of Object.entries(elementsToTranslate)) {
         const element = document.getElementById(elementId);
         if (element) {
             element.textContent = translate(translationKey, element.textContent);
         }
     }
-    
-    // Force translate with multiple attempts for dynamic content
-    setTimeout(() => {
-        document.querySelectorAll('[data-translate]').forEach(element => {
-            const key = element.getAttribute('data-translate');
-            const translatedText = translate(key, element.textContent);
-            element.textContent = translatedText;
-        });
-    }, 100);
-    
-    setTimeout(() => {
-        document.querySelectorAll('[data-translate]').forEach(element => {
-            const key = element.getAttribute('data-translate');
-            const translatedText = translate(key, element.textContent);
-            element.textContent = translatedText;
-        });
-    }, 500);
-    
-    setTimeout(() => {
-        document.querySelectorAll('[data-translate]').forEach(element => {
-            const key = element.getAttribute('data-translate');
-            const translatedText = translate(key, element.textContent);
-            element.textContent = translatedText;
-        });
-    }, 1000);
+
+    // One delayed pass for content rendered just after load
+    setTimeout(applyTranslations, 300);
 }
 
 // Function to initialize translations
 async function initializeTranslations() {
-    // Load saved language from cookie, then localStorage, then default to English
-    let savedLanguage = getCookie('selectedLanguage');
+    // The server decides the language for /nl/ URLs (html lang attribute wins);
+    // elsewhere fall back to cookie, then localStorage, then English
+    const serverLang = document.documentElement.lang === 'nl' ? 'nl-NL' : null;
+    let savedLanguage = serverLang || getCookie('selectedLanguage');
     if (!savedLanguage) {
         savedLanguage = localStorage.getItem('selectedLanguage');
     }
     if (!savedLanguage) {
         savedLanguage = 'en-GB';
     }
-    
+
     await changeLanguage(savedLanguage);
 }
 

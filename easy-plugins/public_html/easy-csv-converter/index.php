@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy CSV - Convert CSV Delimiters';
+$metaDescription = 'Convert CSV delimiters, replace text and transform date formats online. Handles quoted fields correctly. Everything stays in your browser.';
+$canonicalPath = '/easy-csv-converter/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -286,7 +288,7 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
     
     <!-- Initialize theme -->
     <script>

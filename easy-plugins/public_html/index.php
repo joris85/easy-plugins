@@ -1,6 +1,14 @@
-<?php 
+<?php
 $pageTitle = 'Easy Plugins - Simple Tools for Everyone';
-include 'shared/header.php'; 
+$metaDescription = 'Free online tools: resize, crop and compress images, clean HTML, convert CSV and text, calculate prices and more. No account, no installs, private by design.';
+$canonicalPath = '/';
+include 'shared/header.php';
+
+// Bilingual helpers: $L('English', 'Nederlands') and tool links per language
+$L = 'easyPluginsText';
+$toolHref = function ($slug) {
+    return easyPluginsIsNl() ? "/nl/{$slug}/" : "{$slug}/index.php";
+};
 ?>
     
     <!-- Hero Section -->
@@ -10,346 +18,209 @@ include 'shared/header.php';
                 <div class="col-lg-8">
                     <h1 class="hero-title" data-translate="HOME_TITLE">
                         <i class="fas fa-puzzle-piece me-3"></i>
-                        Easy Plugins
+                        <?= $L('Easy Plugins - Simple Tools for Everyone', 'Easy Plugins - Eenvoudige Tools voor Iedereen') ?>
                     </h1>
                     <p class="hero-subtitle" data-translate="HOME_SUBTITLE">
-                        Simple, powerful tools designed to make your work easier. 
-                        No complex setup, no learning curve - just results.
+                        <?= $L('Free, privacy-focused web tools for everyday tasks', 'Gratis, privacy-gerichte web tools voor dagelijkse taken') ?>
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Featured tool styles -->
+    <style>
+        .plugin-card.plugin-card-featured {
+            position: relative;
+            border: 2px solid #4CAF50 !important;
+            overflow: visible;
+        }
+        body.dark .plugin-card.plugin-card-featured,
+        html.dark .plugin-card.plugin-card-featured {
+            border: 2px solid #4CAF50 !important;
+        }
+        .plugin-card-featured .card-body {
+            padding: 2rem;
+        }
+        .featured-badge {
+            position: absolute;
+            top: -14px;
+            left: 1.5rem;
+            background: #4CAF50;
+            color: #fff;
+            padding: 0.3rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .featured-feature-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem 1.5rem;
+            margin: 0;
+            padding: 0;
+        }
+        .featured-feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            line-height: 1.4;
+        }
+        .featured-feature-list li i {
+            color: #4CAF50;
+            margin-top: 0.2rem;
+            flex-shrink: 0;
+        }
+        @media (max-width: 576px) {
+            .featured-feature-list {
+                grid-template-columns: 1fr;
+            }
+            .plugin-card-featured .card-body {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+
     <!-- Plugins Section -->
     <div class="container">
         <div class="row g-4 mb-5">
-            <!-- Easy Image -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
+            <!-- Easy Image (featured tool) -->
+            <div class="col-12">
+                <div class="plugin-card plugin-card-featured card shadow-sm">
                     <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-image/index.php" class="text-decoration-none">
-                                <i class="fas fa-image plugin-icon mb-2" style="color: #667eea; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-image/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_IMAGE_TITLE">Easy Image</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_IMAGE_DESC">
-                            Professional image processing tool with resize, crop, effects, and optimization features. Perfect for photographers, designers, and content creators who need powerful image editing capabilities without complex software.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-image/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Image <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-image" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy PNG -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-png/index.php" class="text-decoration-none">
-                                <i class="fas fa-file-image plugin-icon mb-2" style="color: #4CAF50; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-png/index.php" class="text-decoration-none">Easy PNG</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center">
-                            Add solid or gradient backgrounds to PNG, WebP, and SVG images with real-time preview. Transform transparent images into beautiful designs with customizable background colors and gradients.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-png/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy PNG <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-png" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy Pricing -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-pricing/index.php" class="text-decoration-none">
-                                <i class="fas fa-calculator plugin-icon mb-2" style="color: #28a745; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-pricing/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_PRICING_TITLE">Easy Pricing</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_PRICING_DESC">
-                            Calculate percentages, discounts, and VAT with ease. Perfect for businesses, freelancers, and anyone who needs quick and accurate pricing calculations without complex spreadsheets.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-pricing/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Pricing <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-pricing" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy HTML -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-html/index.php" class="text-decoration-none">
-                                <i class="fas fa-code plugin-icon mb-2" style="color: #dc3545; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-html/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_HTML_TITLE">Easy HTML</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_HTML_DESC">
-                            Clean and optimize your HTML code for better email client compatibility. Remove unnecessary code, fix formatting issues, and ensure your HTML works perfectly across all email clients.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-html/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy HTML <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-html" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy Text Converter -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-text-converter/index.php" class="text-decoration-none">
-                                <i class="fas fa-text-width plugin-icon mb-2" style="color: #17a2b8; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-text-converter/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_TEXT_TITLE">Easy Text Converter</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_TEXT_DESC">
-                            Transform your text with powerful conversion tools and get instant statistics. Convert between cases, encode/decode, count words, and analyze your text with comprehensive statistics.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-text-converter/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Text <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-text-converter" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy CSV Converter -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-csv-converter/index.php" class="text-decoration-none">
-                                <i class="fas fa-file-csv plugin-icon mb-2" style="color: #4CAF50; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-csv-converter/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_CSV_TITLE">Easy CSV Converter</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_CSV_DESC">
-                            Convert CSV delimiters, search & replace, and transform date formats with ease. Handle CSV files from different sources and convert them to your preferred format quickly and accurately.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-csv-converter/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy CSV <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-csv-converter" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy Search & Replace -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-search-replace/index.php" class="text-decoration-none">
-                                <i class="fas fa-search plugin-icon mb-2" style="color: #17a2b8; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-search-replace/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_SEARCH_TITLE">Easy Search & Replace</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_SEARCH_DESC">
-                            Search and replace text patterns with regex support, truncate, prefix, and line numbering. Powerful text manipulation tool for developers, writers, and data processors.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-search-replace/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Search <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-search-replace" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy Watermark -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-watermark/index.php" class="text-decoration-none">
-                                <i class="fas fa-tint plugin-icon mb-2" style="color: #4CAF50; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-watermark/index.php" class="text-decoration-none">Easy Watermark</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center">
-                            Add watermarks to your images with drag-and-drop positioning, opacity control, and rotation. Protect your images with text or image watermarks, perfect for photographers and content creators.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-watermark/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Watermark <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-watermark" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
+                        <span class="featured-badge"><i class="fas fa-star me-1"></i> <?= $L('Most popular', 'Populairste tool') ?></span>
+                        <div class="row align-items-center g-4">
+                            <div class="col-md-5 text-center text-md-start">
+                                <div class="d-flex align-items-center gap-3 mb-3 justify-content-center justify-content-md-start">
+                                    <a href="<?= $toolHref('easy-image') ?>" class="text-decoration-none">
+                                        <img src="/brand/tools/easy-image.svg" alt="" width="58" height="58" class="plugin-icon">
+                                    </a>
+                                    <h3 class="plugin-title h2 mb-0">
+                                        <a href="<?= $toolHref('easy-image') ?>" class="text-decoration-none" data-translate="PLUGIN_EASY_IMAGE_TITLE">Easy Image</a>
+                                    </h3>
+                                </div>
+                                <p class="plugin-description text-muted mb-4" data-translate="PLUGIN_EASY_IMAGE_DESC">
+                                    <?= $L('All your image work in one tool: resize, crop, compress and convert whole batches in seconds, with professional quality output. No software, no account, just results.', 'Al je beeldbewerking in één tool: verklein, knip, comprimeer en converteer hele batches in seconden, met professionele kwaliteit. Geen software, geen account, gewoon resultaat.') ?>
+                                </p>
+                                <div class="plugin-actions d-flex gap-2 justify-content-center justify-content-md-start">
+                                    <a href="<?= $toolHref('easy-image') ?>" class="btn btn-primary">
+                                        <?= $L('Open Easy Image', 'Open Easy Image') ?> <i class="fas fa-arrow-right ms-1"></i>
+                                    </a>
+                                    <a href="plugins/easy-image" class="btn btn-outline-secondary">
+                                        <?= $L('More information', 'Meer informatie') ?>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <ul class="featured-feature-list">
+                                    <li><i class="fas fa-check"></i> <?= $L('Resize by width, height or fit inside a box', 'Verklein op breedte, hoogte of passend in een kader') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Crop with presets, free selection or auto focus', 'Knip met presets, vrije selectie of automatische focus') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Compress to an exact file size in KB', 'Comprimeer naar een exacte bestandsgrootte in KB') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Convert to WebP, JPG or PNG', 'Converteer naar WebP, JPG of PNG') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Up to 100 images in one batch', 'Tot 100 afbeeldingen in één batch') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Auto enhance and photo effects', 'Automatisch verbeteren en foto-effecten') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Keeps colors and quality intact', 'Kleuren en kwaliteit blijven intact') ?></li>
+                                    <li><i class="fas fa-check"></i> <?= $L('Private: uploads are deleted automatically', 'Privé: uploads worden automatisch verwijderd') ?></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Easy Image Rotate -->
+            <!-- Tool cards (generated from the shared registry, bilingual) -->
+            <?php
+            $homeCards = [
+                'easy-png' => ['fa-file-image', '#4CAF50'],
+                'easy-pricing' => ['fa-calculator', '#28a745'],
+                'easy-html' => ['fa-code', '#dc3545'],
+                'easy-text-converter' => ['fa-text-width', '#17a2b8'],
+                'easy-csv-converter' => ['fa-file-csv', '#4CAF50'],
+                'easy-search-replace' => ['fa-search', '#17a2b8'],
+                'easy-watermark' => ['fa-tint', '#4CAF50'],
+                'easy-image-rotate' => ['fa-redo', '#667eea'],
+                'easy-identify-me' => ['fa-id-card', '#6f42c1'],
+                'easy-less' => ['fa-file-code', '#1e88e5'],
+                'easy-sass' => ['fa-code', '#bf4080'],
+            ];
+            $allMeta = easyPluginsSeoMeta();
+            foreach ($homeCards as $cardSlug => [$cardIcon, $cardColor]):
+                $card = $allMeta[$cardSlug];
+                $cardDesc = easyPluginsIsNl() ? ($card['blurb_nl'] ?? $card['tagline']) : ($card['blurb'] ?? $card['tagline']);
+            ?>
             <div class="col-lg-6 col-md-6">
                 <div class="plugin-card card h-100 shadow-sm">
                     <div class="card-body">
                         <div class="plugin-header text-center mb-3">
-                            <a href="easy-image-rotate/index.php" class="text-decoration-none">
-                                <i class="fas fa-redo plugin-icon mb-2" style="color: #667eea; font-size: 2rem;"></i>
+                            <a href="<?= $toolHref($cardSlug) ?>" class="text-decoration-none">
+                                <img src="/brand/tools/<?= $cardSlug ?>.svg" alt="" width="46" height="46" class="plugin-icon mb-2">
                             </a>
                             <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-image-rotate/index.php" class="text-decoration-none" data-translate="PLUGIN_EASY_IMAGE_ROTATE_TITLE">Easy Image Rotate</a>
+                                <a href="<?= $toolHref($cardSlug) ?>" class="text-decoration-none"><?= htmlspecialchars($card['name'], ENT_QUOTES, 'UTF-8') ?></a>
                             </h3>
                         </div>
-                        <p class="plugin-description text-muted mb-3 text-center" data-translate="PLUGIN_EASY_IMAGE_ROTATE_DESC">
-                            Rotate images in your browser with real-time preview. Fix orientation instantly — private, no server upload.
+                        <p class="plugin-description text-muted mb-3 text-center">
+                            <?= htmlspecialchars($cardDesc, ENT_QUOTES, 'UTF-8') ?>
                         </p>
                         <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-image-rotate/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Image Rotate <i class="fas fa-arrow-right ms-1"></i>
+                            <a href="<?= $toolHref($cardSlug) ?>" class="btn btn-primary btn-sm">
+                                Open <?= htmlspecialchars($card['name'], ENT_QUOTES, 'UTF-8') ?> <i class="fas fa-arrow-right ms-1"></i>
                             </a>
-                            <a href="plugins/easy-image-rotate" class="btn btn-outline-secondary btn-sm">
-                                More information
+                            <a href="plugins/<?= $cardSlug ?>" class="btn btn-outline-secondary btn-sm">
+                                <?= $L('More information', 'Meer informatie') ?>
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Easy Identify Me -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-identify-me/index.php" class="text-decoration-none">
-                                <i class="fas fa-id-card plugin-icon mb-2" style="color: #6f42c1; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-identify-me/index.php" class="text-decoration-none">Easy Identify Me</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center">
-                            Get comprehensive system information including IP address, location, browser details, device information, and browser capabilities. Perfect for developers and tech enthusiasts.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-identify-me/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Identify Me <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-identify-me" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- FAQ -->
+        <?php
+        $homeFaq = easyPluginsIsNl()
+            ? [
+                ['Zijn deze tools echt gratis?', 'Ja. Elke tool is volledig gratis, zonder accounts, proefperiodes of verborgen limieten. Easy Plugins is gemaakt door webmaster Joris Stolker voor zijn klanten, en is gratis voor iedereen die het wil gebruiken. Zolang de server de drukte aankan, blijft dat zo. Misschien komen er ooit betaalde pro-functies bij, maar daar zijn op dit moment geen plannen voor.'],
+                ['Zijn mijn gegevens privé?', 'De meeste tools draaien volledig in je browser, dus je bestanden en tekst verlaten je apparaat niet. Easy Image verwerkt afbeeldingen op onze server voor de beste kwaliteit, en die uploads worden binnen enkele minuten automatisch verwijderd.'],
+                ['Moet ik iets installeren?', 'Nee. Alles werkt direct in je browser op desktop, tablet en telefoon.'],
+                ['Kan ik meerdere afbeeldingen tegelijk verwerken?', 'Ja. Easy Image verwerkt tot 100 afbeeldingen in één batch en Easy Watermark kan hele series van een watermerk voorzien en als ZIP downloaden.'],
+            ]
+            : [
+                ['Are these tools really free?', 'Yes. Every tool is completely free, without accounts, trials or hidden limits. Easy Plugins is built by webmaster Joris Stolker for his clients, and it is free for anyone who wants to use it. As long as the server can handle the traffic, it stays that way. Paid pro features may be added some day, but there are no plans for that right now.'],
+                ['Is my data private?', 'Most tools run entirely in your browser, so your files and text never leave your device. Easy Image processes images on our server for the best quality, and those uploads are deleted automatically within minutes.'],
+                ['Do I need to install anything?', 'No. Everything works directly in your browser on desktop, tablet and phone.'],
+                ['Can I process multiple images at once?', 'Yes. Easy Image handles up to 100 images in one batch and Easy Watermark can watermark whole sets and download them as a ZIP.'],
+            ];
+        ?>
+        <div class="row mb-5">
+            <div class="col-lg-8 mx-auto">
+                <h2 class="h3 mb-4 text-center"><?= $L('Frequently asked questions', 'Veelgestelde vragen') ?></h2>
+<?php foreach ($homeFaq as $qa): ?>
+                <div class="mb-4">
+                    <h3 class="h5"><?= htmlspecialchars($qa[0], ENT_QUOTES, 'UTF-8') ?></h3>
+                    <p class="mb-0"><?= htmlspecialchars($qa[1], ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
-            </div>
-            
-            <!-- Easy Less -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-less/index.php" class="text-decoration-none">
-                                <i class="fas fa-file-code plugin-icon mb-2" style="color: #1e88e5; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-less/index.php" class="text-decoration-none">Easy Less</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center">
-                            Compile LESS syntax to CSS in your browser. Real-time compilation with syntax highlighting, error detection, and instant CSS output. Perfect for developers working with LESS preprocessor.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-less/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy Less <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-less" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Easy SASS -->
-            <div class="col-lg-6 col-md-6">
-                <div class="plugin-card card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="plugin-header text-center mb-3">
-                            <a href="easy-sass/index.php" class="text-decoration-none">
-                                <i class="fas fa-code plugin-icon mb-2" style="color: #bf4080; font-size: 2rem;"></i>
-                            </a>
-                            <h3 class="plugin-title h4 mb-0">
-                                <a href="easy-sass/index.php" class="text-decoration-none">Easy SASS</a>
-                            </h3>
-                        </div>
-                        <p class="plugin-description text-muted mb-3 text-center">
-                            Compile SASS/SCSS syntax to CSS in your browser. Support for both SASS (indented) and SCSS (CSS-like) syntax with real-time compilation, error detection, and instant CSS output.
-                        </p>
-                        <div class="plugin-actions d-flex gap-2 justify-content-center">
-                            <a href="easy-sass/index.php" class="btn btn-primary btn-sm">
-                                Go to Easy SASS <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                            <a href="plugins/easy-sass" class="btn btn-outline-secondary btn-sm">
-                                More information
-                            </a>
-                        </div>
-                    </div>
-                </div>
+<?php endforeach; ?>
             </div>
         </div>
-        
-    
+
     </div>
+
+    <script type="application/ld+json">
+    <?= json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => array_map(function ($qa) {
+            return [
+                '@type' => 'Question',
+                'name' => $qa[0],
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $qa[1]],
+            ];
+        }, $homeFaq),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?>
+
+    </script>
 
     <?php include 'shared/footer.php'; ?>

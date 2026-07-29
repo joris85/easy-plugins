@@ -125,6 +125,50 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 1.1rem;
 }
 
+/* Custom target size input group */
+.target-size-custom-label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+.target-size-input-group {
+    display: flex;
+    align-items: stretch;
+    max-width: 280px;
+}
+
+.target-size-input-group input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.85rem 1rem;
+    border: 2px solid #ddd;
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.target-size-input-group input:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.target-size-unit {
+    display: flex;
+    align-items: center;
+    padding: 0 1.1rem;
+    border: 2px solid #ddd;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    background: #f5f5f5;
+    font-weight: 600;
+    color: #4a5568;
+}
+
 /* Button styles moved to master.css */
 
 .dropzone {
@@ -727,19 +771,28 @@ body.page-dragover .dropzone {
 
 .download-all {
     display: block;
-    margin: 2rem auto;
+    margin: 0;
     padding: 1rem 2rem;
     font-size: 1.1rem;
-    background-color: #2196F3;
-    color: #495057;
+    font-weight: 600;
+    background-color: var(--primary-color, #4CAF50);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    /* JS shows this button with display: flex, so center like Start Over */
+    justify-content: center;
+    align-items: center;
+    text-align: center;
 }
 
 .download-all:hover {
-    background-color: #1976D2;
+    background-color: var(--primary-dark, #388E3C);
+    color: #fff;
 }
 
 .download-all:disabled {
     background-color: #ccc;
+    color: #fff;
     cursor: not-allowed;
 }
 
@@ -1313,6 +1366,32 @@ body.page-dragover .dropzone {
     margin-top: 2rem;
 }
 
+/* Custom Enhance lives inside the Enhance form-group, so less breathing room */
+.form-group .advanced-options {
+    margin-top: 1rem;
+}
+
+/* Auto enhance strength slider */
+.auto-strength {
+    margin-top: 1rem;
+}
+
+.auto-strength label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    margin-bottom: 0.35rem;
+}
+
+.auto-strength input[type="range"] {
+    width: 100%;
+}
+
+.auto-strength .form-help {
+    margin-top: 0.35rem;
+}
+
 .advanced-header {
     display: flex;
     justify-content: space-between;
@@ -1494,24 +1573,66 @@ body.page-dragover .dropzone {
     color: #666;
 }
 
+/* Stacked full-width bars: Download All on top, Start Over below it */
 .download-controls {
     display: flex;
-    gap: 1rem;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
     margin-top: 2rem;
-    padding: 1rem;
+    padding: 0;
 }
 
 .download-controls .btn {
-    min-width: 150px;
+    width: 100%;
+}
+
+.download-controls .btn i {
+    margin-right: 0.6rem;
 }
 
 .download-controls .back-btn {
-    background-color: #666;
+    background: transparent;
+    border: 1.5px solid #9aa0a6;
+    border-radius: 8px;
+    color: inherit;
+    padding: 0.85rem 2rem;
+    font-size: 1rem;
 }
 
 .download-controls .back-btn:hover {
-    background-color: #555;
+    background: rgba(150, 150, 150, 0.15);
+    border-color: #7d838a;
+    color: inherit;
+}
+
+/* Dark mode: keep the primary/secondary contrast (the generic
+   body.dark .btn rule would otherwise flatten both to grey) */
+body.dark .download-controls .download-all,
+html.dark .download-controls .download-all {
+    background-color: var(--primary-color, #4CAF50);
+    color: #fff;
+    border: none;
+}
+
+body.dark .download-controls .download-all:hover,
+html.dark .download-controls .download-all:hover {
+    background-color: var(--primary-dark, #388E3C);
+    color: #fff;
+}
+
+body.dark .download-controls .back-btn,
+html.dark .download-controls .back-btn {
+    background: transparent;
+    border: 1.5px solid #6b7075;
+    color: #e0e0e0;
+}
+
+body.dark .download-controls .back-btn:hover,
+html.dark .download-controls .back-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #9aa0a6;
+    color: #fff;
 }
 
 /* Effect Buttons */
@@ -2582,6 +2703,38 @@ body.theme3 .custom-quality {
     background: var(--surface);
     color: var(--text-primary);
     border-color: var(--border);
+}
+
+body.theme3 .target-size-input-group input {
+    background: var(--surface);
+    color: var(--text-primary);
+    border-color: var(--border);
+}
+
+body.theme3 .target-size-input-group input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+body.theme3 .target-size-unit {
+    background: var(--surface);
+    color: var(--text-secondary, #aaa);
+    border-color: var(--border);
+}
+
+/* Site-wide dark mode (html.dark / body.dark via shared/darkmode.css) */
+body.dark .target-size-input-group input,
+html.dark .target-size-input-group input {
+    background-color: #1e1e1e;
+    border-color: #2a2a2a;
+    color: #a0a0a0;
+}
+
+body.dark .target-size-unit,
+html.dark .target-size-unit {
+    background: #141414;
+    border-color: #2a2a2a;
+    color: #a0a0a0;
 }
 
 body.theme3 .preview-item {
@@ -3832,4 +3985,581 @@ body.dark .effects-info-content::-webkit-scrollbar-thumb:hover {
     line-height: 1.4;
     white-space: pre-wrap;
     word-break: break-word;
+}
+/* ===== Renamer panel ===== */
+.renamer-wrap {
+    margin: 0 0 1.25rem;
+}
+
+.renamer-panel {
+    margin-top: 0.75rem;
+    padding: 1.25rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.renamer-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.renamer-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.renamer-field-wide {
+    flex: 3;
+}
+
+.renamer-field-small {
+    flex: 1;
+    max-width: 160px;
+}
+
+.renamer-field label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.renamer-field input {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+}
+
+.renamer-field input:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.renamer-help {
+    margin: 0.35rem 0 0;
+    font-size: 0.8rem;
+}
+
+.renamer-presets {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 1rem;
+}
+
+.renamer-presets-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* Crop selection smaller than the final output */
+.crop-selection-small {
+    color: #e53935;
+    font-weight: 600;
+}
+
+.crop-selection-warn {
+    color: #e53935;
+    margin-left: 0.4rem;
+    cursor: pointer;
+}
+
+/* Inline "Allow enlarging" toggle switch in the crop size bar */
+.crop-upscale-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: 0.9rem;
+    font-weight: normal;
+    cursor: pointer;
+    user-select: none;
+}
+
+.crop-upscale-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.crop-switch-track {
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: #9aa0a6;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.crop-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.15s ease;
+}
+
+.crop-upscale-switch input:checked + .crop-switch-track {
+    background: var(--primary-color, #4CAF50);
+}
+
+.crop-upscale-switch input:checked + .crop-switch-track::after {
+    left: 16px;
+}
+
+.crop-upscale-switch input:focus-visible + .crop-switch-track {
+    outline: 2px solid var(--primary-color, #4CAF50);
+    outline-offset: 2px;
+}
+
+/* Add/remove buttons for extra search & replace rules */
+.renamer-search-row .renamer-row-btn {
+    align-self: flex-end;
+    flex-shrink: 0;
+    width: 34px;
+    margin-bottom: 1px;
+}
+
+.renamer-search-row-extra {
+    margin-top: 0.5rem;
+}
+
+.renamer-replacer.active {
+    background: var(--primary-color, #4CAF50);
+    border-color: var(--primary-color, #4CAF50);
+    color: #fff;
+}
+
+.renamer-replacer.active:hover {
+    background: var(--primary-dark, #388E3C);
+    border-color: var(--primary-dark, #388E3C);
+    color: #fff;
+}
+
+.renamer-more {
+    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 0.4rem;
+    color: var(--primary-color, #4CAF50);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.renamer-preview {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    background: rgba(76, 175, 80, 0.08);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+}
+
+/* Renamer sections: Search & replace / Pattern structure / Advanced regex */
+.renamer-section {
+    border-bottom: 1px solid rgba(150, 150, 150, 0.25);
+}
+
+.renamer-section:first-child {
+    border-top: 1px solid rgba(150, 150, 150, 0.25);
+}
+
+.renamer-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.7rem 0.25rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.renamer-section-header i {
+    font-size: 0.75rem;
+    width: 0.9rem;
+    color: var(--primary-color, #4CAF50);
+}
+
+.renamer-section-header:hover {
+    color: var(--primary-color, #4CAF50);
+}
+
+.renamer-section-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.renamer-section-sub {
+    font-size: 0.78rem;
+    font-weight: normal;
+    color: #8a9096;
+}
+
+.renamer-section-body {
+    padding: 0.25rem 0.25rem 1rem;
+}
+
+.renamer-preview-title {
+    margin: 1rem 0 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* The struck-through part of the old name is what gets replaced/removed */
+.renamer-preview .renamer-before s {
+    color: #c96f6f;
+    text-decoration: line-through;
+}
+
+.renamer-regex-error {
+    color: #e53935;
+    margin: 0.35rem 0 0;
+}
+
+.renamer-regex-info {
+    color: #6c757d;
+    cursor: pointer;
+    margin-left: 0.3rem;
+}
+
+.renamer-regex-info:hover {
+    color: var(--primary-color, #4CAF50);
+}
+
+.renamer-regex-presets {
+    margin: 0.25rem 0 0.5rem;
+}
+
+.regex-pattern-list {
+    margin: 0.5rem 0 0 1.1rem;
+    padding: 0;
+    line-height: 1.8;
+}
+
+.regex-pattern-list code {
+    font-size: 0.85em;
+}
+
+.renamer-regex-case {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    font-weight: normal;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.renamer-regex-case input {
+    width: auto;
+    margin: 0;
+    accent-color: var(--primary-color, #4CAF50);
+}
+
+/* Old name dimmed, new name bright: the change should jump out */
+.renamer-preview .renamer-before {
+    color: #9aa0a6;
+}
+
+.renamer-preview .renamer-after {
+    color: #1b5e20;
+}
+
+body.dark .renamer-preview .renamer-before,
+html.dark .renamer-preview .renamer-before {
+    color: #7d838a;
+}
+
+body.dark .renamer-preview .renamer-after,
+html.dark .renamer-preview .renamer-after {
+    color: #a5d6a7;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.renamer-preview .renamer-arrow {
+    color: #4CAF50;
+    margin: 0 0.4rem;
+}
+
+.renamer-preview .renamer-more {
+    color: var(--primary-color, #4CAF50);
+    font-family: inherit;
+}
+
+.renamer-slash-hint {
+    margin: 0.5rem 0 0;
+}
+
+.renamer-dup-hint {
+    margin: 0.5rem 0 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    background: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+}
+
+.renamer-dup-hint i {
+    color: #e6a800;
+}
+
+.renamer-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+body.dark .renamer-panel,
+html.dark .renamer-panel {
+    background: #1a1a1a;
+    border-color: #2a2a2a;
+}
+
+body.dark .renamer-field input,
+html.dark .renamer-field input {
+    background: #1e1e1e;
+    border-color: #2a2a2a;
+    color: #a0a0a0;
+}
+
+body.dark .renamer-preview,
+html.dark .renamer-preview {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.renamer-toggle-btn {
+    padding: 0.65rem 1.5rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.renamer-tokens {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.renamer-tokens-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.renamer-token {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    background: white;
+    font-size: 0.78rem;
+    color: #495057;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.renamer-token:hover {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.08);
+}
+
+.renamer-token code {
+    font-size: 0.78rem;
+}
+
+body.dark .renamer-token,
+html.dark .renamer-token {
+    background: #1e1e1e;
+    border-color: #2a2a2a;
+    color: #a0a0a0;
+}
+
+body.dark .renamer-token:hover,
+html.dark .renamer-token:hover {
+    border-color: #4CAF50;
+    background: rgba(76, 175, 80, 0.12);
+}
+
+/* ===== Enhance preview (before/after) ===== */
+.enhance-preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    max-width: 640px;
+}
+
+.enhance-preview-grid figure {
+    margin: 0;
+}
+
+.enhance-preview-grid img {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.enhance-preview-grid figcaption {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.3rem;
+}
+
+body.dark .enhance-preview-grid img,
+html.dark .enhance-preview-grid img {
+    border-color: #2a2a2a;
+}
+
+/* ===== Before/after compare slider ===== */
+.compare-modal-content {
+    max-width: 760px;
+}
+
+.compare-wrap {
+    position: relative;
+    user-select: none;
+    touch-action: none;
+    cursor: ew-resize;
+    border-radius: 8px;
+    overflow: hidden;
+    line-height: 0;
+}
+
+/* Per-thumbnail before/after preview trigger */
+.preview-eye-btn {
+    position: absolute;
+    top: 2.4rem;
+    right: 0.5rem;
+    z-index: 2;
+    background: var(--primary-color, #2196F3);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.preview-eye-btn:hover {
+    background: var(--primary-dark, #388E3C);
+}
+
+.preview-eye-btn:disabled {
+    cursor: wait;
+    opacity: 0.8;
+}
+
+/* Keep the browser from starting a native image drag mid-slide */
+.compare-wrap img {
+    -webkit-user-drag: none;
+    user-drag: none;
+    user-select: none;
+    pointer-events: none;
+}
+
+.compare-after {
+    display: block;
+    width: 100%;
+}
+
+.compare-before-clip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 50%;
+    overflow: hidden;
+}
+
+.compare-before {
+    display: block;
+    height: 100%;
+    max-width: none;
+}
+
+.compare-handle {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 3px;
+    height: 100%;
+    background: #4CAF50;
+    transform: translateX(-50%);
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+.compare-handle::after {
+    content: '\2194';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #4CAF50;
+    color: #fff;
+    font-size: 1rem;
+    line-height: 34px;
+    text-align: center;
+}
+
+.compare-label {
+    position: absolute;
+    top: 10px;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+.compare-label-before { left: 10px; }
+.compare-label-after { right: 10px; }
+
+/* The compare modal holds only images (no intrinsic width), so it needs
+   explicit sizing where the text modals can rely on their content */
+#comparePreviewModal {
+    width: 100vw;
+}
+
+#comparePreviewModal .modal-content {
+    width: min(760px, calc(100vw - 2rem));
+    max-width: none;
+}
+
+.compare-wrap {
+    width: 100%;
 }

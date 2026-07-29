@@ -1,6 +1,30 @@
 # Rewrite sitemap.xml to sitemap.php
 RewriteEngine On
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
+RewriteRule ^llms-full\.txt$ llms-full.php [L]
+
+# Canonical host: www -> non-www, and http -> https (production domain only,
+# so local MAMP hosts keep working)
+RewriteCond %{HTTP_HOST} ^www\.easy-plugins\.com$ [NC]
+RewriteRule ^(.*)$ https://easy-plugins.com/$1 [R=301,L]
+RewriteCond %{HTTP_HOST} ^easy-plugins\.com$ [NC]
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://easy-plugins.com/$1 [R=301,L]
+
+# Custom 404
+ErrorDocument 404 /404.php
+
+# ===== Dutch pages: /nl/... serves the same PHP with server-rendered Dutch =====
+# Homepage
+RewriteRule ^nl/?$ index.php?siteLang=nl [L,QSA]
+# Tool pages: /nl/easy-image/ -> easy-image/index.php
+RewriteRule ^nl/(easy-[a-z0-9-]+)/?$ $1/index.php?siteLang=nl [L,QSA]
+# Tool assets and endpoints under /nl/ resolve internally to the real files
+# (internal rewrite, not a redirect, so POST requests keep working)
+RewriteCond %{DOCUMENT_ROOT}/$1 -f
+RewriteRule ^nl/(easy-[a-z0-9-]+/.+)$ $1 [L,QSA]
+# Info pages have no Dutch variant yet: send to the English version
+RewriteRule ^nl/plugins/(.*)$ /plugins/$1 [R=301,L]
 
 # Redirect /articles/* to /plugins/* (clean URLs, no .php)
 RewriteRule ^articles/(.+?)\.php$ /plugins/$1 [R=301,L]
@@ -21,4 +45,39 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{DOCUMENT_ROOT}/plugins/$1.php -f
 RewriteRule ^plugins/([^/]+)/?$ plugins/$1.php [L]
+
+# ===== Compression =====
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript text/javascript
+    AddOutputFilterByType DEFLATE application/json application/xml image/svg+xml
+</IfModule>
+
+# ===== Browser caching for static assets =====
+# JS/CSS use ?v= cache-busting, so long lifetimes are safe
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/webp "access plus 30 days"
+    ExpiresByType image/gif "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/x-icon "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 365 days"
+</IfModule>
+<IfModule mod_headers.c>
+    # Processed images are one-time downloads; never cache them
+    <FilesMatch "^\d*[a-f0-9]{8}-.*\.(jpe?g|png|webp|gif|avif)$">
+        Header set Cache-Control "no-store"
+    </FilesMatch>
+
+    # ===== Security headers (site-wide) =====
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), payment=()"
+</IfModule>
 

@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy HTML - Clean HTML for Email';
+$metaDescription = 'Clean pasted HTML from Word, Google Docs or Gmail with one-click presets: strip styles and clutter, convert div to p, remove tracking from links. Free online tool.';
+$canonicalPath = '/easy-html/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -110,9 +112,17 @@ include '../shared/header.php';
                             </h5>
                         </div>
                         <div class="card-body">
+                            <div class="cleaner-presets mb-3">
+                                <strong class="me-2">Presets:</strong>
+                                <button type="button" class="btn btn-outline-secondary btn-sm cleaner-preset" data-preset="google" title="Strip all Word and Google Docs clutter, keep structure, links and images">From Google Docs / Word</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm cleaner-preset" data-preset="cms" title="Keep semantic tags (headings, lists, tables), remove all visual clutter, div becomes p">For CMS editor</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm cleaner-preset" data-preset="plain" title="Maximum cleaning: only paragraphs, line breaks, links and lists survive">Plain paragraphs</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm cleaner-preset" data-preset="emailStyled" title="For sending: keep inline styles (email needs them), remove classes, comments and editor junk">Sending email styled</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm cleaner-preset" data-preset="emailClean" title="For sending: very clean code, no divs, no classes, no styles">Sending email clean</button>
+                            </div>
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle me-2"></i>
-                                <strong>Email-Optimized Cleaning:</strong> Default options are pre-selected for email compatibility. 
+                                <strong>Email-Optimized Cleaning:</strong> Pick a preset above or set the options by hand.
                                 Uncheck options you want to preserve, or check additional options for more aggressive cleaning.
                             </div>
                             
@@ -148,6 +158,13 @@ include '../shared/header.php';
                                             <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Removes all div elements while preserving their content"></i>
                                         </label>
                                     </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="replaceDivsWithP">
+                                        <label class="form-check-label" for="replaceDivsWithP">
+                                            Convert div to p
+                                            <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Turns every div into a paragraph tag. Combine with Remove div tags off."></i>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <!-- Content Cleanup -->
@@ -172,6 +189,13 @@ include '../shared/header.php';
                                         <label class="form-check-label" for="removeSuccessiveSpaces">
                                             Remove successive &nbsp;s
                                             <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Removes multiple consecutive non-breaking spaces and normalizes whitespace"></i>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="convertNbspToSpace">
+                                        <label class="form-check-label" for="convertNbspToSpace">
+                                            Convert &nbsp; to normal space
+                                            <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Email and editor pastes are full of non-breaking spaces between words; this turns them back into normal spaces"></i>
                                         </label>
                                     </div>
                                     <div class="form-check">
@@ -214,6 +238,41 @@ include '../shared/header.php';
                                             <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Removes all table elements while preserving their content"></i>
                                         </label>
                                     </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeTrackingParams">
+                                        <label class="form-check-label" for="removeTrackingParams">
+                                            Remove tracking from links
+                                            <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Strips utm_*, fbclid, gclid and similar tracking parameters from link URLs; the links themselves keep working"></i>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="convertSmartQuotes">
+                                        <label class="form-check-label" for="convertSmartQuotes">
+                                            Straighten smart quotes
+                                            <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Curly quotes from Word and Google Docs become straight ' and &quot; characters"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr>
+                            <h6>
+                                Search &amp; replace in text
+                                <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Runs on the text after cleaning, never inside HTML tags. Handy for filling in placeholders like [$500] or [deadline date]. A space in your search also matches the invisible &nbsp; spaces from email pastes."></i>
+                            </h6>
+                            <div id="cleanerSearchRows">
+                                <div class="row g-2 mb-2 cleaner-search-row">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm cleaner-search-input" placeholder="Search in text" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm cleaner-replace-input" placeholder="Replace with (empty removes)" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addCleanerSearchRow()" title="Add another search and replace rule" aria-label="Add another search and replace rule">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -226,7 +285,7 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2026-07-28.2"></script>
     
     <!-- Initialize theme -->
     <script>

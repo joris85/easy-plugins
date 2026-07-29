@@ -1,0 +1,37 @@
+# Easy Plugins
+
+> Free, privacy-focused browser tools for everyday tasks: image resizing and compression, watermarking, HTML cleaning, CSV conversion, text transformation and pricing calculators. No account, no installs. Uploaded images are processed server-side and deleted automatically within minutes; most other tools run entirely in the browser.
+
+Full tool documentation in one markdown file: https://easy-plugins.com/llms-full.txt
+
+## Image tools
+
+- [Easy Image](https://easy-plugins.com/easy-image/): The flagship tool. Resize (by width, height or fit-in-box), crop (presets, free selection or auto focus), optimize and convert images. Up to 100 images per batch. Can compress to an exact target file size in KB. Adjustable Auto enhance with before/after preview. Batch renamer with patterns, search & replace and regex. Output: WebP, JPG, PNG (AVIF where supported). Keeps colors accurate (ICC aware) and strips private EXIF/GPS data. Free, no account.
+- [Easy Watermark](https://easy-plugins.com/easy-watermark/): Add text or image watermarks with drag-and-drop positioning, opacity, rotation and batch export as ZIP.
+- [Easy PNG](https://easy-plugins.com/easy-png/): Add a solid or gradient background to transparent PNG or WebP images with live preview.
+- [Easy Image Rotate](https://easy-plugins.com/easy-image-rotate/): Rotate images to any angle in the browser; the photo never leaves the device.
+
+## Text & data tools
+
+- [Easy HTML](https://easy-plugins.com/easy-html/): Clean pasted HTML from Word, Google Docs or Gmail with one-click presets (Word/Google Docs, CMS editor, plain paragraphs, email styled, email clean). Strips styles, classes and clutter, converts div to p, straightens smart quotes, removes utm/tracking parameters from links, and offers text search & replace. Links always survive.
+- [Easy Text](https://easy-plugins.com/easy-text-converter/): Convert text case (UPPERCASE, lowercase, Title Case, sentence case and more), count words and characters.
+- [Easy CSV](https://easy-plugins.com/easy-csv-converter/): Convert CSV delimiters, search & replace and transform date formats. Handles quoted fields correctly. Runs in the browser.
+- [Easy Search & Replace](https://easy-plugins.com/easy-search-replace/): Search and replace text with regex support, match counting, truncation and line numbering.
+
+## Web tools
+
+- [Easy Pricing](https://easy-plugins.com/easy-pricing/): Calculators for percentages, discounts and VAT.
+- [Easy LESS](https://easy-plugins.com/easy-less/): Compile LESS to CSS in the browser with error messages.
+- [Easy SASS](https://easy-plugins.com/easy-sass/): Compile SASS/SCSS to CSS in the browser.
+- [Easy Identify Me](https://easy-plugins.com/easy-identify-me/): Show your IP address, location, browser and device details in one copyable overview.
+
+## About
+
+- All tools are free and require no account.
+- Images uploaded to Easy Image are deleted automatically shortly after processing; most other tools process everything locally in the browser.
+- Tool detail pages with how-to guides live under https://easy-plugins.com/plugins/ (for example https://easy-plugins.com/plugins/easy-image).
+
+## Languages
+
+- English (default): https://easy-plugins.com/
+- Dutch / Nederlands: https://easy-plugins.com/nl/ (tool pages at https://easy-plugins.com/nl/easy-image/ etc.)

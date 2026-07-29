@@ -3,6 +3,30 @@
 ## The Problem
 You're getting 500 Internal Server Error with larger images because MAMP has restrictive PHP limits by default.
 
+## MAMP PRO: FastCGI 30-second timeout (most common cause)
+
+MAMP PRO runs PHP through mod_fastcgi with a **30 second idle timeout**. A large
+image encode takes longer than that, so Apache kills PHP mid-request and returns
+an HTML 500 page. You'll see this in `/Applications/MAMP/logs/apache_ssl_error.log`:
+
+```
+FastCGI: comm with server ".../php8.4.15.fcgi" aborted: idle timeout (30 sec)
+```
+
+`max_execution_time` in php.ini does NOT fix this — it's Apache's timeout, not PHP's.
+
+**Fix, either of:**
+
+1. **Run PHP as a module** (simplest): MAMP PRO → Hosts → select the host →
+   PHP tab → set PHP Mode to "Module" instead of "CGI mode" and restart.
+2. **Raise the FastCGI timeout**: MAMP PRO → menu File → Edit Template →
+   Apache → httpd.conf, find the `FastCgiServer` / `FastCgiConfig` line and add
+   `-idle-timeout 300`, then save and restart the servers.
+
+The app also picks a faster WebP encoder automatically for very large images
+(see `webpMethodForSize()` in `src/models/ImageProcessor.php`), which keeps
+most images inside the default timeout anyway.
+
 ## The Solution
 
 ### 1. Update MAMP PHP Configuration

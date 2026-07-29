@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Image Rotate - Rotate Images';
+$metaDescription = 'Rotate images to any angle in your browser with live preview. Private: your photo never leaves your device. Export as WebP, JPG or PNG.';
+$canonicalPath = '/easy-image-rotate/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -89,12 +91,12 @@ include '../shared/header.php';
                                     <button type="button" class="quality-btn quality-preset-btn" data-quality="60" data-tier="lossy">
                                         Medium (60%)
                                     </button>
-                                    <button type="button" class="quality-btn quality-preset-btn active" data-quality="70" data-tier="lossy">
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="70" data-tier="lossy">
                                         Web Smart (70%)
                                     </button>
                                 </div>
                                 <div class="quality-buttons quality-buttons-row">
-                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="85" data-tier="lossy">
+                                    <button type="button" class="quality-btn quality-preset-btn active" data-quality="85" data-tier="lossy">
                                         Web Sharp (85%)
                                     </button>
                                     <button type="button" class="quality-btn quality-preset-btn" data-quality="100" data-tier="lossy">
@@ -106,8 +108,8 @@ include '../shared/header.php';
                                 </div>
                             </div>
                             <div id="customQualitySlider" class="custom-quality" style="display: none;">
-                                <input type="range" id="qualitySlider" min="1" max="100" value="70" class="slider">
-                                <span id="qualityValue">70%</span>
+                                <input type="range" id="qualitySlider" min="1" max="100" value="85" class="slider">
+                                <span id="qualityValue">85%</span>
                             </div>
                         </div>
                         <div class="form-group">
@@ -149,7 +151,9 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="/shared/upload.js?v=1.1"></script>
+    <script src="/shared/canvas-export.js?v=1.1"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
 </body>
 </html>
 

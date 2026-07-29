@@ -25,3 +25,12 @@ if (!function_exists('easyPluginsJsonEncode')) {
         return $json !== false ? $json : $fallback;
     }
 }
+
+// Search engine verification codes: paste the code from Google Search Console /
+// Bing Webmaster Tools here and the meta tags appear automatically.
+if (!defined('SITE_GOOGLE_VERIFICATION')) {
+    define('SITE_GOOGLE_VERIFICATION', '');
+}
+if (!defined('SITE_BING_VERIFICATION')) {
+    define('SITE_BING_VERIFICATION', '');
+}

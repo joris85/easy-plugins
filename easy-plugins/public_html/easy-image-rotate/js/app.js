@@ -7,7 +7,7 @@ let currentImage = null;
 let currentImageData = null;
 let rotationAngle = 0;
 let originalFileName = null;
-let currentQuality = 70;
+let currentQuality = 85;
 let selectedFormat = 'webp';
 let selectedBackground = 'transparent';
 let customBackgroundColor = '#ffffff';
@@ -152,8 +152,9 @@ function handleFileSelect(e) {
 }
 
 function handleFile(file) {
-    if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
+    const validation = EasyUpload.validateImageFile(file);
+    if (!validation.ok) {
+        alert(validation.error);
         return;
     }
 
@@ -169,6 +170,13 @@ function loadImage(src, mimeType, fileName, fileSize) {
     img.crossOrigin = 'anonymous';
 
     img.onload = function() {
+        // Half the shared cap: a 45° rotation makes the canvas up to 2x the area
+        const sizeError = EasyCanvas.sourceSizeError(img.width, img.height, EasyCanvas.MAX_SOURCE_PIXELS / 2);
+        if (sizeError) {
+            alert(sizeError);
+            return;
+        }
+
         currentImage = img;
         currentImageData = { src, mimeType, fileName, fileSize };
         originalFileName = fileName;
@@ -264,7 +272,7 @@ function setQuality(value) {
 
     if (value === 'custom') {
         useCustom = true;
-        targetQuality = parseInt(qualitySlider.value, 10) || 70;
+        targetQuality = parseInt(qualitySlider.value, 10) || EasyCanvas.DEFAULT_QUALITY;
     } else {
         const num = typeof value === 'number' ? value : parseInt(value, 10);
         if (!Number.isFinite(num) || num < 1 || num > 100) {
@@ -318,7 +326,7 @@ function updateQualitySlider() {
 
 function getNumericQuality() {
     const quality = parseInt(currentQuality, 10);
-    return Number.isFinite(quality) ? Math.max(1, Math.min(100, quality)) : 70;
+    return Number.isFinite(quality) ? Math.max(1, Math.min(100, quality)) : EasyCanvas.DEFAULT_QUALITY;
 }
 
 function supportsTransparency() {
@@ -445,55 +453,24 @@ function setFormat(format) {
     updateBackgroundForFormat();
 }
 
-function updatePreview() {
-    if (!currentImage) return;
-
-    const canvas = previewCanvas;
-    const ctx = canvas.getContext('2d');
-
-    const radians = (rotationAngle * Math.PI) / 180;
-    const cos = Math.abs(Math.cos(radians));
-    const sin = Math.abs(Math.sin(radians));
-    const newWidth = currentImage.width * cos + currentImage.height * sin;
-    const newHeight = currentImage.width * sin + currentImage.height * cos;
-
-    canvas.width = newWidth;
-    canvas.height = newHeight;
-
-    applyCanvasBackground(ctx, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.translate(newWidth / 2, newHeight / 2);
-    ctx.rotate(radians);
-    ctx.drawImage(
-        currentImage,
-        -currentImage.width / 2,
-        -currentImage.height / 2
-    );
-    ctx.restore();
-
-    updatePreviewContainerBackground();
-}
-
-function getRotatedCanvas() {
+function renderRotatedToCanvas(canvas) {
     if (!currentImage) return null;
 
-    const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     const radians = (rotationAngle * Math.PI) / 180;
     const cos = Math.abs(Math.cos(radians));
     const sin = Math.abs(Math.sin(radians));
-    const newWidth = currentImage.width * cos + currentImage.height * sin;
-    const newHeight = currentImage.width * sin + currentImage.height * cos;
+    canvas.width = currentImage.width * cos + currentImage.height * sin;
+    canvas.height = currentImage.width * sin + currentImage.height * cos;
 
-    canvas.width = newWidth;
-    canvas.height = newHeight;
+    // Resizing the canvas resets context state, so set smoothing after
+    EasyCanvas.applyHighQualitySmoothing(ctx);
 
     applyCanvasBackground(ctx, canvas.width, canvas.height);
 
     ctx.save();
-    ctx.translate(newWidth / 2, newHeight / 2);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate(radians);
     ctx.drawImage(
         currentImage,
@@ -503,6 +480,19 @@ function getRotatedCanvas() {
     ctx.restore();
 
     return canvas;
+}
+
+function updatePreview() {
+    if (!currentImage) return;
+
+    renderRotatedToCanvas(previewCanvas);
+    updatePreviewContainerBackground();
+}
+
+function getRotatedCanvas() {
+    if (!currentImage) return null;
+
+    return renderRotatedToCanvas(document.createElement('canvas'));
 }
 
 function downloadImage() {
@@ -518,45 +508,33 @@ function downloadImage() {
     }
 
     const format = selectedFormat || 'webp';
-    const qualityDecimal = getNumericQuality() / 100;
     let mimeType;
     let fileExtension;
-    let quality;
 
     if (format === 'jpg') {
         mimeType = 'image/jpeg';
         fileExtension = 'jpg';
-        quality = qualityDecimal;
     } else if (format === 'webp') {
         mimeType = 'image/webp';
         fileExtension = 'webp';
-        quality = qualityDecimal;
     } else {
         mimeType = 'image/png';
         fileExtension = 'png';
-        quality = undefined;
     }
 
-    const baseName = originalFileName
-        ? originalFileName.replace(/\.[^/.]+$/, '')
-        : 'rotated-image';
-    const fileName = `${baseName}-rotated-${rotationAngle}deg.${fileExtension}`;
+    const fileName = EasyCanvas.exportFilename(
+        originalFileName,
+        `rotated-${rotationAngle}deg`,
+        fileExtension
+    );
 
-    canvas.toBlob(function(blob) {
-        if (!blob) {
+    EasyCanvas.toBlob(canvas, mimeType, getNumericQuality())
+        .then(function(blob) {
+            EasyCanvas.downloadBlob(blob, fileName);
+        })
+        .catch(function() {
             alert('Error generating image. Please try again.');
-            return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, mimeType, quality);
+        });
 }
 
 function resetAll() {
@@ -573,7 +551,7 @@ function resetAll() {
         imageInfo.style.display = 'none';
 
         setRotationPreset('0');
-        setQuality(70);
+        setQuality(85);
         setFormat('webp');
         setBackground('transparent');
         backgroundBeforeJpgLock = null;

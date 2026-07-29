@@ -20,23 +20,18 @@ $articleUrl = easyPluginsArticleUrl();
 <meta name="twitter:description" content="Resize, crop, optimize, and apply effects to your images with Easy Image.">
 <link rel="canonical" href="<?= $articleUrl ?>">
 
-<!-- Structured Data -->
+<!-- Structured Data: WebApplication (this page describes the tool) -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Article",
-  "headline": "Easy Image - Professional Image Processing Tool",
-  "description": "Learn about Easy Image, a powerful online image processing tool for resize, crop, effects, and optimization.",
-  "author": {
-    "@type": "Organization",
-    "name": "Easy Plugins"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "Easy Plugins"
-  },
-  "datePublished": "2024-01-01",
-  "dateModified": "2024-01-01"
+  "@type": "WebApplication",
+  "name": "Easy Image",
+  "url": "https://easy-plugins.com/easy-image/",
+  "description": "Resize, crop, compress and convert images online, up to 100 at once. Target an exact file size in KB, output WebP, JPG or PNG.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Any (web browser)",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "publisher": { "@type": "Organization", "name": "Easy Plugins", "url": "https://easy-plugins.com/" }
 }
 </script>
 
@@ -46,7 +41,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-image me-3" style="color: #667eea; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-image.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Image</h1>
                         <p class="text-muted lead">Professional Image Processing Tool</p>
@@ -129,18 +124,21 @@ $articleUrl = easyPluginsArticleUrl();
                     <section class="mb-5">
                         <h2 class="h3 mb-4"><i class="fas fa-cog me-2"></i>Technical Details</h2>
                         <p>
-                            Easy Image processes all images directly in your browser using modern web technologies. 
-                            No data is sent to external servers, ensuring complete privacy and security. The tool supports 
-                            high-resolution images and maintains quality throughout the processing pipeline.
+                            Easy Image processes images on our server with professional ImageMagick technology for the best
+                            possible quality: high-quality Lanczos resampling, color-accurate output (ICC aware) and smart
+                            compression. Uploaded files are deleted automatically within minutes and private EXIF data such
+                            as GPS location is removed from every processed image.
                         </p>
                         <p>
-                            <strong>Supported Formats:</strong> PNG, JPG, JPEG, WebP, GIF<br>
-                            <strong>Processing:</strong> Client-side processing for privacy<br>
-                            <strong>Browser Support:</strong> Modern browsers (Chrome, Firefox, Safari, Edge)
+                            <strong>Input formats:</strong> JPG, PNG, WebP, GIF, BMP (HEIC where supported)<br>
+                            <strong>Output formats:</strong> WebP, JPG, PNG (AVIF where supported)<br>
+                            <strong>Limits:</strong> up to 100 images or 256MB per batch, 50MB per image<br>
+                            <strong>Special:</strong> compress to an exact target size in KB, fit-in-box resizing, adjustable auto enhance with before/after preview, and a batch renamer with patterns, search &amp; replace and regex
                         </p>
                     </section>
 
                     <!-- Call to Action -->
+                    <?php $articleFaqSlug = 'easy-image'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-image'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
                     <section class="mb-5 text-center">

@@ -23,6 +23,9 @@ require_once BASE_PATH . '/src/security.php';
 
 easyImageSendSecurityHeaders();
 
+// Sweep files older than 30 minutes, in the background after this response
+easyImageScheduleCleanup(BASE_PATH);
+
 // Set error handler (deprecations are logged, not promoted to exceptions)
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     if ($errno === E_DEPRECATED || $errno === E_USER_DEPRECATED) {
@@ -92,6 +95,18 @@ if (!function_exists('detectUploadedImageMime')) {
             'image/gif',
             'image/bmp',
         ];
+
+        // HEIC can't be parsed by getimagesize; detect via finfo + Imagick ping
+        $finfoEarly = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfoEarly) {
+            $earlyMime = strtolower(finfo_file($finfoEarly, $tmpName) ?: '');
+            if (in_array($earlyMime, ['image/heic', 'image/heif', 'image/heic-sequence'], true)) {
+                if (!easyImageSupportedFormats()['heicInput']) {
+                    return null;
+                }
+                return easyImagePingDimensions($tmpName) !== null ? 'image/heic' : null;
+            }
+        }
 
         $imageInfo = @getimagesize($tmpName);
         if (!$imageInfo || empty($imageInfo[0]) || empty($imageInfo[1])) {
@@ -326,6 +341,7 @@ try {
     $maxPixelCount = 50_000_000;
     $maxRequestSeconds = 300;
     $requestStartTime = microtime(true);
+    $serverFormats = easyImageSupportedFormats();
     $allowedInputMime = [
         'image/jpeg',
         'image/png',
@@ -333,7 +349,14 @@ try {
         'image/gif',
         'image/bmp',
     ];
+    if ($serverFormats['heicInput']) {
+        $allowedInputMime[] = 'image/heic';
+        $allowedInputMime[] = 'image/heif';
+    }
     $allowedOutputFormats = ['jpg', 'jpeg', 'png', 'webp'];
+    if ($serverFormats['avifOutput']) {
+        $allowedOutputFormats[] = 'avif';
+    }
     $allowedQualityTiers = ['lossy', 'near-lossless', 'lossless'];
 
     $fileCount = is_array($_FILES['images']['tmp_name']) ? count($_FILES['images']['tmp_name']) : 0;
@@ -388,13 +411,20 @@ try {
             throwValidationError('Unsupported or potentially dangerous file type uploaded', $originalName);
         }
 
-        $imageInfo = @getimagesize($tmpName);
-        if (!$imageInfo || empty($imageInfo[0]) || empty($imageInfo[1])) {
-            throwValidationError('Uploaded file is not a valid image', $originalName);
+        if ($mimeType === 'image/heic' || $mimeType === 'image/heif') {
+            $dims = easyImagePingDimensions($tmpName);
+            if ($dims === null) {
+                throwValidationError('Uploaded file is not a valid image', $originalName);
+            }
+            [$width, $height] = $dims;
+        } else {
+            $imageInfo = @getimagesize($tmpName);
+            if (!$imageInfo || empty($imageInfo[0]) || empty($imageInfo[1])) {
+                throwValidationError('Uploaded file is not a valid image', $originalName);
+            }
+            $width = (int)$imageInfo[0];
+            $height = (int)$imageInfo[1];
         }
-
-        $width = (int)$imageInfo[0];
-        $height = (int)$imageInfo[1];
         if ($width > $maxDimension || $height > $maxDimension || ($width * $height) > $maxPixelCount) {
             throwValidationError('Image dimensions are too large to process safely', $originalName);
         }
@@ -430,6 +460,10 @@ try {
         $settings['cropMode'] = 'manual';
     }
 
+    if (isset($settings['resizeMode']) && !in_array($settings['resizeMode'], ['width', 'height', 'fit'], true)) {
+        $settings['resizeMode'] = null;
+    }
+
     if (isset($settings['alignment'])) {
         $allowedAlignments = [
             'top-left', 'top-center', 'top-right',
@@ -452,6 +486,15 @@ try {
         $settings['quality'] = max(1, min(100, (int)$settings['quality']));
     } else {
         $settings['quality'] = 70;
+    }
+
+    $targetBytes = 0;
+    if (!empty($settings['targetKB'])) {
+        $targetKB = max(10, min(10240, (int) $settings['targetKB']));
+        // Only lossy formats can hit a byte target by adjusting quality
+        if (in_array($selectedFormat, ['jpg', 'jpeg', 'webp', 'avif'], true)) {
+            $targetBytes = $targetKB * 1024;
+        }
     }
 
     $qualityTier = $settings['qualityTier'] ?? 'lossy';
@@ -560,10 +603,14 @@ try {
             $processor->setQualityTier($settings['qualityTier']);
 
             if ($settings['mode'] === 'resize') {
-                if (isset($settings['width']) && $settings['width']) {
-                    $processor->resize($settings['width']);
+                $noUpscale = !empty($settings['noUpscale']);
+                if (($settings['resizeMode'] ?? '') === 'fit'
+                    && !empty($settings['width']) && !empty($settings['height'])) {
+                    $processor->resizeFit($settings['width'], $settings['height'], $noUpscale);
+                } elseif (isset($settings['width']) && $settings['width']) {
+                    $processor->resize($settings['width'], null, true, $noUpscale);
                 } elseif (isset($settings['height']) && $settings['height']) {
-                    $processor->resize(null, $settings['height']);
+                    $processor->resize(null, $settings['height'], true, $noUpscale);
                 }
             } elseif ($settings['mode'] === 'crop') {
                 if (isPreCroppedFile($settings, $fileData['index'])) {
@@ -627,7 +674,13 @@ try {
             $processor->setQuality($settings['quality']);
 
             $outputPath = $uploadDir . '/' . $outputName;
-            $processor->save($outputPath, $outputFormat);
+            $targetSizeMissed = false;
+            if ($targetBytes > 0) {
+                $achievedQuality = $processor->saveWithTargetSize($outputPath, $outputFormat, $targetBytes);
+                $targetSizeMissed = $achievedQuality === null;
+            } else {
+                $processor->save($outputPath, $outputFormat);
+            }
 
             if (is_file($outputPath)) {
                 try {
@@ -656,8 +709,12 @@ try {
                 'index' => $fileData['index'],
                 'width' => $processor->getImageWidth(),
                 'height' => $processor->getImageHeight(),
-                'bytes' => $outputBytes
+                'bytes' => $outputBytes,
+                'targetSizeMissed' => $targetSizeMissed
             ];
+            if ($targetSizeMissed) {
+                $errors[] = $originalName . ': Could not reach the target size even at minimum quality; smallest possible file was saved.';
+            }
             $batchOutputBytes += $outputBytes;
             $processor->clearImage();
 

@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-calculator me-3" style="color: #28a745; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-pricing.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Pricing</h1>
                         <p class="text-muted lead">Calculate Percentages, Discounts & VAT</p>
@@ -82,6 +82,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Calculate markup and margin percentages</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-pricing'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-pricing'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

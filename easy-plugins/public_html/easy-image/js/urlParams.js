@@ -23,7 +23,7 @@ window.UrlParams = (function() {
     };
 
     const VALID_MODES = ['resize', 'crop', 'optimize', 'custom'];
-    const VALID_DIMENSIONS = ['width', 'height'];
+    const VALID_DIMENSIONS = ['width', 'height', 'fit'];
     const VALID_CROP_MODES = ['auto', 'manual'];
     const VALID_FORMATS = ['jpg', 'png', 'webp'];
     const VALID_ALIGNMENTS = [
@@ -36,7 +36,9 @@ window.UrlParams = (function() {
         'mode', 'width', 'height', 'dimension', 'quality', 'crop', 'cropMode', 'align', 'format'
     ]);
 
-    const PRESERVE_PARAMS = ['orient_debug'];
+    // enhance/strength are owned by the enhance selector (app.js) and must
+    // survive every settings rewrite of the URL
+    const PRESERVE_PARAMS = ['orient_debug', 'enhance', 'strength'];
 
     function parsePositiveInt(value) {
         const n = parseInt(value, 10);

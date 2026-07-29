@@ -68,7 +68,8 @@ function convertText(type) {
             convertedText = toAlternatingCase(text);
             break;
         case 'reverse':
-            convertedText = text.split('').reverse().join('');
+            // Array.from keeps emoji/surrogate pairs intact
+            convertedText = Array.from(text).reverse().join('');
             break;
         case 'inverse':
             convertedText = toInverseCase(text);
@@ -100,7 +101,8 @@ function convertText(type) {
 
 // Convert to sentence case
 function toSentenceCase(text) {
-    return text.toLowerCase().replace(/(^\w|\.\s+\w)/g, function(match) {
+    // Capitalize at start and after . ! ? (also across line breaks)
+    return text.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w|\n\s*\w)/g, function(match) {
         return match.toUpperCase();
     });
 }
@@ -115,21 +117,27 @@ function toCapitalizeCase(text) {
 // Convert to title case
 function toTitleCase(text) {
     const smallWords = ['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'of', 'on', 'or', 'the', 'to', 'up', 'with'];
-    
-    return text.toLowerCase().replace(/\b\w+/g, function(word, index, words) {
+
+    const words = text.toLowerCase().match(/\S+/g);
+    if (!words) {
+        return text;
+    }
+
+    const capitalize = (word) => word.charAt(0).toUpperCase() + word.slice(1);
+    const result = words.map((word, index) => {
+        // First and last word are always capitalized; small words stay lowercase
         if (index === 0 || index === words.length - 1) {
-            return word.charAt(0).toUpperCase() + word.slice(1);
+            return capitalize(word);
         }
-        if (smallWords.includes(word)) {
-            return word;
-        }
-        return word.charAt(0).toUpperCase() + word.slice(1);
+        return smallWords.includes(word) ? word : capitalize(word);
     });
+
+    return result.join(' ');
 }
 
 // Convert to alternating case
 function toAlternatingCase(text) {
-    return text.split('').map((char, index) => {
+    return Array.from(text).map((char, index) => {
         if (char.match(/[a-zA-Z]/)) {
             return index % 2 === 0 ? char.toLowerCase() : char.toUpperCase();
         }
@@ -139,7 +147,7 @@ function toAlternatingCase(text) {
 
 // Convert to inverse case
 function toInverseCase(text) {
-    return text.split('').map(char => {
+    return Array.from(text).map(char => {
         if (char === char.toUpperCase() && char !== char.toLowerCase()) {
             return char.toLowerCase();
         } else if (char === char.toLowerCase() && char !== char.toUpperCase()) {

@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-code me-3" style="color: #bf4080; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-sass.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy SASS</h1>
                         <p class="text-muted lead">SASS/SCSS to CSS Compiler</p>
@@ -135,6 +135,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2"><strong>Auto-compile:</strong> Compilation happens automatically 300ms after you stop typing</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-sass'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-sass'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

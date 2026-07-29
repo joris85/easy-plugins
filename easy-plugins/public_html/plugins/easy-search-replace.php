@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-search me-3" style="color: #17a2b8; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-search-replace.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Search & Replace</h1>
                         <p class="text-muted lead">Text Search with Regex Support</p>
@@ -84,6 +84,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Prepare text for data processing</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-search-replace'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-search-replace'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

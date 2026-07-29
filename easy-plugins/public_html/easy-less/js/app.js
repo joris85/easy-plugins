@@ -130,9 +130,15 @@ function setupEventListeners() {
 
 function compileLess() {
     if (isCompiling) return;
-    
+
+    // less.js comes from a CDN; without it there is no compiler at all
+    if (typeof less === 'undefined' || typeof less.render !== 'function') {
+        showError('The LESS compiler could not be loaded (no internet connection, or the CDN is blocked). Reload the page to try again.');
+        return;
+    }
+
     const lessCode = lessEditor.getValue();
-    
+
     if (!lessCode.trim()) {
         cssEditor.setValue('');
         updateStatistics();

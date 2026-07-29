@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-text-width me-3" style="color: #17a2b8; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-text-converter.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Text Converter</h1>
                         <p class="text-muted lead">Transform Text & Get Statistics</p>
@@ -83,6 +83,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Analyze text content with comprehensive statistics</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-text-converter'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-text-converter'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

@@ -15,7 +15,7 @@ if (php_sapi_name() !== 'cli') {
 date_default_timezone_set('Europe/Amsterdam');
 
 $uploadsDir = __DIR__ . '/uploads/';
-$maxAgeMinutes = 10;
+$maxAgeMinutes = 30;
 $logFile = __DIR__ . '/cleanup_log.txt';
 
 function logMessage($message) {

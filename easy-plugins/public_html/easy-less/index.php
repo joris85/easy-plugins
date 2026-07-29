@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Less - LESS to CSS Compiler';
+$metaDescription = 'Compile LESS to CSS instantly in your browser with syntax highlighting and error messages. Free online LESS compiler, no install.';
+$canonicalPath = '/easy-less/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -125,7 +127,7 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js?v=1.2"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
     
     <!-- Initialize theme -->
     <script>

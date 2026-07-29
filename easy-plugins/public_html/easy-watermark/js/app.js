@@ -117,9 +117,9 @@ function handleFileSelect(e, type) {
 }
 
 function handleFile(file, type) {
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
+    const validation = EasyUpload.validateImageFile(file);
+    if (!validation.ok) {
+        alert(validation.error);
         return;
     }
     
@@ -140,6 +140,12 @@ function loadMainImage(src, mimeType, name) {
     img.crossOrigin = 'anonymous';
     
     img.onload = function() {
+        const sizeError = EasyCanvas.sourceSizeError(img.width, img.height);
+        if (sizeError) {
+            alert((name ? name + ': ' : '') + sizeError);
+            return;
+        }
+
         // Add to images array
         mainImages.push({
             image: img,
@@ -1214,8 +1220,8 @@ function updatePreview(drawSelectionIndicators = true) {
     
     const mainImg = mainImages[currentPreviewIndex].image;
     const canvas = previewCanvas;
-    const ctx = canvas.getContext('2d');
-    
+    const ctx = EasyCanvas.getContext2D(canvas);
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
@@ -1310,7 +1316,7 @@ function drawImageWatermark(ctx, watermark, index, drawSelectionIndicators = tru
     // Draw selection indicator (only in preview, not in export)
     if (drawSelectionIndicators && selectedWatermarkIndex === index) {
         ctx.save();
-        ctx.translate(watermark.x, watermark.y);
+        ctx.translate(pixelPos.x, pixelPos.y);
         ctx.rotate((watermark.rotation * Math.PI) / 180);
         ctx.globalAlpha = 1;
         ctx.strokeStyle = '#4CAF50';
@@ -1447,13 +1453,13 @@ function drawSingleText(ctx, watermark, index, drawSelectionIndicators = true) {
     // Draw selection indicator (only in preview, not in export)
     if (drawSelectionIndicators && selectedWatermarkIndex === index) {
         ctx.save();
-        ctx.translate(watermark.x, watermark.y);
+        ctx.translate(pixelPos.x, pixelPos.y);
         ctx.rotate((watermark.rotation * Math.PI) / 180);
         ctx.globalAlpha = 1;
         ctx.strokeStyle = '#4CAF50';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
-        
+
         // Use the same calculation as background for consistency
         const selLines = watermark.text.split('\n');
         const selLineHeight = watermark.fontSize * watermark.lineHeight;
@@ -1633,44 +1639,33 @@ function downloadImage(format) {
     updatePreview(false);
     
     const canvas = previewCanvas;
-    let mimeType, fileExtension, quality;
-    
-    // Get quality from slider (default to 70 if slider not found)
-    const qualityPercent = qualitySlider ? parseInt(qualitySlider.value) : 70;
-    const qualityDecimal = qualityPercent / 100;
-    
+    let mimeType, fileExtension;
+
+    const qualityPercent = qualitySlider ? parseInt(qualitySlider.value) : EasyCanvas.DEFAULT_QUALITY;
+
     if (format === 'jpg') {
         mimeType = 'image/jpeg';
         fileExtension = 'jpg';
-        quality = qualityDecimal; // JPG quality from slider
     } else if (format === 'webp') {
         mimeType = 'image/webp';
         fileExtension = 'webp';
-        quality = qualityDecimal; // WebP quality from slider
     } else {
         mimeType = 'image/png';
         fileExtension = 'png';
-        quality = undefined; // PNG doesn't use quality parameter
     }
-    
-    canvas.toBlob(function(blob) {
-        if (!blob) {
+
+    EasyCanvas.toBlob(canvas, mimeType, qualityPercent)
+        .then(function(blob) {
+            const originalName = mainImages[currentPreviewIndex]?.data?.name;
+            const filename = EasyCanvas.exportFilename(originalName, 'watermarked', fileExtension);
+            EasyCanvas.downloadBlob(blob, filename);
+            // Restore preview with selection indicators after download
+            updatePreview(true);
+        })
+        .catch(function() {
             alert('Error generating image. Please try again.');
-            return;
-        }
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `watermarked-image.${fileExtension}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Restore preview with selection indicators after download
-        updatePreview(true);
-    }, mimeType, quality);
+            updatePreview(true);
+        });
 }
 
 function resetAll() {
@@ -1841,12 +1836,19 @@ async function downloadAllImages(format) {
     try {
         // Load JSZip library dynamically if not already loaded
         if (typeof JSZip === 'undefined') {
-            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            try {
+                await loadScript(
+                    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+                    'sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG'
+                );
+            } catch (loadError) {
+                throw new Error('Could not load the ZIP library (no internet connection?). Try again, or download the images one by one.');
+            }
         }
         
         const zip = new JSZip();
-        const quality = qualitySlider ? parseInt(qualitySlider.value) / 100 : 0.7;
-        
+        const qualityPercent = qualitySlider ? parseInt(qualitySlider.value) : EasyCanvas.DEFAULT_QUALITY;
+
         let mimeType, fileExtension;
         if (format === 'png') {
             mimeType = 'image/png';
@@ -1874,8 +1876,8 @@ async function downloadAllImages(format) {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = img.width;
             tempCanvas.height = img.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            
+            const tempCtx = EasyCanvas.getContext2D(tempCanvas);
+
             // Draw main image
             tempCtx.drawImage(img, 0, 0);
             
@@ -1890,9 +1892,7 @@ async function downloadAllImages(format) {
             });
             
             // Convert canvas to blob
-            const blob = await new Promise((resolve) => {
-                tempCanvas.toBlob((blob) => resolve(blob), mimeType, quality);
-            });
+            const blob = await EasyCanvas.toBlob(tempCanvas, mimeType, qualityPercent);
             
             // Add to ZIP
             const fileName = imgData.data.name.replace(/\.[^/.]+$/, '') || `image-${i + 1}`;
@@ -1934,7 +1934,7 @@ async function downloadAllImages(format) {
         
     } catch (error) {
         console.error('Error creating ZIP:', error);
-        alert('Error creating ZIP file. Please try again.');
+        alert(error && error.message ? error.message : 'Error creating ZIP file. Please try again.');
         
         // Restore original preview index in case of error
         if (typeof originalPreviewIndex !== 'undefined') {
@@ -1947,10 +1947,14 @@ async function downloadAllImages(format) {
     }
 }
 
-function loadScript(src) {
+function loadScript(src, integrity) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
+        if (integrity) {
+            script.integrity = integrity;
+            script.crossOrigin = 'anonymous';
+        }
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);

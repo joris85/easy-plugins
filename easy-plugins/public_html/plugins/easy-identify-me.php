@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-id-card me-3" style="color: #6f42c1; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-identify-me.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Identify Me</h1>
                         <p class="text-muted lead">System Information Tool</p>
@@ -86,6 +86,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Gather system information for troubleshooting</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-identify-me'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-identify-me'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 

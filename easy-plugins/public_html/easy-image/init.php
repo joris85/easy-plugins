@@ -4,8 +4,10 @@ ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 error_reporting(E_ALL);
 
-// Define base path
-define('BASE_PATH', __DIR__);
+// Define base path (process.php may have defined it already)
+if (!defined('BASE_PATH')) {
+    define('BASE_PATH', __DIR__);
+}
 
 // Define upload directories
 $uploadDirs = [

@@ -2,6 +2,7 @@
 /*
 !.gitignore
 !public_html/
+!scripts/
 
 # Ignore common files
 .DS_Store
@@ -51,3 +52,8 @@ public_html/easy-image/cleanup_log.txt
 public_html/easy-image/*.zip
 public_html.zip
 
+
+# Runtime data never belongs in the repo
+public_html/easy-image/data/
+public_html/easy-html/api/data/
+public_html/easy-image/Game info

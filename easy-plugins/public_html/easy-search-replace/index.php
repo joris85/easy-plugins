@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Search & Replace - Text Pattern Tool';
+$metaDescription = 'Search and replace text online with regex support, match counting, truncation and line numbering. Fast, free, and your text never leaves your browser.';
+$canonicalPath = '/easy-search-replace/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -352,7 +354,7 @@ include '../shared/header.php';
         </div>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
     
     <!-- Initialize theme -->
     <script>

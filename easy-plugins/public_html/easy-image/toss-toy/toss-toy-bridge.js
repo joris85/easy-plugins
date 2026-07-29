@@ -75,8 +75,12 @@
     }
 
     const bridge = {
-        /** @returns {Promise<void>} resolves when user continues or toy was skipped */
-        start: function (files, fileFlags) {
+        /**
+         * @param {Object} [hooks] optional { onCancel } — called when the user
+         *   closes the overlay while processing is still running
+         * @returns {Promise<void>} resolves when user continues or toy was skipped
+         */
+        start: function (files, fileFlags, hooks) {
             shown = false;
             activeToy = null;
             revokeCreatedUrls();
@@ -94,6 +98,14 @@
                         activeToy = null;
                         shown = false;
                         revokeCreatedUrls();
+                    },
+                    onCancel: function () {
+                        activeToy = null;
+                        shown = false;
+                        revokeCreatedUrls();
+                        if (hooks && typeof hooks.onCancel === 'function') {
+                            hooks.onCancel();
+                        }
                     }
                 });
                 shown = true;

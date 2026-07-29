@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Image';
+$metaDescription = 'Resize, crop, compress and convert images online, up to 100 at once. Target an exact file size in KB, output WebP, JPG or PNG. Free, private, no account.';
+$canonicalPath = '/easy-image/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -11,9 +13,9 @@ include '../shared/header.php';
     <!-- Cropper.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" integrity="sha384-1arqhTHsGLPVJdhZo8SAycbI+y5k+G7khi5bTZ4BxHJIpCfvWoeSDgXEXXRxB/9G" crossorigin="anonymous">
     <!-- Easy Image Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=2.1">
+    <link rel="stylesheet" href="css/styles.css?v=2.27">
 <?php if (!empty($easyImageTossToyEnabled)): ?>
-    <link rel="stylesheet" href="toss-toy/toss-toy.css?v=7">
+    <link rel="stylesheet" href="toss-toy/toss-toy.css?v=8">
     <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=3">
 <?php endif; ?>
     <div class="container-fluid">
@@ -94,7 +96,17 @@ include '../shared/header.php';
                             <button type="button" class="dimension-btn" data-dimension="height">
                                 <i class="fas fa-arrows-alt-v"></i> Height
                             </button>
+                            <button type="button" class="dimension-btn" data-dimension="fit">
+                                <i class="fas fa-expand"></i> Fit box
+                            </button>
                         </div>
+                        <p id="fitBoxHelp" class="form-help" style="display: none;">
+                            Images are scaled to fit within the width and height below, keeping their proportions.
+                        </p>
+                        <label class="no-upscale-option" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-weight: normal; cursor: pointer;">
+                            <input type="checkbox" id="noUpscale" checked>
+                            Don't enlarge images that are already smaller
+                        </label>
                     </div>
 
                     <!-- Optimize Info -->
@@ -151,90 +163,6 @@ include '../shared/header.php';
                         </div>
                     </div>
 
-                    <!-- Quality Options -->
-                    <div class="form-group">
-                        <label>Image Quality: <i class="fas fa-info-circle quality-info" onclick="showQualityInfo()"></i></label>
-                        <div class="quality-preset-groups">
-                            <div class="quality-buttons quality-buttons-row">
-                                <button type="button" class="quality-btn quality-preset-btn" data-quality="50" data-tier="lossy">
-                                    Low (50%)
-                                </button>
-                                <button type="button" class="quality-btn quality-preset-btn" data-quality="60" data-tier="lossy">
-                                    Medium (60%)
-                                </button>
-                                <button type="button" class="quality-btn quality-preset-btn active" data-quality="70" data-tier="lossy">
-                                    Web Smart (70%)
-                                </button>
-                            </div>
-                            <div class="quality-buttons quality-buttons-row">
-                                <button type="button" class="quality-btn quality-preset-btn" data-quality="85" data-tier="lossy">
-                                    Web Sharp (85%)
-                                </button>
-                                <button type="button" class="quality-btn quality-preset-btn" data-quality="100" data-tier="lossy">
-                                    Web Max (100%)
-                                </button>
-                                <button type="button" class="quality-btn quality-preset-btn" data-quality="custom">
-                                    <i class="fas fa-sliders-h"></i> Custom
-                                </button>
-                            </div>
-                        </div>
-                        <div id="customQualitySlider" class="custom-quality" style="display: none;">
-                            <input type="range" id="qualitySlider" min="1" max="100" value="70" class="slider">
-                            <span id="qualityValue">70%</span>
-                        </div>
-                    </div>
-
-                    <!-- Crop mode options -->
-                    <div id="cropModeOptions" class="form-group" style="display: none;">
-                        <label>Crop mode: <i class="fas fa-info-circle crop-info" onclick="showCropInfo()"></i></label>
-                        <div class="quality-buttons">
-                            <button type="button" class="quality-btn" data-crop-mode="auto">
-                                <i class="fas fa-magic"></i> Automatic
-                            </button>
-                            <button type="button" class="quality-btn active" data-crop-mode="manual">
-                                <i class="fas fa-crop"></i> Manual
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="alignmentOptions" class="alignment-options form-group" style="display: none;">
-                        <div class="intro-text">
-                            <p> <label>Crop alignment:</label>
-                            <p class="alignment-info">Choose where to focus when auto-cropping your images. Perfect for keeping the important parts in frame!</p>
-                            </p>
-                        
-                            <div class="alignment-grid">
-                                <button type="button" class="alignment-btn" data-align="top-left">
-                                    Top Left
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="top-center">
-                                    Top Center
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="top-right">
-                                    Top Right
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="left-middle">
-                                    Left Middle
-                                </button>
-                                <button type="button" class="alignment-btn active" data-align="center-middle">
-                                    Center Middle
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="right-middle">
-                                    Right Middle
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="bottom-left">
-                                    Bottom Left
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="bottom-center">
-                                    Bottom Center
-                                </button>
-                                <button type="button" class="alignment-btn" data-align="bottom-right">
-                                    Bottom Right
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Output Format Options -->
                     <div class="form-group">
                         <label>Output Format: <i class="fas fa-info-circle format-info" onclick="showFormatInfo()"></i></label>
@@ -242,16 +170,111 @@ include '../shared/header.php';
                             <button type="button" class="format-btn" data-format="jpg">JPG</button>
                             <button type="button" class="format-btn" data-format="png">PNG</button>
                             <button type="button" class="format-btn active" data-format="webp">WebP</button>
+                            <button type="button" class="format-btn" data-format="avif" id="avifFormatBtn" style="display: none;">AVIF</button>
                         </div>
                     </div>
 
-                    <!-- Advanced Options -->
-                    <div class="form-group advanced-options">
-                        <div class="advanced-header" onclick="toggleAdvanced()">
-                            <label>Advanced Options</label>
-                            <i class="fas fa-chevron-down"></i>
+                    <!-- Quality Options -->
+                    <div class="form-group">
+                        <label>Image Quality: <i class="fas fa-info-circle quality-info" onclick="showQualityInfo()"></i></label>
+                        <div class="quality-buttons quality-buttons-row quality-control-tabs">
+                            <button type="button" class="quality-btn quality-tab-btn active" data-quality-tab="percent">
+                                <i class="fas fa-percentage"></i> Quality %
+                            </button>
+                            <button type="button" class="quality-btn quality-tab-btn" data-quality-tab="target" id="qualityTabTarget">
+                                <i class="fas fa-bullseye"></i> Target size
+                            </button>
                         </div>
-                        <div class="advanced-content" style="display: none;">
+
+                        <div id="qualityPercentPanel">
+                            <div class="quality-preset-groups">
+                                <div class="quality-buttons quality-buttons-row">
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="50" data-tier="lossy">
+                                        Low (50%)
+                                    </button>
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="60" data-tier="lossy">
+                                        Medium (60%)
+                                    </button>
+                                    <button type="button" class="quality-btn quality-preset-btn active" data-quality="70" data-tier="lossy">
+                                        Web Smart (70%)
+                                    </button>
+                                </div>
+                                <div class="quality-buttons quality-buttons-row">
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="85" data-tier="lossy">
+                                        Web Sharp (85%)
+                                    </button>
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="100" data-tier="lossy">
+                                        Web Max (100%)
+                                    </button>
+                                    <button type="button" class="quality-btn quality-preset-btn" data-quality="custom">
+                                        <i class="fas fa-sliders-h"></i> Custom
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="customQualitySlider" class="custom-quality" style="display: none;">
+                                <input type="range" id="qualitySlider" min="1" max="100" value="70" class="slider">
+                                <span id="qualityValue">70%</span>
+                            </div>
+                        </div>
+
+                        <div id="qualityTargetPanel" style="display: none;">
+                            <div class="quality-preset-groups">
+                                <div class="quality-buttons quality-buttons-row">
+                                    <button type="button" class="quality-btn target-size-btn" data-target-kb="100">100 KB</button>
+                                    <button type="button" class="quality-btn target-size-btn active" data-target-kb="200">200 KB</button>
+                                    <button type="button" class="quality-btn target-size-btn" data-target-kb="500">500 KB</button>
+                                </div>
+                                <div class="quality-buttons quality-buttons-row">
+                                    <button type="button" class="quality-btn target-size-btn" data-target-kb="1024">1 MB</button>
+                                    <button type="button" class="quality-btn target-size-btn" data-target-kb="custom">
+                                        <i class="fas fa-sliders-h"></i> Custom
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="customTargetSize" class="custom-quality target-size-custom" style="display: none;">
+                                <label for="targetSizeKb" class="target-size-custom-label">Maximum size per image:</label>
+                                <div class="target-size-input-group">
+                                    <input type="number" id="targetSizeKb" min="10" max="10240" step="10" placeholder="250">
+                                    <span class="target-size-unit">KB</span>
+                                </div>
+                            </div>
+                            <p class="form-help">
+                                Each image comes out at or under this size; the best quality within that limit is chosen automatically.
+                            </p>
+                        </div>
+                        <p id="targetPngHint" class="form-help" style="display: none;">
+                            PNG is always lossless, so a size target is not possible. Choose JPG, WebP or AVIF to use Target size.
+                        </p>
+                    </div>
+
+                    <!-- Enhance -->
+                    <div class="form-group">
+                        <label>Enhance your image: <i class="fas fa-info-circle enhance-info" onclick="showEnhanceInfo()"></i></label>
+                        <div class="quality-buttons quality-buttons-row">
+                            <button type="button" class="quality-btn enhance-btn active" data-enhance="none">
+                                No enhancement
+                            </button>
+                            <button type="button" class="quality-btn enhance-btn" data-enhance="auto">
+                                <i class="fas fa-star"></i> Auto enhance
+                            </button>
+                            <button type="button" class="quality-btn enhance-btn" data-enhance="custom">
+                                <i class="fas fa-sliders-h"></i> Custom<span id="customEffectsCount"></span>
+                            </button>
+                        </div>
+
+                        <!-- Strength (visible when Auto enhance is selected) -->
+                        <div id="autoStrengthGroup" class="auto-strength" style="display: none;">
+                            <label for="autoStrengthSlider">Strength <span id="autoStrengthValue">50%</span></label>
+                            <input type="range" id="autoStrengthSlider" min="10" max="100" step="5" value="50">
+                            <p class="form-help">50% is the balanced default. Slide left for a subtler correction or right for a stronger one.</p>
+                        </div>
+
+                        <!-- Custom Enhance (visible when the Custom enhance mode is selected) -->
+                        <div class="advanced-options" id="customEnhanceGroup" style="display: none;">
+                        <div class="advanced-header">
+                            <label>Custom Enhance</label>
+                        </div>
+                        <div class="advanced-content">
                             <div class="performance-notice">
                                 <i class="fas fa-info-circle"></i>
                                 <p>Performance Notice: Each additional effect and image will increase processing time. Maximum 100 images or 256MB total. For best results, apply effects selectively and process images in smaller batches.<span id="serverLimitsNotice"></span></p>
@@ -319,7 +342,65 @@ include '../shared/header.php';
                                 </div>
                             </div>
                         </div>
+                        </div>
+
+                        <!-- Preview (Auto enhance and Custom) -->
+                        <button type="button" id="enhancePreviewBtn" class="btn btn-outline-secondary btn-sm enhance-preview-trigger" style="display: none; margin-top: 0.75rem;" onclick="previewEnhancement(this)">
+                            <i class="fas fa-eye"></i> Check preview on first image
+                        </button>
                     </div>
+
+                    <!-- Crop mode options -->
+                    <div id="cropModeOptions" class="form-group" style="display: none;">
+                        <label>Crop mode: <i class="fas fa-info-circle crop-info" onclick="showCropInfo()"></i></label>
+                        <div class="quality-buttons">
+                            <button type="button" class="quality-btn" data-crop-mode="auto">
+                                <i class="fas fa-magic"></i> Automatic
+                            </button>
+                            <button type="button" class="quality-btn active" data-crop-mode="manual">
+                                <i class="fas fa-crop"></i> Manual
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="alignmentOptions" class="alignment-options form-group" style="display: none;">
+                        <div class="intro-text">
+                            <p> <label>Crop alignment:</label>
+                            <p class="alignment-info">Choose where to focus when auto-cropping your images. Perfect for keeping the important parts in frame!</p>
+                            </p>
+                        
+                            <div class="alignment-grid">
+                                <button type="button" class="alignment-btn" data-align="top-left">
+                                    Top Left
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="top-center">
+                                    Top Center
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="top-right">
+                                    Top Right
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="left-middle">
+                                    Left Middle
+                                </button>
+                                <button type="button" class="alignment-btn active" data-align="center-middle">
+                                    Center Middle
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="right-middle">
+                                    Right Middle
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="bottom-left">
+                                    Bottom Left
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="bottom-center">
+                                    Bottom Center
+                                </button>
+                                <button type="button" class="alignment-btn" data-align="bottom-right">
+                                    Bottom Right
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                 </form>
                 
                 <!-- Process Button in Settings Section -->
@@ -337,6 +418,163 @@ include '../shared/header.php';
             <p id="downloadSummary" class="download-summary"></p>
             <div id="downloadWarnings" class="download-warnings" style="display: none;"></div>
             <div id="orientationDebugPanel" class="orientation-debug-panel" style="display: none;"></div>
+
+            <!-- Renamer -->
+            <div class="renamer-wrap">
+                <button type="button" id="renamerToggleBtn" class="btn btn-outline-secondary renamer-toggle-btn" onclick="toggleRenamer()">
+                    <i class="fas fa-i-cursor"></i> Renamer
+                </button>
+                <div id="renamerPanel" class="renamer-panel" style="display: none;">
+
+                    <!-- Section 1: Search & replace (open by default) -->
+                    <div class="renamer-section">
+                        <button type="button" class="renamer-section-header" onclick="toggleRenamerSection(this)" aria-expanded="true">
+                            <i class="fas fa-chevron-down"></i>
+                            <span class="renamer-section-titles">
+                                Search &amp; replace
+                                <span class="renamer-section-sub">Find text in the names and change or remove it</span>
+                            </span>
+                        </button>
+                        <div class="renamer-section-body">
+                    <div class="renamer-presets renamer-replacers">
+                        <span class="renamer-presets-label">Common replacers:</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="urlSafe" title="Lowercase, accents flattened, spaces to dashes, all other non-URL characters removed">URL safe</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="lowercase" title="Everything to lowercase letters">lowercase</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="spaceToDash" title="Every space becomes a dash">Space &rarr; dash</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="spaceToUnderscore" title="Every space becomes an underscore">Space &rarr; underscore</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="removeSpaces" title="Delete all spaces">Remove spaces</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="removeAccents" title="&eacute; becomes e, &uuml; becomes u, and so on">Remove accents</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-replacer" data-replacer="removeCopyMarkers" title="Removes (1), (2), copy and kopie markers">Remove copy markers</button>
+                    </div>
+                    <div id="renamerSearchRows">
+                        <div class="renamer-row renamer-search-row">
+                            <div class="renamer-field">
+                                <label for="renamerSearch">Search in original name</label>
+                                <input type="text" id="renamerSearch" class="renamer-search-input" placeholder="e.g. IMG_" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="renamer-field">
+                                <label for="renamerReplace">Replace with</label>
+                                <input type="text" id="renamerReplace" class="renamer-replace-input" placeholder="leave empty to remove" autocomplete="off" spellcheck="false">
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm renamer-row-btn" onclick="addRenamerSearchRow()" title="Add another search and replace rule" aria-label="Add another search and replace rule">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Pattern structure -->
+                    <div class="renamer-section">
+                        <button type="button" class="renamer-section-header" onclick="toggleRenamerSection(this)" aria-expanded="false">
+                            <i class="fas fa-chevron-right"></i>
+                            <span class="renamer-section-titles">
+                                Pattern structure
+                                <span class="renamer-section-sub">Rebuild every name from blocks: your own text, numbering 01/02, today's date</span>
+                            </span>
+                        </button>
+                        <div class="renamer-section-body" style="display: none;">
+                    <div class="renamer-presets">
+                        <span class="renamer-presets-label">Common patterns:</span>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-preset" data-pattern="{prefix}{name}">Prefix + name</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-preset" data-pattern="{name}{suffix}">Name + suffix</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-preset" data-pattern="{prefix}{nnn}">Numbered series</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm renamer-preset" data-pattern="{date}-{name}">Date + name</button>
+                    </div>
+                    <div class="renamer-row">
+                        <div class="renamer-field renamer-field-wide">
+                            <label for="renamerPattern">Custom pattern</label>
+                            <input type="text" id="renamerPattern" value="{name}" autocomplete="off" spellcheck="false">
+                            <div class="renamer-tokens">
+                                <span class="renamer-tokens-label">Click to insert:</span>
+                                <button type="button" class="renamer-token" data-token="{name}" title="The original filename, without extension"><code>{name}</code> original name</button>
+                                <button type="button" class="renamer-token" data-token="{n}" title="Numbers your images automatically"><code>{n}</code> 1, 2, 3&hellip;</button>
+                                <button type="button" class="renamer-token" data-token="{nn}" title="Numbering with a leading zero, so files sort correctly"><code>{nn}</code> 01, 02&hellip;</button>
+                                <button type="button" class="renamer-token" data-token="{nnn}" title="Numbering with two leading zeros, for very large batches"><code>{nnn}</code> 001, 002&hellip;</button>
+                                <button type="button" class="renamer-token" data-token="{date}" title="Today's date as year-month-day"><code>{date}</code> today</button>
+                                <button type="button" class="renamer-token" data-token="{yyyy}" title="Current year, four digits"><code>{yyyy}</code> year</button>
+                                <button type="button" class="renamer-token" data-token="{yy}" title="Current year, two digits"><code>{yy}</code> short year</button>
+                                <button type="button" class="renamer-token" data-token="{mm}" title="Current month"><code>{mm}</code> month</button>
+                                <button type="button" class="renamer-token" data-token="{dd}" title="Current day"><code>{dd}</code> day</button>
+                                <button type="button" class="renamer-token" data-token="{prefix}" title="Your own text at the front — type it in the Prefix field"><code>{prefix}</code> your prefix</button>
+                                <button type="button" class="renamer-token" data-token="{suffix}" title="Your own text at the end — type it in the Suffix field"><code>{suffix}</code> your suffix</button>
+                            </div>
+                        </div>
+                        <div class="renamer-field renamer-field-small" id="renamerPrefixField" style="display: none;">
+                            <label for="renamerPrefix">Prefix</label>
+                            <input type="text" id="renamerPrefix" placeholder="e.g. magazine 01-" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="renamer-field renamer-field-small" id="renamerSuffixField" style="display: none;">
+                            <label for="renamerSuffix">Suffix</label>
+                            <input type="text" id="renamerSuffix" placeholder="e.g. -magazine" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="renamer-field renamer-field-small" id="renamerStartField" style="display: none;">
+                            <label for="renamerStart">Start counting at</label>
+                            <input type="number" id="renamerStart" value="1" min="0" step="1">
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Advanced regex -->
+                    <div class="renamer-section">
+                        <button type="button" class="renamer-section-header" onclick="toggleRenamerSection(this)" aria-expanded="false">
+                            <i class="fas fa-chevron-right"></i>
+                            <span class="renamer-section-titles">
+                                Advanced: regex
+                                <span class="renamer-section-sub">Remove flexible text patterns, like any number, date or size</span>
+                            </span>
+                        </button>
+                        <div class="renamer-section-body" style="display: none;">
+                            <div class="renamer-presets renamer-regex-presets">
+                                <span class="renamer-presets-label">Common patterns:</span>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="\d+" title="Every number, anywhere in the name">All numbers</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="\d{4}[-._ ]?\d{2}[-._ ]?\d{2}" title="Dates like 2026-07-26, 2026_07_26 or 20260726">Date 2026-07-26</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="\d{2}[-._ ]\d{2}[-._ ]\d{4}" title="Dates like 26-07-2026 or 26.07.2026">Date 26-07-2026</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="^(IMG|DSC|DSCN|PXL|VID|GOPR)[-_ ]?" data-icase="1" title="Camera prefixes like IMG_, DSC, PXL at the start">Camera prefix</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="[-_ ]?\d+$" title="A number at the end of the name, including the separator before it">Numbers at end</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="\s*[(\[][^)\]]*[)\]]" title="Anything between (round) or [square] brackets">(text) in brackets</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="[-_ ]?\(?\d{2,5}\s?[x&times;]\s?\d{2,5}\)?" title="Image sizes like 600x246 or (600x246), including the separator before them">Size (600x246)</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm renamer-regex-preset" data-regex="[-_ ]{2,}" data-replace="-" title="Two or more spaces, dashes or underscores in a row, replaced by one dash">Double separators</button>
+                            </div>
+                            <div class="renamer-row">
+                                <div class="renamer-field">
+                                    <label for="renamerRegex">Regex pattern <i class="fas fa-info-circle renamer-regex-info" onclick="showRegexInfo()" role="button" aria-label="Regex information"></i></label>
+                                    <input type="text" id="renamerRegex" placeholder="e.g. ^IMG_\d+  or  \d{4}" autocomplete="off" spellcheck="false">
+                                    <p id="renamerRegexError" class="form-help renamer-regex-error" style="display: none;">
+                                        <i class="fas fa-exclamation-circle"></i> Invalid regular expression
+                                    </p>
+                                </div>
+                                <div class="renamer-field">
+                                    <label for="renamerRegexReplace">Replace with</label>
+                                    <input type="text" id="renamerRegexReplace" placeholder="leave empty to remove" autocomplete="off" spellcheck="false">
+                                    <label class="renamer-regex-case">
+                                        <input type="checkbox" id="renamerRegexIgnoreCase"> Ignore upper/lowercase
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="renamer-preview-title">Preview names</p>
+                    <div id="renamerPreview" class="renamer-preview"></div>
+                    <p id="renamerSlashHint" class="form-help renamer-slash-hint" style="display: none;">
+                        <i class="fas fa-info-circle"></i> A <code>/</code> is not allowed in filenames and is replaced by <code>-</code>.
+                    </p>
+                    <p id="renamerDupHint" class="form-help renamer-dup-hint" style="display: none;">
+                        <i class="fas fa-info-circle"></i> <span id="renamerDupCount">0</span> name(s) became identical after these changes. A number (<code>-1</code>, <code>-2</code>&hellip;) is added automatically so every file keeps a unique name. Prefer your own numbering? Use the <code>{nn}</code> token in Pattern structure.
+                    </p>
+                    <div class="renamer-actions">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="applyRenamer()">
+                            <i class="fas fa-check"></i> Apply to all names
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetRenamer()">
+                            Reset names
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div id="processedImages" class="processed-images"></div>
             <div class="download-controls">
                 <button onclick="downloadAll()" class="btn download-all" style="display: none;">
@@ -363,6 +601,12 @@ include '../shared/header.php';
                 <div class="crop-dimension-row">
                     <span class="crop-dimension-label">Selection:</span>
                     <span id="cropSelectionSize">—</span>
+                    <i id="cropSelectionWarnIcon" class="fas fa-info-circle crop-selection-warn" style="display: none;" onclick="showCropUpscaleInfo()" title="The selection is smaller than the final output — click for details" role="button" aria-label="Selection smaller than final output — more information"></i>
+                    <label id="cropUpscaleInline" class="crop-upscale-switch" style="display: none;">
+                        <input type="checkbox" id="allowUpscaleToggle" onchange="window.allowCropUpscale = this.checked; window.refreshCropReadout && window.refreshCropReadout();">
+                        <span class="crop-switch-track" aria-hidden="true"></span>
+                        <span class="crop-upscale-text">Allow enlarging</span>
+                    </label>
                 </div>
                 <div class="crop-dimension-row crop-dimension-output">
                     <span class="crop-dimension-label">Final output:</span>
@@ -511,6 +755,97 @@ include '../shared/header.php';
     </div>
 
     <!-- Quality Info Modal -->
+    <div id="comparePreviewModal" class="modal">
+        <div class="modal-content compare-modal-content">
+            <span class="close">&times;</span>
+            <h2><i class="fas fa-eye"></i> Before / after</h2>
+            <p class="form-help" id="compareFilename"></p>
+            <div class="compare-wrap" id="compareWrap">
+                <img class="compare-after" id="compareAfterImg" alt="After" draggable="false">
+                <div class="compare-before-clip" id="compareBeforeClip">
+                    <img class="compare-before" id="compareBeforeImg" alt="Before" draggable="false">
+                </div>
+                <div class="compare-handle" id="compareHandle"></div>
+                <span class="compare-label compare-label-before">Before</span>
+                <span class="compare-label compare-label-after">After</span>
+            </div>
+            <p class="form-help">Drag the line over the image to compare before and after.</p>
+        </div>
+    </div>
+
+    <!-- Regex rename info -->
+    <div id="regexInfoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2><i class="fas fa-asterisk"></i> Regex rename</h2>
+            <div class="quality-info-content">
+                <p>A regular expression (regex) describes a text pattern instead of literal text. Everything in the filename that matches the pattern is replaced with the "Replace with" text, or removed when that field is empty.</p>
+                <div class="quality-section">
+                    <h4>The common patterns explained</h4>
+                    <ul class="regex-pattern-list">
+                        <li><code>\d+</code> &mdash; <strong>All numbers</strong>: every group of digits, anywhere in the name.</li>
+                        <li><code>\d{4}[-._ ]?\d{2}[-._ ]?\d{2}</code> &mdash; <strong>Date 2026-07-26</strong>: also matches 2026_07_26, 2026.07.26 and 20260726.</li>
+                        <li><code>\d{2}[-._ ]\d{2}[-._ ]\d{4}</code> &mdash; <strong>Date 26-07-2026</strong>: day-month-year with a separator.</li>
+                        <li><code>^(IMG|DSC|DSCN|PXL|VID|GOPR)[-_ ]?</code> &mdash; <strong>Camera prefix</strong>: removes IMG_, DSC, PXL and similar at the start (turn on "Ignore upper/lowercase").</li>
+                        <li><code>[-_ ]?\d+$</code> &mdash; <strong>Numbers at end</strong>: a trailing number including the dash or space before it.</li>
+                        <li><code>\s*[(\[][^)\]]*[)\]]</code> &mdash; <strong>(text) in brackets</strong>: anything between round or square brackets.</li>
+                        <li><code>[-_ ]?\(?\d{2,5}\s?[x&times;]\s?\d{2,5}\)?</code> &mdash; <strong>Size (600x246)</strong>: image dimensions like 600x246, (600x246) or 1920&times;1080, including the separator before them.</li>
+                        <li><code>[-_ ]{2,}</code> &mdash; <strong>Double separators</strong>: two or more spaces, dashes or underscores in a row; combine with "-" as replacement to tidy them up.</li>
+                    </ul>
+                </div>
+                <div class="quality-section">
+                    <h4>Good to know</h4>
+                    <p><code>^</code> means "at the start", <code>$</code> "at the end", <code>\d</code> a digit, <code>+</code> "one or more" and <code>{4}</code> "exactly four". Round brackets make a capture group that you can reuse in the replacement as <code>$1</code>.</p>
+                    <p class="mb-0">Learn more or test your pattern live: <a href="https://regex101.com/" target="_blank" rel="noopener">regex101.com</a> (interactive tester) &middot; <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions" target="_blank" rel="noopener">MDN regular expressions guide</a>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crop upscale info -->
+    <div id="cropUpscaleInfoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2><i class="fas fa-expand-arrows-alt"></i> Selection smaller than output</h2>
+            <div class="quality-info-content">
+                <p>Your selected area contains fewer pixels than the final output size, so the image would need to be enlarged. Enlarging stretches the existing pixels, which can make the result look softer or slightly blurry.</p>
+                <p><strong>You have two options:</strong></p>
+                <ul>
+                    <li><strong>Make the selection bigger</strong> (or use a larger photo) — the result stays fully sharp.</li>
+                    <li><strong>Turn on the "Allow enlarging" switch</strong> next to the size info — the image is scaled up to the final output size with a high-quality filter, but may look less sharp. Up to about 1.5&times; enlargement this is barely visible; beyond that, softness increases.</li>
+                </ul>
+                <p class="mb-0">The choice stays on for the rest of this batch, so you only have to decide once.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="enhanceInfoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2><i class="fas fa-star"></i> Enhancement Guide</h2>
+            <div class="quality-info-content">
+                <div class="quality-section">
+                    <div class="quality-info-item">
+                        <h4>No enhancement (default)</h4>
+                        <p>Your images are processed exactly as they are. Nothing about the colors, brightness or contrast is changed — only the size, crop and compression you asked for.</p>
+                        <p><strong>Use when:</strong> Your photos already look the way you want them.</p>
+                    </div>
+                    <div class="quality-info-item">
+                        <h4>Auto enhance</h4>
+                        <p>An automatic correction tuned per photo. Each image is measured first: the tonal range is stretched to full contrast, flat or hazy photos get an extra contrast curve, and dull colors get a stronger lift than already-vivid ones. Overall brightness is preserved, so faces and skies never blow out. The Strength slider makes the correction lighter or stronger; 50% is the balanced default.</p>
+                        <p><strong>Use when:</strong> Photos look dull, gray or washed out, or you are batch-processing a mix and want a safe automatic fix.</p>
+                        <p><strong>Tip:</strong> Upload an image and use <em>Preview on first image</em> to see the before and after with your own photo.</p>
+                    </div>
+                    <div class="quality-info-item">
+                        <h4>Custom</h4>
+                        <p>Full manual control: blur, sharpen, brightness, contrast and saturation sliders, plus one-click effects like normalize, equalize, emboss and charcoal. Selecting Custom opens the effects panel, where every option has its own explanation.</p>
+                        <p><strong>Use when:</strong> You want a specific look, or want to combine adjustments yourself.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="qualityInfoModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -673,17 +1008,17 @@ include '../shared/header.php';
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js" integrity="sha384-P65gU1u4/dZpqRQ0AVqW+DHPwXmNAR84Qk31dC95hjk0WatF1GsVF1zRm/0uB+o0" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-    <script src="js/config.js"></script>
-    <script src="js/urlParams.js?v=2.10.0"></script>
+    <script src="js/config.js?v=2026-07-13"></script>
+    <script src="js/urlParams.js?v=2.12.0"></script>
 <?php if (!empty($easyImageTossToyEnabled)): ?>
     <script src="toss-toy/toss-toy.config.js?v=3"></script>
     <script src="toss-toy/toss-toy-tetris-scores.js?v=1"></script>
     <script src="toss-toy/toss-toy-tetris.js?v=6"></script>
     <script src="toss-toy/toss-toy-easter-egg.js?v=2"></script>
-    <script src="toss-toy/toss-toy.js?v=9"></script>
-    <script src="toss-toy/toss-toy-bridge.js?v=1"></script>
+    <script src="toss-toy/toss-toy.js?v=10"></script>
+    <script src="toss-toy/toss-toy-bridge.js?v=2"></script>
 <?php endif; ?>
-    <script src="js/app.js?v=2.10.0"></script>
+    <script src="js/app.js?v=2.36.0"></script>
     <!-- Bootstrap for shared components -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 </body>

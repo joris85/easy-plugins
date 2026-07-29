@@ -39,19 +39,39 @@ $pluginPages = [
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 ?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc><?= $baseUrl ?>/</loc>
+        <xhtml:link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/"/>
+        <xhtml:link rel="alternate" hreflang="nl" href="<?= $baseUrl ?>/nl/"/>
         <lastmod><?= $lastmod ?></lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
+    <url>
+        <loc><?= $baseUrl ?>/nl/</loc>
+        <xhtml:link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/"/>
+        <xhtml:link rel="alternate" hreflang="nl" href="<?= $baseUrl ?>/nl/"/>
+        <lastmod><?= $lastmod ?></lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
 <?php foreach ($toolPages as $path): ?>
     <url>
         <loc><?= $baseUrl ?><?= $path ?></loc>
+        <xhtml:link rel="alternate" hreflang="en" href="<?= $baseUrl ?><?= $path ?>"/>
+        <xhtml:link rel="alternate" hreflang="nl" href="<?= $baseUrl ?>/nl<?= $path ?>"/>
         <lastmod><?= $lastmod ?></lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
+    </url>
+    <url>
+        <loc><?= $baseUrl ?>/nl<?= $path ?></loc>
+        <xhtml:link rel="alternate" hreflang="en" href="<?= $baseUrl ?><?= $path ?>"/>
+        <xhtml:link rel="alternate" hreflang="nl" href="<?= $baseUrl ?>/nl<?= $path ?>"/>
+        <lastmod><?= $lastmod ?></lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.7</priority>
     </url>
 <?php endforeach; ?>
 <?php foreach ($pluginPages as $path): ?>

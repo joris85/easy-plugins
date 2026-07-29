@@ -269,32 +269,68 @@ function performSearchReplace() {
     try {
         let regex;
         let pattern;
-        
+        const usingCustomRegex = !!(useRegex && useRegex.trim());
+
         // Determine which pattern to use
-        if (useRegex && useRegex.trim()) {
+        if (usingCustomRegex) {
             pattern = useRegex;
+            // A complex user regex on a huge text can freeze the browser
+            // (catastrophic backtracking) — cap the input for that path.
+            const MAX_REGEX_TEXT = 200000;
+            if (text.length > MAX_REGEX_TEXT) {
+                showAlert(
+                    'Text is too long for a custom regular expression (max '
+                    + Math.round(MAX_REGEX_TEXT / 1000) + 'k characters). '
+                    + 'Use the simple search field instead, or split the text.',
+                    'warning'
+                );
+                return;
+            }
         } else if (searchPattern && searchPattern.trim()) {
             pattern = escapeRegex(searchPattern);
         } else {
             showAlert('Please enter a search pattern!', 'warning');
             return;
         }
-        
+
         // Create regex with flags
         let flags = 'g';
         if (!caseSensitive) {
             flags += 'i';
         }
-        
+
         regex = new RegExp(pattern, flags);
-        
-        // Perform replacement
-        const newText = text.replace(regex, replaceText || '');
-        
+
+        // Perform replacement, counting matches in the same pass
+        let matchCount = 0;
+        const replacement = replaceText || '';
+        const newText = text.replace(regex, function(...args) {
+            matchCount++;
+            // Re-apply normal $1/$& semantics via manual expansion is overkill;
+            // delegate to String.replace's own handling by rebuilding the call:
+            return replacement.replace(/\$(\d+|&)/g, function(token, ref) {
+                if (ref === '&') {
+                    return args[0];
+                }
+                const groupIndex = parseInt(ref, 10);
+                return groupIndex > 0 && groupIndex < args.length - 2 && args[groupIndex] !== undefined
+                    ? args[groupIndex]
+                    : token;
+            });
+        });
+
         // Update output
         document.getElementById('textOutput').value = newText;
-        showAlert('Search and replace completed!', 'success');
-        
+
+        if (matchCount === 0) {
+            showAlert('No matches found — nothing was replaced.', 'warning');
+        } else {
+            const overrideNote = usingCustomRegex && searchPattern && searchPattern.trim()
+                ? ' (the regular expression was used; the simple search field is ignored when both are filled)'
+                : '';
+            showAlert('Replaced ' + matchCount + ' match' + (matchCount === 1 ? '' : 'es') + '!' + overrideNote, 'success');
+        }
+
     } catch (error) {
         showAlert('Error: ' + error.message, 'danger');
     }

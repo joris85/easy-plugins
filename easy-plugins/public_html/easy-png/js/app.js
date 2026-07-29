@@ -275,34 +275,37 @@ function handleFileSelect(e) {
 }
 
 function handleFile(file) {
-    // Validate file type
-    const validTypes = ['image/png', 'image/webp', 'image/svg+xml'];
-    const validExtensions = ['.png', '.webp', '.svg'];
-    const fileName = file.name.toLowerCase();
-    
-    const isValidType = validTypes.includes(file.type) || 
-                       validExtensions.some(ext => fileName.endsWith(ext));
-    
-    if (!isValidType) {
-        alert('Please upload a PNG, WebP, or SVG file');
+    // SVG is rejected: it taints the canvas and export fails silently
+    const validation = EasyUpload.validateImageFile(file, {
+        allowedTypes: ['image/png', 'image/webp', 'image/x-webp'],
+        allowedExtensions: ['png', 'webp']
+    });
+    if (!validation.ok) {
+        alert(validation.error);
         return;
     }
-    
+
     // Read file
     const reader = new FileReader();
     reader.onload = function(e) {
-        loadImage(e.target.result, file.type);
+        loadImage(e.target.result, file.type, file.name);
     };
     reader.readAsDataURL(file);
 }
 
-function loadImage(src, mimeType) {
+function loadImage(src, mimeType, fileName) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    
+
     img.onload = function() {
+        const sizeError = EasyCanvas.sourceSizeError(img.width, img.height);
+        if (sizeError) {
+            alert(sizeError);
+            return;
+        }
+
         currentImage = img;
-        currentImageData = { src, mimeType };
+        currentImageData = { src, mimeType, fileName };
         
         // Show preview
         previewPlaceholder.style.display = 'none';
@@ -316,7 +319,7 @@ function loadImage(src, mimeType) {
         alert('Error loading image. Please try another file.');
     };
     
-    // Set image source (works for PNG, WebP, and SVG)
+    // Set image source (PNG and WebP)
     img.src = src;
 }
 
@@ -324,11 +327,12 @@ function updatePreview() {
     if (!currentImage) return;
     
     const canvas = previewCanvas;
-    const ctx = canvas.getContext('2d');
-    
+    const ctx = EasyCanvas.getContext2D(canvas);
+
     // Set canvas size
     canvas.width = currentImage.width;
     canvas.height = currentImage.height;
+    EasyCanvas.applyHighQualitySmoothing(ctx);
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -440,41 +444,30 @@ function downloadImage(format) {
     }
     
     const canvas = previewCanvas;
-    let mimeType, fileExtension, quality;
-    
-    // Get quality from slider (default to 70 if slider not found)
-    const qualityPercent = qualitySlider ? parseInt(qualitySlider.value) : 70;
-    const qualityDecimal = qualityPercent / 100;
-    
+    let mimeType, fileExtension;
+
+    const qualityPercent = qualitySlider ? parseInt(qualitySlider.value) : EasyCanvas.DEFAULT_QUALITY;
+
     if (format === 'jpg') {
         mimeType = 'image/jpeg';
         fileExtension = 'jpg';
-        quality = qualityDecimal; // JPG quality from slider
     } else if (format === 'webp') {
         mimeType = 'image/webp';
         fileExtension = 'webp';
-        quality = qualityDecimal; // WebP quality from slider
     } else {
         mimeType = 'image/png';
         fileExtension = 'png';
-        quality = undefined; // PNG doesn't use quality parameter
     }
-    
-    canvas.toBlob(function(blob) {
-        if (!blob) {
+
+    EasyCanvas.toBlob(canvas, mimeType, qualityPercent)
+        .then(function(blob) {
+            const originalName = currentImageData && currentImageData.fileName;
+            const filename = EasyCanvas.exportFilename(originalName, 'with-background', fileExtension);
+            EasyCanvas.downloadBlob(blob, filename);
+        })
+        .catch(function() {
             alert('Error generating image. Please try again.');
-            return;
-        }
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `image-with-background.${fileExtension}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, mimeType, quality);
+        });
 }
 
 function resetAll() {

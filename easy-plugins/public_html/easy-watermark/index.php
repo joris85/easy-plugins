@@ -1,5 +1,7 @@
 <?php 
 $pageTitle = 'Easy Watermark - Add Watermarks to Images';
+$metaDescription = 'Add text or image watermarks to your photos with drag-and-drop positioning, opacity and rotation. Batch watermark and download as ZIP. Free and private.';
+$canonicalPath = '/easy-watermark/';
 $faviconPath = '../favicon.ico';
 $cssPath = '../shared/master.css';
 $themePath = '../shared/theme.js';
@@ -82,9 +84,9 @@ include '../shared/header.php';
                     <div class="preview-controls" id="previewControls" style="display: none;">
                         <div class="quality-control" style="width: 100%; margin-bottom: 1.5rem;">
                             <label for="qualitySlider" style="display: block; margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 500;">
-                                <i class="fas fa-sliders-h me-1"></i> Export Quality: <span id="qualityValue">70</span>%
+                                <i class="fas fa-sliders-h me-1"></i> Export Quality: <span id="qualityValue">85</span>%
                             </label>
-                            <input type="range" id="qualitySlider" min="0" max="100" value="70" class="slider" style="width: 100%; margin-bottom: 0.5rem;">
+                            <input type="range" id="qualitySlider" min="0" max="100" value="85" class="slider" style="width: 100%; margin-bottom: 0.5rem;">
                             <small style="color: var(--text-muted); font-size: 0.85rem; display: block;">Note: Quality only affects JPG and WebP formats</small>
                         </div>
                         <div class="button-group" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
@@ -109,7 +111,9 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="/shared/upload.js?v=1.1"></script>
+    <script src="/shared/canvas-export.js?v=1.1"></script>
+    <script src="js/app.js?v=2026-07-18"></script>
 </body>
 </html>
 

@@ -123,13 +123,11 @@ function loadSassCompiler() {
 }
 
 function loadSassFromLocal() {
-    console.log('Attempting to load SASS from local file...');
     const script = document.createElement('script');
     script.src = localSassPath;
     script.async = true;
     
     script.onload = function() {
-        console.log('Local SASS script loaded, checking availability...');
         // Wait and check multiple times
         let checkCount = 0;
         const maxChecks = 10;
@@ -138,7 +136,6 @@ function loadSassFromLocal() {
         const checkIntervalId = setInterval(function() {
             checkCount++;
             if (checkSassAvailable()) {
-                console.log('SASS compiler loaded successfully from local file!');
                 clearInterval(checkIntervalId);
                 initializeApp();
             } else if (checkCount >= maxChecks) {
@@ -169,14 +166,12 @@ function loadSassFromCDN() {
 }
 
 function loadSassFromCDNSource(url) {
-    console.log(`Attempting to load SASS from CDN: ${url} (Attempt ${sassLoadAttempts + 1}/${sassCDNSources.length})`);
     
     const script = document.createElement('script');
     script.src = url;
     script.async = true;
     
     script.onload = function() {
-        console.log('SASS script loaded from CDN, checking availability...');
         // Wait and check multiple times (library might need time to initialize)
         let checkCount = 0;
         const maxChecks = 10;
@@ -185,7 +180,6 @@ function loadSassFromCDNSource(url) {
         const checkIntervalId = setInterval(function() {
             checkCount++;
             if (checkSassAvailable()) {
-                console.log('SASS compiler loaded successfully from CDN!');
                 clearInterval(checkIntervalId);
                 initializeApp();
             } else if (checkCount >= maxChecks) {
@@ -289,7 +283,6 @@ function initializeApp() {
     loadFromLocalStorage();
     
     // Show brief success message (less intrusive)
-    console.log('SASS compiler initialized successfully');
 }
 
 function initializeEditors() {

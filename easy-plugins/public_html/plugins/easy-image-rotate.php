@@ -21,7 +21,7 @@ $articleUrl = easyPluginsArticleUrl();
         <div class="row mb-5">
             <div class="col-lg-8 mx-auto">
                 <div class="d-flex align-items-center mb-4">
-                    <i class="fas fa-redo me-3" style="color: #667eea; font-size: 3rem;"></i>
+                    <img src="/brand/tools/easy-image-rotate.svg" alt="" width="58" height="58" class="me-3">
                     <div>
                         <h1 class="display-4 mb-2">Easy Image Rotate</h1>
                         <p class="text-muted lead">Rotate Images with Real-Time Preview</p>
@@ -81,6 +81,7 @@ $articleUrl = easyPluginsArticleUrl();
                             <li class="mb-2">Quick rotation before uploading to social media</li>
                         </ul>
                     </section>
+                    <?php $articleFaqSlug = 'easy-image-rotate'; include __DIR__ . '/../shared/article-faq-section.php'; ?>
                     <?php $articlePrivacySlug = 'easy-image-rotate'; include __DIR__ . '/../shared/article-privacy-section.php'; ?>
 
 
