@@ -66,6 +66,17 @@ $hreflangNl = isset($canonicalPath) ? easyPluginsLangPathFor($canonicalPath, 'nl
 <!DOCTYPE html>
 <html lang="<?= $htmlLang ?>">
 <head>
+    <!-- CRITICAL: set the theme class before ANYTHING paints (no flash).
+         Must stay the very first thing in <head>. -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                var dark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', dark);
+            } catch (e) { /* private browsing without storage: stay light */ }
+        })();
+    </script>
     <!-- CRITICAL: Inline style for immediate dark mode - no flash -->
     <style>
         /* Only apply dark styles when dark class is present */
@@ -164,57 +175,17 @@ if (isset($canonicalPath)):
     <!-- Unified Master CSS -->
     <link rel="stylesheet" href="/shared/master.css?v=2.3">
     
-    <!-- Theme Management -->
-    <script src="/shared/theme.js"></script>
+    <!-- Theme Management (toggling and widgets; the class is already set above) -->
+    <script src="/shared/theme.js?v=3" defer></script>
     
     <!-- Translation System -->
     <script src="/shared/translations.js"></script>
     
-    <!-- CRITICAL: ULTRA-ROBUST theme flash prevention -->
-    <script>
-        // Apply theme immediately with multiple fallbacks
-        (function() {
-            const isDark = localStorage.getItem('theme') === 'dark' || 
-                          (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            
-            // Apply theme classes immediately
-            if (isDark) {
-                // Method 1: Apply to html immediately (most critical)
-                document.documentElement.classList.add('dark');
-                
-                // Method 2: Apply to body if available
-                if (document.body) {
-                    document.body.classList.add('dark');
-                }
-                
-                // Method 3: Fallback for body when it becomes available
-                const applyToBody = function() {
-                    if (document.body) {
-                        document.body.classList.add('dark');
-                    }
-                };
-                
-                // Multiple fallback mechanisms
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', applyToBody);
-                } else {
-                    applyToBody();
-                }
-                
-                // Additional fallback with setTimeout
-                setTimeout(applyToBody, 0);
-            } else {
-                // Ensure light mode is properly applied
-                document.documentElement.classList.remove('dark');
-                if (document.body) {
-                    document.body.classList.remove('dark');
-                }
-            }
-        })();
-    </script>
+
     
 </head>
 <body>
+<script>if(document.documentElement.classList.contains('dark'))document.body.classList.add('dark');</script>
 <!-- Header styles now in master.css -->
 <!-- Shared Header Component - Simplified Structure -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
