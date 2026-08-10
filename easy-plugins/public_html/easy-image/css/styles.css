@@ -4563,3 +4563,89 @@ html.dark .enhance-preview-grid img {
 .compare-wrap {
     width: 100%;
 }
+
+/* ===== Easy-image.app promo ===== */
+.app-promo {
+    margin: 0 auto 2.5rem;
+    padding: 0 1rem;
+    max-width: 840px;
+}
+
+.app-promo__inner {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.1rem 1.5rem;
+    border-radius: 12px;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.18);
+}
+
+.app-promo__icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: rgba(76, 175, 80, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #2f855a;
+}
+
+.app-promo__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-promo__title {
+    margin: 0 0 0.15rem;
+    font-weight: 600;
+    color: #234e2f;
+}
+
+.app-promo__text {
+    margin: 0;
+    color: #4a6a52;
+    font-size: 0.95rem;
+}
+
+.app-promo__btn {
+    flex-shrink: 0;
+    background: #4CAF50;
+    color: #fff !important;
+    border: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.app-promo__btn:hover {
+    background: #43A047;
+    color: #fff;
+}
+
+@media (max-width: 576px) {
+    .app-promo__inner {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+body.dark .app-promo__inner {
+    background: rgba(76, 175, 80, 0.10);
+    border-color: rgba(76, 175, 80, 0.25);
+}
+
+body.dark .app-promo__icon {
+    background: rgba(76, 175, 80, 0.18);
+    color: #81C784;
+}
+
+body.dark .app-promo__title {
+    color: #A5D6A7;
+}
+
+body.dark .app-promo__text {
+    color: #9ab8a2;
+}

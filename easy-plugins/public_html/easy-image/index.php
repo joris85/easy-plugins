@@ -13,7 +13,7 @@ include '../shared/header.php';
     <!-- Cropper.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" integrity="sha384-1arqhTHsGLPVJdhZo8SAycbI+y5k+G7khi5bTZ4BxHJIpCfvWoeSDgXEXXRxB/9G" crossorigin="anonymous">
     <!-- Easy Image Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=2.27">
+    <link rel="stylesheet" href="css/styles.css?v=2.28">
 <?php if (!empty($easyImageTossToyEnabled)): ?>
     <link rel="stylesheet" href="toss-toy/toss-toy.css?v=8">
     <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=3">
@@ -650,6 +650,22 @@ include '../shared/header.php';
                     </div>
                     <p class="processing-stats__subtitle" id="statsSubtitle">Join thousands of creators keeping media fast and sharp.</p>
                 </div>
+            </div>
+        </section>
+
+        <!-- Easy-image.app promo -->
+        <section class="app-promo">
+            <div class="app-promo__inner">
+                <div class="app-promo__icon">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <div class="app-promo__content">
+                    <p class="app-promo__title"><?= easyPluginsText('Do you want to organize your original images?', 'Wil je je originele afbeeldingen organiseren?') ?></p>
+                    <p class="app-promo__text"><?= easyPluginsText('Are you a freelancer or professional? Check out Easy-image.app.', 'Ben je freelancer of professional? Bekijk Easy-image.app.') ?></p>
+                </div>
+                <a href="https://easy-image.app" target="_blank" rel="noopener" class="btn app-promo__btn">
+                    Easy-image.app <i class="fas fa-arrow-right ms-1"></i>
+                </a>
             </div>
         </section>
 
