@@ -105,6 +105,126 @@
     font-size: 0.9rem;
 }
 
+/* "What do these mean?" help button + modal */
+.audit-help-btn {
+    align-self: flex-start;
+    margin-left: auto;
+    background: none;
+    border: 1px solid rgba(76, 175, 80, 0.45);
+    color: #2f855a;
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.audit-help-btn:hover {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+body.dark .audit-help-btn {
+    color: #81C784;
+    border-color: rgba(76, 175, 80, 0.4);
+}
+
+.audit-help-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10500;
+}
+
+.audit-help-modal.open {
+    display: block;
+}
+
+.audit-help-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.audit-help-dialog {
+    position: relative;
+    max-width: 640px;
+    width: calc(100% - 2rem);
+    max-height: 85vh;
+    overflow-y: auto;
+    margin: 5vh auto;
+    background: #fff;
+    color: #2c3e50;
+    border-radius: 16px;
+    padding: 1.75rem 2rem 2rem;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+}
+
+.audit-help-dialog h2 {
+    font-size: 1.4rem;
+    margin: 0 0 1rem;
+    padding-right: 2rem;
+}
+
+.audit-help-close {
+    position: absolute;
+    top: 0.9rem;
+    right: 1.1rem;
+    background: none;
+    border: none;
+    font-size: 1.9rem;
+    line-height: 1;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.audit-help-close:hover {
+    color: #475569;
+}
+
+.audit-help__h {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #234e2f;
+    margin: 1.25rem 0 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.25);
+}
+
+.audit-help__h:first-child {
+    margin-top: 0;
+}
+
+.audit-help__list {
+    margin: 0;
+}
+
+.audit-help__list dt {
+    font-weight: 600;
+    margin-top: 0.6rem;
+}
+
+.audit-help__list dd {
+    margin: 0.1rem 0 0;
+    color: #5a6b7b;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+body.dark .audit-help-dialog {
+    background: #1e1e1e;
+    color: #c8cdd2;
+    border: 1px solid #2a2a2a;
+}
+
+body.dark .audit-help__h {
+    color: #A5D6A7;
+}
+
+body.dark .audit-help__list dd {
+    color: #9aa4ad;
+}
+
 /* Page-weight banner (image audit) */
 .audit-weight {
     display: grid;

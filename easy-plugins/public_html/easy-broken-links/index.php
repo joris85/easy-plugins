@@ -8,7 +8,7 @@ $themePath = '../shared/theme.js';
 include '../shared/header.php';
 ?>
 
-    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.3">
+    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.4">
 
     <div class="container-fluid">
         <div class="container tool-page-inner">
@@ -48,4 +48,4 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="/libraries/audit/audit-ui.js?v=1.3"></script>
+    <script src="/libraries/audit/audit-ui.js?v=1.4"></script>

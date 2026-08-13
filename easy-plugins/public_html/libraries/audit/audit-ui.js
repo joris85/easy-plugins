@@ -110,7 +110,14 @@
                     + ' <a href="#" id="auditRefreshLink">' + esc(t('check again', 'opnieuw checken')) + '</a>'
                 : '')
             + '</p></div>'
+            + helpButton()
             + '</div>';
+    }
+
+    function helpButton() {
+        return '<button type="button" class="audit-help-btn" id="auditHelpBtn">'
+            + '<i class="fas fa-circle-question me-1"></i>'
+            + esc(t('What do these mean?', 'Wat betekent dit?')) + '</button>';
     }
 
     function stat(value, label) {
@@ -132,6 +139,10 @@
                 forceRefresh = true;
                 form.requestSubmit();
             });
+        }
+        const helpBtn = document.getElementById('auditHelpBtn');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', openHelp);
         }
         resultsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -220,7 +231,7 @@
             + '<div class="audit-score-meta"><h2>' + esc(r.name) + '</h2><p>'
             + esc(t('Checked ' + r.results.length + ' extensions with live registry data', r.results.length + ' extensies gecheckt met live registerdata'))
             + (cached ? ' · ' + esc(t('cached result', 'resultaat uit cache')) + ' <a href="#" id="auditRefreshLink">' + esc(t('check again', 'opnieuw checken')) + '</a>' : '')
-            + '</p></div></div>';
+            + '</p></div>' + helpButton() + '</div>';
         html += '<div class="domain-grid">';
         for (const res of r.results) {
             let cls = 'domain-card--maybe';
@@ -307,5 +318,119 @@
                 + '<td>' + (issues.length ? esc(issues.join(', ')) : '<span class="audit-badge audit-badge-ok">OK</span>') + '</td></tr>';
         }
         return html + '</tbody></table></div>';
+    }
+
+    // ---- Help modal: explains every term in the current tool's results ----
+
+    function helpContent() {
+        const title = {
+            seo: t('What the website audit checks', 'Wat de website-audit controleert'),
+            links: t('What the link check means', 'Wat de linkcheck betekent'),
+            images: t('What the image audit means', 'Wat de afbeeldingen-audit betekent'),
+            domain: t('What the domain check means', 'Wat de domeincheck betekent')
+        }[tool];
+
+        const groups = {
+            seo: [
+                [t('The score', 'De score'), [
+                    [t('Score (0–100)', 'Score (0–100)'), t('The share of checks your page passes, weighted by how much each one matters. 100 means everything passed.', 'Het aandeel checks dat je pagina haalt, gewogen naar hoe belangrijk elke check is. 100 betekent dat alles geslaagd is.')]
+                ]],
+                [t('Performance', 'Snelheid'), [
+                    [t('Server response (TTFB)', 'Serverreactie (TTFB)'), t('Time to first byte: how quickly the server starts replying. Good is 800 ms or less.', 'Time to first byte: hoe snel de server begint te antwoorden. Goed is 800 ms of minder.')],
+                    [t('Page weight', 'Paginagewicht'), t('The total download size of the page and its files. Lighter pages load faster; aim under 2.5 MB.', 'De totale downloadgrootte van de pagina en haar bestanden. Lichter laadt sneller; streef naar minder dan 2,5 MB.')],
+                    [t('Requests', 'Requests'), t('How many separate files the page loads (scripts, styles, images). Fewer is faster.', 'Hoeveel losse bestanden de pagina laadt (scripts, styles, afbeeldingen). Minder is sneller.')]
+                ]],
+                [t('SEO & content', 'SEO & inhoud'), [
+                    [t('Title tag', 'Titel-tag'), t('The clickable headline in Google results. Best around 50–60 characters.', 'De klikbare kop in Google-resultaten. Het beste rond 50–60 tekens.')],
+                    [t('Meta description', 'Meta-omschrijving'), t('The grey summary under the title in search results. Aim for 120–155 characters.', 'De grijze samenvatting onder de titel in zoekresultaten. Streef naar 120–155 tekens.')],
+                    [t('Single H1', 'Eén H1'), t('A page should have exactly one main heading (H1) that describes it.', 'Een pagina hoort precies één hoofdkop (H1) te hebben die de pagina beschrijft.')],
+                    [t('Alt text', 'Alt-tekst'), t('A text description of an image, read by screen readers and search engines.', 'Een tekstbeschrijving van een afbeelding, gelezen door schermlezers en zoekmachines.')]
+                ]],
+                [t('Technical & structure', 'Techniek & structuur'), [
+                    [t('HTTPS', 'HTTPS'), t('The secure padlock connection. Every site should use it.', 'De beveiligde verbinding met het slotje. Elke site zou dit moeten gebruiken.')],
+                    [t('robots.txt & sitemap', 'robots.txt & sitemap'), t('Files that tell search engines what to crawl and list all your pages.', 'Bestanden die zoekmachines vertellen wat ze mogen bekijken en die al je pagina’s opsommen.')],
+                    [t('Canonical', 'Canonical'), t('A tag that points to the “official” version of a page so duplicates don’t compete.', 'Een tag die naar de “officiële” versie van een pagina wijst zodat duplicaten elkaar niet beconcurreren.')],
+                    [t('Noindex', 'Noindex'), t('A tag that hides a page from Google. The audit warns if it’s set by accident.', 'Een tag die een pagina verbergt voor Google. De audit waarschuwt als dit per ongeluk aanstaat.')],
+                    [t('Viewport & language', 'Viewport & taal'), t('Tags that make the page work on mobile and declare its language.', 'Tags die de pagina op mobiel laten werken en de taal aangeven.')]
+                ]],
+                [t('Structured data & social', 'Structured data & social'), [
+                    [t('Structured data (JSON-LD)', 'Structured data (JSON-LD)'), t('Hidden data that helps Google show rich results (stars, prices, FAQs).', 'Verborgen data die Google helpt rijke resultaten te tonen (sterren, prijzen, FAQ’s).')],
+                    [t('Open Graph / Twitter Card', 'Open Graph / Twitter Card'), t('Tags that control the title and image shown when a link is shared on social media.', 'Tags die bepalen welke titel en afbeelding verschijnen als een link op social media wordt gedeeld.')]
+                ]]
+            ],
+            links: [
+                [t('Results', 'Resultaten'), [
+                    [t('Broken', 'Kapot'), t('The link returned an error (status 400 or higher) or no answer at all. These are worth fixing.', 'De link gaf een fout (status 400 of hoger) of helemaal geen antwoord. Deze zijn het waard om te herstellen.')],
+                    [t('Blocked', 'Geblokkeerd'), t('The link answered with a bot-blocking status (403, 429, 999). It usually works fine in a normal browser, so it is listed separately, not as broken.', 'De link gaf een bot-blokkeerstatus (403, 429, 999). In een gewone browser werkt hij meestal prima, dus staat hij apart en niet als kapot.')]
+                ]],
+                [t('Status codes', 'Statuscodes'), [
+                    ['404', t('Not found — the page or file no longer exists.', 'Niet gevonden — de pagina of het bestand bestaat niet meer.')],
+                    ['500', t('Server error — the other server had a problem.', 'Serverfout — de andere server had een probleem.')],
+                    [t('no response', 'geen reactie'), t('The server did not answer at all (offline, or the domain no longer exists).', 'De server antwoordde helemaal niet (offline, of het domein bestaat niet meer).')]
+                ]],
+                [t('Other terms', 'Overige termen'), [
+                    [t('Internal / external', 'Intern / extern'), t('Internal links point to pages on the same site; external links point to other websites. Both are checked.', 'Interne links wijzen naar pagina’s op dezelfde site; externe links naar andere websites. Beide worden gecontroleerd.')],
+                    [t('Found on', 'Gevonden op'), t('The page the broken link sits on, so you know where to fix it.', 'De pagina waar de kapotte link op staat, zodat je weet waar je hem herstelt.')],
+                    [t('Pages scanned', 'Pagina’s gescand'), t('The free check reads the page plus two linked pages and verifies up to 40 links.', 'De gratis check leest de pagina plus twee gelinkte pagina’s en controleert tot 40 links.')]
+                ]]
+            ],
+            images: [
+                [t('Page weight', 'Paginagewicht'), [
+                    [t('Total page weight', 'Totaal paginagewicht'), t('The full download size of the page: HTML, images, scripts and styles together. A ≈ sign means it is a close estimate.', 'De volledige downloadgrootte van de pagina: HTML, afbeeldingen, scripts en styles samen. Een ≈-teken betekent dat het een goede schatting is.')],
+                    [t('Images (% of page)', 'Afbeeldingen (% van pagina)'), t('How many megabytes the images take, and how big a share of the whole page that is. This is exact — every image is really downloaded.', 'Hoeveel megabytes de afbeeldingen kosten en welk deel van de hele pagina dat is. Dit is exact — elke afbeelding wordt echt gedownload.')],
+                    [t('Scripts & styles', 'Scripts & styles'), t('The weight of the JavaScript and CSS files, sized from their headers.', 'Het gewicht van de JavaScript- en CSS-bestanden, bepaald op basis van hun headers.')]
+                ]],
+                [t('Per image', 'Per afbeelding'), [
+                    [t('Savable', 'Te besparen'), t('The kilobytes you could save on that image by converting or resizing it, without visible quality loss.', 'De kilobytes die je op die afbeelding kunt besparen door te converteren of verkleinen, zonder zichtbaar kwaliteitsverlies.')],
+                    [t('Older format', 'Ouder formaat'), t('A JPG or PNG that would be 25–30% smaller as modern WebP or AVIF.', 'Een JPG of PNG die als moderne WebP of AVIF 25–30% kleiner zou zijn.')],
+                    [t('Oversized', 'Te groot geleverd'), t('The image file is much larger than the space it is shown in, so pixels are wasted (retina screens are allowed for).', 'Het afbeeldingsbestand is veel groter dan het vak waarin het getoond wordt, dus er gaan pixels verloren (retina-schermen zijn meegerekend).')],
+                    [t('Missing alt text', 'Zonder alt-tekst'), t('The image has no text description, which hurts accessibility and SEO.', 'De afbeelding heeft geen tekstbeschrijving, wat slecht is voor toegankelijkheid en SEO.')],
+                    [t('Not lazy-loaded', 'Geen lazy loading'), t('The image loads immediately instead of only when it scrolls into view, slowing the first paint.', 'De afbeelding laadt meteen in plaats van pas als hij in beeld scrolt, wat de eerste weergave vertraagt.')],
+                    [t('(background)', '(achtergrond)'), t('A background image set in CSS (often the header or a section banner), not a normal <img> in the page.', 'Een achtergrondafbeelding uit de CSS (vaak de header of een sectiebanner), geen gewone <img> op de pagina.')]
+                ]]
+            ],
+            domain: [
+                [t('Results', 'Resultaten'), [
+                    [t('Available', 'Beschikbaar'), t('The registry confirms this domain is free to register right now.', 'Het register bevestigt dat dit domein nu vrij is om te registreren.')],
+                    [t('Taken', 'Bezet'), t('The domain is already registered. Where known, the year it was first registered is shown.', 'Het domein is al geregistreerd. Waar bekend wordt het jaar van eerste registratie getoond.')],
+                    [t('Verify', 'Verifieer'), t('This extension has no public availability API. It looks free based on DNS, but confirm it at a registrar before counting on it.', 'Deze extensie heeft geen openbare beschikbaarheids-API. Op basis van DNS lijkt hij vrij, maar bevestig dit bij een registrar voordat je erop rekent.')]
+                ]],
+                [t('How it checks', 'Hoe het controleert'), [
+                    ['RDAP', t('The modern replacement for WHOIS: a direct question to the registry that manages the extension. This is the most reliable source.', 'De moderne opvolger van WHOIS: een directe vraag aan het register dat de extensie beheert. Dit is de meest betrouwbare bron.')],
+                    ['DNS', t('A name-server lookup. If a domain has name servers it is definitely in use; if not, it is probably free.', 'Een nameserver-opzoeking. Heeft een domein nameservers, dan is het zeker in gebruik; zo niet, dan is het waarschijnlijk vrij.')]
+                ]]
+            ]
+        }[tool] || [];
+
+        let body = '';
+        for (const [heading, items] of groups) {
+            body += '<h3 class="audit-help__h">' + esc(heading) + '</h3><dl class="audit-help__list">';
+            for (const [term, desc] of items) {
+                body += '<dt>' + esc(term) + '</dt><dd>' + esc(desc) + '</dd>';
+            }
+            body += '</dl>';
+        }
+        return { title, body };
+    }
+
+    let helpEl = null;
+    function openHelp() {
+        const { title, body } = helpContent();
+        if (!helpEl) {
+            helpEl = document.createElement('div');
+            helpEl.className = 'audit-help-modal';
+            helpEl.innerHTML = '<div class="audit-help-backdrop"></div>'
+                + '<div class="audit-help-dialog" role="dialog" aria-modal="true" aria-labelledby="auditHelpTitle">'
+                + '<button type="button" class="audit-help-close" aria-label="' + esc(t('Close', 'Sluiten')) + '">&times;</button>'
+                + '<h2 id="auditHelpTitle"></h2><div class="audit-help-body"></div></div>';
+            document.body.appendChild(helpEl);
+            const close = () => { helpEl.classList.remove('open'); };
+            helpEl.querySelector('.audit-help-backdrop').addEventListener('click', close);
+            helpEl.querySelector('.audit-help-close').addEventListener('click', close);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+        }
+        helpEl.querySelector('#auditHelpTitle').textContent = title;
+        helpEl.querySelector('.audit-help-body').innerHTML = body;
+        helpEl.classList.add('open');
     }
 })();

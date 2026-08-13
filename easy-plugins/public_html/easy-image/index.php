@@ -656,7 +656,7 @@ include '../shared/header.php';
             </div>
         </section>
 
-        <!-- Easy-image.app promo -->
+        <!-- Easy Studio promo -->
         <section class="app-promo">
             <div class="app-promo__inner">
                 <div class="app-promo__icon">
@@ -664,10 +664,10 @@ include '../shared/header.php';
                 </div>
                 <div class="app-promo__content">
                     <p class="app-promo__title"><?= easyPluginsText('Do you want to organize your original images?', 'Wil je je originele afbeeldingen organiseren?') ?></p>
-                    <p class="app-promo__text"><?= easyPluginsText('Are you a freelancer or professional? Check out Easy-image.app.', 'Ben je freelancer of professional? Bekijk Easy-image.app.') ?></p>
+                    <p class="app-promo__text"><?= easyPluginsText('Are you a freelancer or professional? Check out Easy Studio.', 'Ben je freelancer of professional? Bekijk Easy Studio.') ?></p>
                 </div>
-                <a href="https://easy-image.app" target="_blank" rel="noopener" class="btn app-promo__btn">
-                    Easy-image.app <i class="fas fa-arrow-right ms-1"></i>
+                <a href="https://easy-image.app/?utm_source=easy-plugins&utm_medium=tool&utm_campaign=easy-image" target="_blank" rel="noopener" class="btn app-promo__btn">
+                    Easy Studio <i class="fas fa-arrow-right ms-1"></i>
                 </a>
             </div>
         </section>
