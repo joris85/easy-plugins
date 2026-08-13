@@ -499,6 +499,8 @@ final class EpImageAudit
 {
     private const MIN_SAVING = 8 * 1024; // ignore <8 KB potential savings, like PSI
 
+    private const MAX_CSS_FILES = 6; // same-origin stylesheets scanned for backgrounds
+
     public static function run(string $startUrl): array
     {
         $deadline = time() + EpAudit::DEADLINE_SECONDS;
@@ -507,6 +509,10 @@ final class EpImageAudit
             return ['error' => 'fetch_failed'];
         }
         $images = self::imagesOnPage($html, $startUrl);
+        // Page builders (Beaver Builder, Elementor, Divi) put hero and section
+        // background images in linked CSS files, invisible to a raw-HTML scan.
+        // Pull same-origin stylesheets and harvest their background-image urls.
+        $images = self::mergeImages($images, self::cssBackgroundImages($html, $startUrl, $deadline));
 
         $records = [];
         $totalBytes = 0;
@@ -685,6 +691,84 @@ final class EpImageAudit
         }
 
         return array_values($out);
+    }
+
+    /**
+     * Background images declared in linked, same-origin stylesheets — where
+     * page builders (Beaver Builder, Elementor, Divi) keep hero and section
+     * backgrounds that never appear in the page HTML itself. Bounded by
+     * MAX_CSS_FILES and the run deadline.
+     */
+    private static function cssBackgroundImages(string $html, string $pageUrl, int $deadline): array
+    {
+        $host = parse_url($pageUrl, PHP_URL_HOST);
+        $out = [];
+        if (!preg_match_all('/<link\b[^>]*\brel=["\']stylesheet["\'][^>]*>/i', $html, $links)) {
+            return $out;
+        }
+        $seen = [];
+        $scanned = 0;
+        foreach ($links[0] as $tag) {
+            if ($scanned >= self::MAX_CSS_FILES || time() >= $deadline) {
+                break;
+            }
+            if (!preg_match('/\bhref=["\']([^"\']+)["\']/i', $tag, $hm)) {
+                continue;
+            }
+            $cssUrl = EpAudit::resolveUrl($pageUrl, html_entity_decode($hm[1]));
+            // Same-origin only: third-party CSS (fonts, widgets) is noise and
+            // an unnecessary outbound request.
+            if ($cssUrl === '' || parse_url($cssUrl, PHP_URL_HOST) !== $host || isset($seen[$cssUrl]) || !EpAudit::safeUrl($cssUrl)) {
+                continue;
+            }
+            $seen[$cssUrl] = true;
+            $scanned++;
+            $css = EpAudit::fetch($cssUrl, 2 * 1024 * 1024, 6);
+            if ($css === null) {
+                continue;
+            }
+            if (!preg_match_all('/url\(\s*["\']?([^"\')\s]+\.(?:jpe?g|png|webp|avif|gif))(?:[^"\')\s]*)?["\']?\s*\)/i', $css, $urls)) {
+                continue;
+            }
+            foreach ($urls[1] as $src) {
+                if (str_starts_with($src, 'data:')) {
+                    continue;
+                }
+                $abs = EpAudit::resolveUrl($cssUrl, html_entity_decode($src));
+                if ($abs === '' || !preg_match('#^https?://#i', $abs) || !EpAudit::safeUrl($abs) || isset($out[$abs])) {
+                    continue;
+                }
+                $name = basename((string) parse_url($abs, PHP_URL_PATH));
+                $out[$abs] = [
+                    'url' => $abs,
+                    'name' => $name !== '' ? $name : 'image',
+                    'render_w' => 0,
+                    'alt_missing' => false, // backgrounds have no alt/lazy semantics
+                    'lazy' => true,
+                    'bg' => true,
+                ];
+            }
+        }
+        return array_values($out);
+    }
+
+    /** Merge two image candidate lists, de-duplicated by URL. */
+    private static function mergeImages(array $a, array $b): array
+    {
+        $byUrl = [];
+        foreach (array_merge($a, $b) as $img) {
+            $url = $img['url'];
+            if (!isset($byUrl[$url])) {
+                $byUrl[$url] = $img;
+                continue;
+            }
+            // Prefer a real render width and the stricter alt/lazy signals.
+            $byUrl[$url]['render_w'] = max($byUrl[$url]['render_w'], $img['render_w']);
+            $byUrl[$url]['alt_missing'] = $byUrl[$url]['alt_missing'] && $img['alt_missing'];
+            $byUrl[$url]['lazy'] = $byUrl[$url]['lazy'] || $img['lazy'];
+            $byUrl[$url]['bg'] = ($byUrl[$url]['bg'] ?? false) && ($img['bg'] ?? false);
+        }
+        return array_values($byUrl);
     }
 
     private static function measure(string $url): ?array

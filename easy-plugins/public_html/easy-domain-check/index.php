@@ -8,7 +8,7 @@ $themePath = '../shared/theme.js';
 include '../shared/header.php';
 ?>
 
-    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.1">
+    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.2">
     <style>
         .domain-grid {
             display: grid;
@@ -99,4 +99,4 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="/libraries/audit/audit-ui.js?v=1.1"></script>
+    <script src="/libraries/audit/audit-ui.js?v=1.2"></script>
