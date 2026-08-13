@@ -105,6 +105,43 @@
     font-size: 0.9rem;
 }
 
+/* Page-weight banner (image audit) */
+.audit-weight {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.12), rgba(76, 175, 80, 0.05));
+    border: 1px solid rgba(76, 175, 80, 0.22);
+}
+
+.audit-weight__item {
+    text-align: center;
+}
+
+.audit-weight__item b {
+    display: block;
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: #234e2f;
+}
+
+.audit-weight__item span {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+body.dark .audit-weight {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.14), rgba(76, 175, 80, 0.05));
+    border-color: rgba(76, 175, 80, 0.28);
+}
+
+body.dark .audit-weight__item b {
+    color: #A5D6A7;
+}
+
 /* Stat tiles */
 .audit-stats {
     display: grid;

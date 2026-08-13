@@ -548,6 +548,11 @@ final class EpImageAudit
         }
         usort($records, static fn ($a, $b) => $b['savable'] <=> $a['savable']);
 
+        // Whole-page heaviness: HTML + every image found + the other resources
+        // (scripts, stylesheets), so the report shows total page MB and how
+        // much of it is images.
+        $weight = self::measurePageWeight($html, $startUrl, $images, $records, $deadline);
+
         // JS-rendered page? Almost no text and no images in the raw HTML —
         // say so honestly instead of reporting a perfect empty score.
         $jsRendered = false;
@@ -566,15 +571,98 @@ final class EpImageAudit
                 'images_found' => count($images),
                 'images' => count($records),
                 'js_rendered' => $jsRendered,
-                'total_bytes' => $totalBytes,
+                'total_bytes' => $totalBytes, // measured images only (basis for savable_pct)
                 'savable_bytes' => $savableBytes,
                 'savable_pct' => $totalBytes > 0 ? (int) round($savableBytes / $totalBytes * 100) : 0,
                 'legacy_format' => $counts['legacy'],
                 'oversized' => $counts['oversized'],
                 'missing_alt' => $counts['no_alt'],
                 'not_lazy' => $counts['no_lazy'],
+                // Page heaviness (approximate; sampled by Content-Length).
+                'page_bytes' => $weight['page_bytes'],
+                'images_bytes' => $weight['images_bytes'],
+                'html_bytes' => $weight['html_bytes'],
+                'other_bytes' => $weight['other_bytes'],
+                'images_pct_of_page' => $weight['page_bytes'] > 0
+                    ? (int) round($weight['images_bytes'] / $weight['page_bytes'] * 100) : 0,
+                'weight_partial' => $weight['partial'],
             ],
             'findings' => ['images' => $records],
+        ];
+    }
+
+    /**
+     * Approximate total page weight and image weight. Images already measured
+     * contribute their exact bytes; any extra images and all non-image
+     * resources (scripts, stylesheets) are sized by a HEAD Content-Length.
+     * Bounded by a request budget and the run deadline, so the numbers are a
+     * close sample, not a guarantee — 'partial' flags when the budget ran out.
+     */
+    private static function measurePageWeight(string $html, string $pageUrl, array $images, array $records, int $deadline): array
+    {
+        $htmlBytes = strlen($html);
+        $measured = [];
+        $imagesBytes = 0;
+        foreach ($records as $rec) {
+            $measured[$rec['url']] = true;
+            $imagesBytes += $rec['bytes'];
+        }
+        $budget = 45;
+        $partial = false;
+
+        // Images found but not fully downloaded (beyond the measure cap).
+        foreach ($images as $img) {
+            if (isset($measured[$img['url']])) {
+                continue;
+            }
+            if ($budget <= 0 || time() >= $deadline) {
+                $partial = true;
+                break;
+            }
+            $len = EpAudit::contentLength($img['url']);
+            $budget--;
+            if ($len > 0) {
+                $imagesBytes += $len;
+            }
+        }
+
+        // Non-image resources: external scripts and stylesheets.
+        $otherBytes = 0;
+        $resources = [];
+        if (preg_match_all('/<script\b[^>]+\bsrc=["\']([^"\']+)["\']/i', $html, $sm)) {
+            $resources = array_merge($resources, $sm[1]);
+        }
+        if (preg_match_all('/<link\b[^>]+\brel=["\']stylesheet["\'][^>]*>/i', $html, $lm)) {
+            foreach ($lm[0] as $linkTag) {
+                if (preg_match('/\bhref=["\']([^"\']+)["\']/i', $linkTag, $hm)) {
+                    $resources[] = $hm[1];
+                }
+            }
+        }
+        $seen = [];
+        foreach ($resources as $src) {
+            if ($budget <= 0 || time() >= $deadline) {
+                $partial = true;
+                break;
+            }
+            $abs = EpAudit::resolveUrl($pageUrl, html_entity_decode($src));
+            if ($abs === '' || isset($seen[$abs]) || !EpAudit::safeUrl($abs)) {
+                continue;
+            }
+            $seen[$abs] = true;
+            $len = EpAudit::contentLength($abs);
+            $budget--;
+            if ($len > 0) {
+                $otherBytes += $len;
+            }
+        }
+
+        return [
+            'html_bytes' => $htmlBytes,
+            'images_bytes' => $imagesBytes,
+            'other_bytes' => $otherBytes,
+            'page_bytes' => $htmlBytes + $imagesBytes + $otherBytes,
+            'partial' => $partial,
         ];
     }
 

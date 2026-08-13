@@ -28,6 +28,9 @@
         ? (bytes / 1048576).toFixed(1) + ' MB'
         : Math.round(bytes / 1024) + ' KB';
 
+    // Always MB for the page-weight banner, so the unit stays consistent.
+    const mb = (bytes) => (bytes / 1048576).toFixed(bytes >= 1048576 ? 2 : 3) + ' MB';
+
     const scoreClass = (s) => (s >= 80 ? 'audit-score-good' : s >= 50 ? 'audit-score-mid' : 'audit-score-bad');
     const badgeClass = (s) => (s >= 80 ? 'audit-badge-ok' : s >= 50 ? 'audit-badge-warn' : 'audit-badge-bad');
 
@@ -249,6 +252,19 @@
             html += '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>' + esc(t(
                 'This page is rendered by JavaScript: its images are added by scripts after loading, so crawlers (including this one, and search engines) cannot see them in the HTML.',
                 'Deze pagina wordt door JavaScript opgebouwd: de afbeeldingen worden na het laden door scripts toegevoegd, dus crawlers (ook deze, en zoekmachines) zien ze niet in de HTML.')) + '</div>';
+        }
+        // Page heaviness banner: total page weight and the image share.
+        if (s.page_bytes) {
+            const approx = s.weight_partial ? '≈' : '~';
+            html += '<div class="audit-weight">'
+                + '<div class="audit-weight__item"><b>' + approx + esc(mb(s.page_bytes)) + '</b><span>' + esc(t('total page weight', 'totaal paginagewicht')) + '</span></div>'
+                + '<div class="audit-weight__item"><b>' + approx + esc(mb(s.images_bytes)) + '</b><span>' + esc(t('images (' + s.images_pct_of_page + '% of page)', 'afbeeldingen (' + s.images_pct_of_page + '% van pagina)')) + '</span></div>'
+                + '<div class="audit-weight__item"><b>' + approx + esc(mb(s.other_bytes)) + '</b><span>' + esc(t('scripts & styles', 'scripts & styles')) + '</span></div>'
+                + '<div class="audit-weight__item"><b>' + esc(kb(s.html_bytes)) + '</b><span>' + esc(t('HTML', 'HTML')) + '</span></div>'
+                + '</div>';
+            html += '<p class="audit-note">' + esc(t(
+                'Page weight is a close estimate: image bytes are measured exactly, other files are sized from their headers. ' + (s.weight_partial ? 'Some files were not sized (free limit reached), so the real total is a bit higher.' : ''),
+                'Het paginagewicht is een goede schatting: afbeeldingen worden exact gemeten, andere bestanden op basis van hun headers. ' + (s.weight_partial ? 'Niet alle bestanden zijn gemeten (gratis limiet bereikt), dus het echte totaal ligt iets hoger.' : ''))) + '</p>';
         }
         html += '<div class="audit-stats">'
             + stat(esc(s.images), t('images checked', 'afbeeldingen gecheckt'))
