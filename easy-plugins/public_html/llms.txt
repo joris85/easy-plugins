@@ -24,6 +24,13 @@ Full tool documentation in one markdown file: https://easy-plugins.com/llms-full
 - [Easy LESS](https://easy-plugins.com/easy-less/): Compile LESS to CSS in the browser with error messages.
 - [Easy SASS](https://easy-plugins.com/easy-sass/): Compile SASS/SCSS to CSS in the browser.
 - [Easy Identify Me](https://easy-plugins.com/easy-identify-me/): Show your IP address, location, browser and device details in one copyable overview.
+- [Easy Domain Check](https://easy-plugins.com/easy-domain-check/): Check whether a domain name is available across 12 popular extensions (.com, .nl, .net, .org, .be, .de, .eu, .io, .co, .dev, .app, .shop) using live registry data (RDAP and DNS). Shows registration year for taken domains. Searches are not logged or shared.
+
+## Audit tools
+
+- [Easy Website Audit](https://easy-plugins.com/easy-website-audit/): Free SEO and speed check of any page: measured performance (TTFB, page weight, requests), SEO basics (title, meta description, H1, alt text), technical setup (HTTPS, sitemap, robots.txt, viewport, canonical, noindex) and structured data (JSON-LD, Open Graph, Twitter Card). 0-100 score with prioritized fixes. Free tier: one page per audit.
+- [Easy Broken Links](https://easy-plugins.com/easy-broken-links/): Free broken link checker. Verifies internal and external links with real HTTP requests (HEAD then GET), reports status codes and the page each broken link lives on. Bot-blocked links (403/999) reported separately, not as broken. Free tier: 3 pages, 40 links per run.
+- [Easy Image Audit](https://easy-plugins.com/easy-image-audit/): Grades every image on a page like Lighthouse: modern format (WebP/AVIF), file size, oversizing vs displayed size, lazy loading and alt text, with savable KB per image. Detects JavaScript-rendered pages honestly. Free tier: one page, 30 images.
 
 ## About
 

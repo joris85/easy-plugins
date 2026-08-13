@@ -1,0 +1,8 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="easy-broken-links">
+  <path d="M18 13 L 13.5 8.5 A 7.6 7.6 0 0 0 8.5 13.5 L 15 20 A 7.6 7.6 0 0 0 20 18" fill="none" stroke="#4CAF50" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 35 L 34.5 39.5 A 7.6 7.6 0 0 0 39.5 34.5 L 33 28 A 7.6 7.6 0 0 0 28 30" fill="none" stroke="#43A047" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="27" y1="14" x2="30.5" y2="9" stroke="#66BB6A" stroke-width="3.8" stroke-linecap="round"/>
+  <line x1="34" y1="20.5" x2="39" y2="17.5" stroke="#66BB6A" stroke-width="3.8" stroke-linecap="round"/>
+  <line x1="21" y1="34" x2="17.5" y2="39" stroke="#66BB6A" stroke-width="3.8" stroke-linecap="round"/>
+  <line x1="14" y1="27.5" x2="9" y2="30.5" stroke="#66BB6A" stroke-width="3.8" stroke-linecap="round"/>
+</svg>

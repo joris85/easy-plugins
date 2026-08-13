@@ -31,7 +31,7 @@
                         </ul>
 
                         <h6><i class="fas fa-globe text-info me-2"></i><span data-translate="PRIVACY_EXTERNAL_TOOLS_TITLE">Tools Using External Services</span></h6>
-                        <p><strong>Easy Identify Me:</strong> <span data-translate="PRIVACY_EASY_IDENTIFY_DESC">Looks up your public IP address via third-party services (ip-api.com, api.ipify.org) to show location and ISP information. Your IP is sent to those services only when you use this tool.</span></p>
+                        <p><strong>Easy Identify Me:</strong> <span data-translate="PRIVACY_EASY_IDENTIFY_DESC">Looks up your public IP address via a third-party service (ipwho.is) to show location and ISP information. Your IP is sent to those services only when you use this tool.</span></p>
                         
                         <h6><i class="fas fa-image text-warning me-2"></i><span data-translate="PRIVACY_EASY_IMAGE_TITLE">Easy Image Tool</span></h6>
                         <p data-translate="PRIVACY_EASY_IMAGE_DESC">This tool requires server processing for image manipulation. Here's how we handle your images:</p>
@@ -65,7 +65,7 @@
                             <li data-translate="PRIVACY_GOOGLE_FONTS"><strong>Google Fonts:</strong> For typography (may collect anonymous stats)</li>
                             <li data-translate="PRIVACY_CODEMIRROR"><strong>CodeMirror CDN:</strong> Code editor in Easy HTML, Less, and SASS tools</li>
                             <li data-translate="PRIVACY_TINYMCE"><strong>TinyMCE CDN:</strong> Rich text editor in Easy HTML</li>
-                            <li data-translate="PRIVACY_IP_API"><strong>ip-api.com / api.ipify.org:</strong> Public IP lookup in Easy Identify Me only</li>
+                            <li data-translate="PRIVACY_IP_API"><strong>ipwho.is:</strong> Public IP lookup in Easy Identify Me only</li>
                         </ul>
                     </div>
                 </div>

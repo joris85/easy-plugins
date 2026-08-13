@@ -31,6 +31,14 @@ if (strpos($currentPath, '/easy-image/') !== false) {
     $currentTool = 'easy-less';
 } elseif (strpos($currentPath, '/easy-sass/') !== false) {
     $currentTool = 'easy-sass';
+} elseif (strpos($currentPath, '/easy-website-audit/') !== false) {
+    $currentTool = 'easy-website-audit';
+} elseif (strpos($currentPath, '/easy-broken-links/') !== false) {
+    $currentTool = 'easy-broken-links';
+} elseif (strpos($currentPath, '/easy-image-audit/') !== false) {
+    $currentTool = 'easy-image-audit';
+} elseif (strpos($currentPath, '/easy-domain-check/') !== false) {
+    $currentTool = 'easy-domain-check';
 } elseif (strpos($currentPath, '/plugins/') !== false) {
     $currentTool = 'plugins';
 }
@@ -38,6 +46,12 @@ if (strpos($currentPath, '/easy-image/') !== false) {
 <?php
 // Language handling: /nl/ URLs win; otherwise the visitor's cookie choice.
 $isNlPage = easyPluginsIsNl();
+
+// Nav links keep the visitor in their language: Dutch sessions get /nl/… so
+// they don't silently fall back to English on the first click.
+$navHref = function (string $slug) use ($isNlPage): string {
+    return $isNlPage ? "/nl/{$slug}/" : "/{$slug}/";
+};
 $htmlLang = $isNlPage ? 'nl' : ((($_COOKIE['selectedLanguage'] ?? '') === 'nl-NL') ? 'nl' : 'en');
 
 // Dutch pages get Dutch titles/descriptions from the central registry.
@@ -164,7 +178,7 @@ if (isset($canonicalPath)):
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
     <!-- CRITICAL: Dark mode CSS - MUST LOAD FIRST -->
-    <link rel="stylesheet" href="/shared/darkmode.css">
+    <link rel="stylesheet" href="/shared/darkmode.css?v=2.3">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
@@ -179,7 +193,7 @@ if (isset($canonicalPath)):
     <script src="/shared/theme.js?v=3" defer></script>
     
     <!-- Translation System -->
-    <script src="/shared/translations.js"></script>
+    <script src="/shared/translations.js?v=2.3"></script>
     
 
     
@@ -217,25 +231,25 @@ if (isset($canonicalPath)):
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" id="imageToolsDropdownMenu" aria-labelledby="imageToolsDropdown" onmouseenter="showDropdown('imageToolsDropdown')" onmouseleave="hideDropdown('imageToolsDropdown')">
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-image' ? 'active' : '' ?>" href="/easy-image/" data-tool="easy-image">
+                                <a class="dropdown-item <?= $currentTool === 'easy-image' ? 'active' : '' ?>" href="<?= $navHref('easy-image') ?>" data-tool="easy-image">
                                     <img src="/brand/tools/easy-image.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Image
                                     <small class="text-muted d-block ms-4">Resize, crop, and optimize images</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-png' ? 'active' : '' ?>" href="/easy-png/" data-tool="easy-png">
+                                <a class="dropdown-item <?= $currentTool === 'easy-png' ? 'active' : '' ?>" href="<?= $navHref('easy-png') ?>" data-tool="easy-png">
                                     <img src="/brand/tools/easy-png.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy PNG
                                     <small class="text-muted d-block ms-4">Add background to images</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-watermark' ? 'active' : '' ?>" href="/easy-watermark/" data-tool="easy-watermark">
+                                <a class="dropdown-item <?= $currentTool === 'easy-watermark' ? 'active' : '' ?>" href="<?= $navHref('easy-watermark') ?>" data-tool="easy-watermark">
                                     <img src="/brand/tools/easy-watermark.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Watermark
                                     <small class="text-muted d-block ms-4">Add watermarks to images</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-image-rotate' ? 'active' : '' ?>" href="/easy-image-rotate/" data-tool="easy-image-rotate">
+                                <a class="dropdown-item <?= $currentTool === 'easy-image-rotate' ? 'active' : '' ?>" href="<?= $navHref('easy-image-rotate') ?>" data-tool="easy-image-rotate">
                                     <img src="/brand/tools/easy-image-rotate.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Image Rotate
                                     <small class="text-muted d-block ms-4">Rotate images with real-time preview</small>
                                 </a>
@@ -250,25 +264,25 @@ if (isset($canonicalPath)):
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" id="textDataDropdownMenu" aria-labelledby="textDataDropdown" onmouseenter="showDropdown('textDataDropdown')" onmouseleave="hideDropdown('textDataDropdown')">
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-text-converter' ? 'active' : '' ?>" href="/easy-text-converter/" data-tool="easy-text-converter">
+                                <a class="dropdown-item <?= $currentTool === 'easy-text-converter' ? 'active' : '' ?>" href="<?= $navHref('easy-text-converter') ?>" data-tool="easy-text-converter">
                                     <img src="/brand/tools/easy-text-converter.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon"><span data-translate="NAV_EASY_TEXT">Easy Text</span>
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_TEXT_DESC">Text transformer</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-csv-converter' ? 'active' : '' ?>" href="/easy-csv-converter/" data-tool="easy-csv-converter">
+                                <a class="dropdown-item <?= $currentTool === 'easy-csv-converter' ? 'active' : '' ?>" href="<?= $navHref('easy-csv-converter') ?>" data-tool="easy-csv-converter">
                                     <img src="/brand/tools/easy-csv-converter.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon"><span data-translate="NAV_EASY_CSV">Easy CSV</span>
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_CSV_DESC">CSV converter</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-search-replace' ? 'active' : '' ?>" href="/easy-search-replace/" data-tool="easy-search-replace">
+                                <a class="dropdown-item <?= $currentTool === 'easy-search-replace' ? 'active' : '' ?>" href="<?= $navHref('easy-search-replace') ?>" data-tool="easy-search-replace">
                                     <img src="/brand/tools/easy-search-replace.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon"><span data-translate="NAV_EASY_SEARCH">Easy Search</span>
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_SEARCH_DESC">Search and replace</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-pricing' ? 'active' : '' ?>" href="/easy-pricing/" data-tool="easy-pricing">
+                                <a class="dropdown-item <?= $currentTool === 'easy-pricing' ? 'active' : '' ?>" href="<?= $navHref('easy-pricing') ?>" data-tool="easy-pricing">
                                     <img src="/brand/tools/easy-pricing.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon"><span data-translate="NAV_EASY_PRICING">Easy Pricing</span>
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_PRICING_DESC">Pricing calculator</small>
                                 </a>
@@ -278,37 +292,70 @@ if (isset($canonicalPath)):
                     
                     <!-- Web Tools Dropdown -->
                     <li class="nav-item dropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
-                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-identify-me', 'easy-less', 'easy-sass']) ? 'active' : '' ?>" href="#" id="webToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('webToolsDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-identify-me', 'easy-less', 'easy-sass', 'easy-domain-check']) ? 'active' : '' ?>" href="#" id="webToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('webToolsDropdown')">
                             <svg class="nav-cat-icon me-1" width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path d="M18.5 9 C 13.5 10.5, 15.5 16, 13.5 20 C 12.5 22, 10.5 23, 9 24 C 10.5 25, 12.5 26, 13.5 28 C 15.5 32, 13.5 37.5, 18.5 39" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M29.5 9 C 34.5 10.5, 32.5 16, 34.5 20 C 35.5 22, 37.5 23, 39 24 C 37.5 25, 35.5 26, 34.5 28 C 32.5 32, 34.5 37.5, 29.5 39" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span data-translate="NAV_WEB_TOOLS">Web Tools</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" id="webToolsDropdownMenu" aria-labelledby="webToolsDropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-html' ? 'active' : '' ?>" href="/easy-html/" data-tool="easy-html">
+                                <a class="dropdown-item <?= $currentTool === 'easy-html' ? 'active' : '' ?>" href="<?= $navHref('easy-html') ?>" data-tool="easy-html">
                                     <img src="/brand/tools/easy-html.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon"><span data-translate="NAV_EASY_HTML">Easy HTML</span>
                                     <small class="text-muted d-block ms-4" data-translate="NAV_EASY_HTML_DESC">HTML cleaner</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-less' ? 'active' : '' ?>" href="/easy-less/" data-tool="easy-less">
+                                <a class="dropdown-item <?= $currentTool === 'easy-less' ? 'active' : '' ?>" href="<?= $navHref('easy-less') ?>" data-tool="easy-less">
                                     <img src="/brand/tools/easy-less.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Less
                                     <small class="text-muted d-block ms-4">LESS to CSS compiler</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-sass' ? 'active' : '' ?>" href="/easy-sass/" data-tool="easy-sass">
+                                <a class="dropdown-item <?= $currentTool === 'easy-sass' ? 'active' : '' ?>" href="<?= $navHref('easy-sass') ?>" data-tool="easy-sass">
                                     <img src="/brand/tools/easy-sass.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy SASS
                                     <small class="text-muted d-block ms-4">SASS/SCSS to CSS compiler</small>
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-identify-me' ? 'active' : '' ?>" href="/easy-identify-me/" data-tool="easy-identify-me">
+                                <a class="dropdown-item <?= $currentTool === 'easy-identify-me' ? 'active' : '' ?>" href="<?= $navHref('easy-identify-me') ?>" data-tool="easy-identify-me">
                                     <img src="/brand/tools/easy-identify-me.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Identify Me
                                     <small class="text-muted d-block ms-4">System information tool</small>
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-domain-check' ? 'active' : '' ?>" href="<?= $navHref('easy-domain-check') ?>" data-tool="easy-domain-check">
+                                    <img src="/brand/tools/easy-domain-check.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Domain Check
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Is je domeinnaam vrij?' : 'Is your domain name available?' ?></small>
+                                </a>
+                            </li>
                         </ul>
                     </li>
-                    
+
+                    <!-- Audits Dropdown -->
+                    <li class="nav-item dropdown" onmouseenter="showDropdown('auditsDropdown')" onmouseleave="hideDropdown('auditsDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-website-audit', 'easy-broken-links', 'easy-image-audit']) ? 'active' : '' ?>" href="#" id="auditsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('auditsDropdown')">
+                            <svg class="nav-cat-icon me-1" width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 30 A 17 17 0 0 1 40 30" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><line x1="24" y1="30" x2="32.5" y2="19" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span data-translate="NAV_AUDITS"><?= easyPluginsIsNl() ? 'Audits' : 'Audits' ?></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="auditsDropdownMenu" aria-labelledby="auditsDropdown" onmouseenter="showDropdown('auditsDropdown')" onmouseleave="hideDropdown('auditsDropdown')">
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-website-audit' ? 'active' : '' ?>" href="<?= $navHref('easy-website-audit') ?>" data-tool="easy-website-audit">
+                                    <img src="/brand/tools/easy-website-audit.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Website Audit
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Gratis SEO- & snelheidscheck' : 'Free SEO & speed check' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-broken-links' ? 'active' : '' ?>" href="<?= $navHref('easy-broken-links') ?>" data-tool="easy-broken-links">
+                                    <img src="/brand/tools/easy-broken-links.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Broken Links
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Vind kapotte links' : 'Find broken links' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-image-audit' ? 'active' : '' ?>" href="<?= $navHref('easy-image-audit') ?>" data-tool="easy-image-audit">
+                                    <img src="/brand/tools/easy-image-audit.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Image Audit
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Check afbeeldingen op je site' : 'Check images on your site' ?></small>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <li class="nav-item">
 <?php
 // Language switch: link to the other language's URL when this page has a

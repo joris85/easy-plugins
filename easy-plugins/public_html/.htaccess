@@ -79,5 +79,22 @@ RewriteRule ^plugins/([^/]+)/?$ plugins/$1.php [L]
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), payment=()"
+    # HSTS: safe because everything already redirects http -> https above.
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
+
+# ===== No directory listings anywhere =====
+Options -Indexes
+
+# ===== Block source, docs and dotfiles from the web =====
+# (robots.txt, llms.txt and .well-known stay reachable.)
+<FilesMatch "\.(md|sh|log|bak|orig|sql|dist|lock)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.well-known">
+    Require all granted
+</FilesMatch>
 

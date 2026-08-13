@@ -1,0 +1,6 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="easy-website-audit">
+  <path d="M8 30 A 17 17 0 0 1 40 30" fill="none" stroke="#4CAF50" stroke-width="4.4" stroke-linecap="round"/>
+  <line x1="24" y1="30" x2="32.5" y2="19" stroke="#43A047" stroke-width="4.4" stroke-linecap="round"/>
+  <circle cx="24" cy="30" r="3.4" fill="#66BB6A"/>
+  <path d="M14 39.5 L 21 39.5 M27 39.5 L 34 39.5" stroke="#A5D6A7" stroke-width="4.2" stroke-linecap="round"/>
+</svg>

@@ -9,7 +9,7 @@ include '../shared/header.php';
 ?>
 
     <!-- Easy PNG Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=1.0">
     
     <div class="container-fluid">
         <div class="container tool-page-inner">

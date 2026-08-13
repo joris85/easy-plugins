@@ -46,7 +46,7 @@ $toolDescKey = $toolDescKeys[$slug] ?? null;
                 </ul>
             <?php elseif ($isExternalTool): ?>
                 <p data-translate="PRIVACY_EASY_IDENTIFY_DESC">
-                    Looks up your public IP address via third-party services (ip-api.com, api.ipify.org) to show location and ISP information. Your IP is sent to those services only when you use this tool.
+                    Looks up your public IP address via a third-party service (ipwho.is, with api.ipify.org as a fallback) to show location and ISP information. Your IP is sent to those services only when you use this tool.
                 </p>
                 <p data-translate="ARTICLE_PRIVACY_IDENTIFY_LOCAL">
                     Browser and device details are collected only after you click &ldquo;Gather my information&rdquo;, and are processed locally in your browser. Nothing is stored on our servers unless you copy and share it yourself.

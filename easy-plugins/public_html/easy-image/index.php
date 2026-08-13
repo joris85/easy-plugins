@@ -277,7 +277,10 @@ include '../shared/header.php';
                         <div class="advanced-content">
                             <div class="performance-notice">
                                 <i class="fas fa-info-circle"></i>
-                                <p>Performance Notice: Each additional effect and image will increase processing time. Maximum 100 images or 256MB total. For best results, apply effects selectively and process images in smaller batches.<span id="serverLimitsNotice"></span></p>
+                                <p><?= easyPluginsText(
+                                    'Performance Notice: Each additional effect and image will increase processing time. Maximum 100 images or 256MB total. For best results, apply effects selectively and process images in smaller batches.',
+                                    'Let op: elk extra effect en elke extra afbeelding verlengt de verwerkingstijd. Maximaal 100 afbeeldingen of 256MB totaal. Pas voor het beste resultaat effecten selectief toe en verwerk afbeeldingen in kleinere batches.'
+                                ) ?><span id="serverLimitsNotice"></span></p>
                             </div>
                             <div class="effect-options">
                                 <label>Image Effects</label>

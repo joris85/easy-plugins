@@ -2,10 +2,22 @@
 require_once __DIR__ . '/shared/site-config.php';
 header('Content-Type: application/xml; charset=utf-8');
 
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'easy-plugins.com';
-$baseUrl = $protocol . '://' . $host;
+// Always the canonical host, never the (client-controlled) Host header, so
+// the sitemap cannot be poisoned with attacker URLs.
+$baseUrl = SITE_CANONICAL_HOST;
+// Derive lastmod from the newest source file so it never goes stale after a
+// deploy (falls back to the constant if the scan finds nothing).
 $lastmod = SITE_SITEMAP_LASTMOD;
+$newest = 0;
+foreach (['index.php', 'shared/seo-meta.php', 'shared/header.php'] as $probe) {
+    $mt = @filemtime(__DIR__ . '/' . $probe);
+    if ($mt !== false && $mt > $newest) {
+        $newest = $mt;
+    }
+}
+if ($newest > 0) {
+    $lastmod = gmdate('Y-m-d', $newest);
+}
 
 $toolPages = [
     '/easy-image/',
@@ -20,6 +32,10 @@ $toolPages = [
     '/easy-identify-me/',
     '/easy-less/',
     '/easy-sass/',
+    '/easy-website-audit/',
+    '/easy-broken-links/',
+    '/easy-image-audit/',
+    '/easy-domain-check/',
 ];
 
 $pluginPages = [
@@ -35,6 +51,10 @@ $pluginPages = [
     '/plugins/easy-identify-me',
     '/plugins/easy-less',
     '/plugins/easy-sass',
+    '/plugins/easy-website-audit',
+    '/plugins/easy-broken-links',
+    '/plugins/easy-image-audit',
+    '/plugins/easy-domain-check',
 ];
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

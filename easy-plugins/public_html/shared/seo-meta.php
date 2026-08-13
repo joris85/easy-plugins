@@ -142,6 +142,51 @@ if (!function_exists('easyPluginsSeoMeta')) {
                     'One-click copy to share with support',
                 ],
             ],
+            'easy-website-audit' => [
+                'name' => 'Easy Website Audit',
+                'tagline' => 'Free SEO & speed check of any page',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Measured performance: TTFB, page weight and request count',
+                    'SEO checks: title, meta description, H1, alt text, content length',
+                    'Technical checks: HTTPS, sitemap, robots.txt, viewport, canonical, noindex',
+                    'Structured data and social: JSON-LD, Open Graph, Twitter Card',
+                    '0-100 score with a prioritized to-do list',
+                ],
+            ],
+            'easy-broken-links' => [
+                'name' => 'Easy Broken Links',
+                'tagline' => 'Find broken links on any page',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Checks internal and external links with real HTTP requests',
+                    'Scans the page plus two linked pages',
+                    'Bot-blocked links reported separately, not as broken',
+                    'Shows which page each broken link lives on',
+                ],
+            ],
+            'easy-image-audit' => [
+                'name' => 'Easy Image Audit',
+                'tagline' => 'Check images for size, format & alt text',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Grades every image like Lighthouse: format, size, lazy loading, alt text',
+                    'Shows how many KB you can save per image',
+                    'Detects oversized images served to small slots',
+                    'Detects JavaScript-rendered pages honestly',
+                ],
+            ],
+            'easy-domain-check' => [
+                'name' => 'Easy Domain Check',
+                'tagline' => 'Is your domain name available?',
+                'category' => 'UtilitiesApplication',
+                'features' => [
+                    'Checks 12 popular extensions at once (.com, .nl, .net, .org, .io, .dev and more)',
+                    'Live registry data via RDAP and DNS, no stale caches',
+                    'Shows registration year for taken domains',
+                    'Honest three-way answer: available, taken, or verify',
+                ],
+            ],
         ];
 
         foreach (easyPluginsSeoNlOverlay() as $slug => $extra) {
@@ -245,6 +290,34 @@ if (!function_exists('easyPluginsSeoNlOverlay')) {
                 'blurb' => 'See your IP address, location, browser and device details in one overview that is easy to copy and share with support.',
                 'blurb_nl' => 'Bekijk je IP-adres, locatie, browser en apparaatgegevens in één overzicht dat je makkelijk kopieert en deelt met een helpdesk.',
             ],
+            'easy-website-audit' => [
+                'title_nl' => 'Easy Website Audit - Gratis SEO en snelheidscheck',
+                'desc_nl' => 'Controleer gratis de SEO, snelheid en techniek van elke webpagina: laadtijd, titels, meta descriptions, sitemap, structured data en meer, met een score en concrete verbeterpunten.',
+                'tagline_nl' => 'Gratis SEO- & snelheidscheck van elke pagina',
+                'blurb' => 'Enter a web address and get a 0-100 score across performance, SEO, technical setup and structured data, with a prioritized list of what to fix.',
+                'blurb_nl' => 'Vul een webadres in en krijg een score van 0-100 voor snelheid, SEO, techniek en structured data, met een prioriteitenlijst van verbeterpunten.',
+            ],
+            'easy-broken-links' => [
+                'title_nl' => 'Easy Broken Links - Kapotte links vinden',
+                'desc_nl' => 'Vind gratis kapotte links op elke webpagina. Interne en externe links worden echt gecontroleerd; geblokkeerde links worden apart gemeld.',
+                'tagline_nl' => 'Vind kapotte links op elke pagina',
+                'blurb' => 'Every link on the page is checked with a real HTTP request. Broken links are listed with their status code and the page they live on.',
+                'blurb_nl' => 'Elke link op de pagina wordt gecontroleerd met een echt HTTP-verzoek. Kapotte links zie je met statuscode en de pagina waar ze staan.',
+            ],
+            'easy-image-audit' => [
+                'title_nl' => 'Easy Image Audit - Afbeeldingen op je site controleren',
+                'desc_nl' => 'Controleer gratis de afbeeldingen op een webpagina: formaat, bestandsgrootte, lazy loading en alt-teksten, met per afbeelding hoeveel KB je kunt besparen.',
+                'tagline_nl' => 'Check afbeeldingen op formaat, grootte & alt-tekst',
+                'blurb' => 'Every image on the page is graded like Lighthouse does: modern format, file size, oversizing, lazy loading and alt text, with the KB you can save.',
+                'blurb_nl' => 'Elke afbeelding op de pagina wordt beoordeeld zoals Lighthouse dat doet: modern formaat, bestandsgrootte, lazy loading en alt-tekst, met de KB die je kunt besparen.',
+            ],
+            'easy-domain-check' => [
+                'title_nl' => 'Easy Domain Check - Is je domeinnaam nog vrij?',
+                'desc_nl' => 'Check gratis of een domeinnaam vrij is, in 12 populaire extensies tegelijk (.nl, .com, .be en meer). Live registerdata via RDAP en DNS, zonder account.',
+                'tagline_nl' => 'Is je domeinnaam nog vrij?',
+                'blurb' => 'Type a name and see instantly which of 12 popular extensions are still available, straight from the domain registries (RDAP and DNS).',
+                'blurb_nl' => 'Typ een naam en zie direct welke van 12 populaire extensies nog vrij zijn, rechtstreeks uit de domeinregisters (RDAP en DNS).',
+            ],
         ];
     }
 }
@@ -343,6 +416,32 @@ if (!function_exists('easyPluginsToolFaq')) {
                 ['Is my information stored?', 'No. The overview is built for your eyes only and nothing is saved; you decide what to copy and share.'],
                 ['What is this useful for?', 'Sharing exact system details with a developer, helpdesk or support team so they can reproduce and fix your issue faster.'],
             ],
+            'easy-website-audit' => [
+                ['Is Easy Website Audit free?', 'Yes. Auditing a page is completely free, with no account. Free audits check one page and are limited to a few runs per 10 minutes; the full version in Easy Studio audits up to 100 pages with history and monitoring.'],
+                ['What does the audit check?', 'Four categories: measured performance (server response time, page weight, request count), SEO and content (title, meta description, H1, alt text, content length), technical setup (HTTPS, robots.txt, sitemap, viewport, canonical, noindex) and structured data and social tags (JSON-LD, Open Graph, Twitter Card).'],
+                ['Is this the same as Google PageSpeed?', 'It overlaps but is broader: PageSpeed measures loading performance in a simulated browser, while this audit also checks SEO, technical and structured-data basics. The performance numbers here are real measurements from our server to yours.'],
+                ['Can I audit any website?', 'Any publicly reachable page. Sites behind a login, on an intranet or blocking automated tools cannot be audited, and the tool says so instead of guessing a score.'],
+                ['How do I audit my whole website?', 'The free check audits one page at a time. The full version in Easy Studio crawls up to 100 pages, tracks your score over time, monitors the site and produces white-label PDF reports for clients.'],
+            ],
+            'easy-broken-links' => [
+                ['Is Easy Broken Links free?', 'Yes. Checking a page is completely free, with no account. The free check scans the page plus two linked pages and verifies up to 40 links; the full version in Easy Studio crawls up to 100 pages.'],
+                ['How are links checked?', 'Every unique link gets a real HTTP request (HEAD first, then a small GET for servers that reject HEAD). Status 400 and up, or no response at all, counts as broken.'],
+                ['Why are some links reported as "blocked" instead of broken?', 'Some sites answer automated tools with 403 or 999 (LinkedIn famously does) even though the link works fine in a browser. Those are listed separately so you do not chase links that are not actually broken.'],
+                ['Are external links checked too?', 'Yes, both internal links and links to other websites are verified.'],
+            ],
+            'easy-image-audit' => [
+                ['Is Easy Image Audit free?', 'Yes. Auditing a page is completely free, with no account. The free audit checks up to 30 images on one page; the full version in Easy Studio audits up to 100 pages.'],
+                ['What does it check per image?', 'Format (WebP/AVIF vs older JPG/PNG), file size, whether the image is much larger than the space it is shown in, lazy loading and alt text, in the same spirit as Google Lighthouse. Each image shows how many KB you could save.'],
+                ['My page shows zero images but I know there are images. Why?', 'The page is probably rendered by JavaScript (React, Vue, Next.js). Crawlers, including this one and most SEO tools, only see the raw HTML. The audit detects this and tells you instead of reporting a perfect empty score.'],
+                ['How do I fix the images it finds?', 'Use the free Easy Image tool on this site: it converts to WebP, resizes to the dimensions you actually need and compresses to an exact file size, up to 100 images in one batch.'],
+            ],
+            'easy-domain-check' => [
+                ['Is Easy Domain Check free?', 'Yes, completely free with no account. Checks are limited to 5 per 10 minutes.'],
+                ['How reliable is the availability data?', 'Very. "Available" and "taken" come straight from the domain registries themselves via RDAP (the modern WHOIS) and DNS. A few extensions (.io, .co, .be, .de, .eu) have no public registry API; those show "verify" when DNS suggests the name is free.'],
+                ['Which extensions are checked?', '.com, .nl, .net, .org, .be, .de, .eu, .io, .co, .dev, .app and .shop. Type a full domain with another extension (like myproject.fr) and that one is checked too when its registry supports RDAP.'],
+                ['Can this tool register the domain for me?', 'No, it only checks availability. You register at any registrar you like, or ask a webmaster like jorsites.com to arrange the domain and website in one go.'],
+                ['Is my search stored or shared?', 'No. The result is cached for 10 minutes so repeat checks are instant, and nothing else is stored. Your searches are not logged, sold or used to pre-register domains.'],
+            ],
         ];
     }
 }
@@ -363,6 +462,10 @@ if (!function_exists('easyPluginsRelatedTools')) {
             'easy-less' => ['easy-sass', 'easy-html'],
             'easy-sass' => ['easy-less', 'easy-html'],
             'easy-identify-me' => [],
+            'easy-website-audit' => ['easy-broken-links', 'easy-image-audit', 'easy-image'],
+            'easy-broken-links' => ['easy-website-audit', 'easy-image-audit'],
+            'easy-image-audit' => ['easy-image', 'easy-website-audit', 'easy-broken-links'],
+            'easy-domain-check' => ['easy-website-audit', 'easy-identify-me'],
         ];
     }
 }

@@ -76,7 +76,10 @@ if (!function_exists('easyImageHostsEquivalent')) {
 
 if (!function_exists('easyImageGetRequestHost')) {
     function easyImageGetRequestHost() {
-        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? '';
+        // Use only HTTP_HOST. X-Forwarded-Host is client-settable and would let
+        // an attacker forge the Origin check by sending both headers; this app
+        // is not behind a trusted proxy that rewrites it.
+        $host = $_SERVER['HTTP_HOST'] ?? '';
         if (strpos($host, ',') !== false) {
             $host = trim(explode(',', $host)[0]);
         }

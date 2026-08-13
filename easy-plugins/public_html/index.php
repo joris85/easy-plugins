@@ -144,6 +144,10 @@ $toolHref = function ($slug) {
                 'easy-identify-me' => ['fa-id-card', '#6f42c1'],
                 'easy-less' => ['fa-file-code', '#1e88e5'],
                 'easy-sass' => ['fa-code', '#bf4080'],
+                'easy-website-audit' => ['fa-gauge-high', '#4CAF50'],
+                'easy-broken-links' => ['fa-link-slash', '#dc3545'],
+                'easy-image-audit' => ['fa-magnifying-glass', '#17a2b8'],
+                'easy-domain-check' => ['fa-globe', '#4CAF50'],
             ];
             $allMeta = easyPluginsSeoMeta();
             foreach ($homeCards as $cardSlug => [$cardIcon, $cardColor]):
