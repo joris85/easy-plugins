@@ -82,19 +82,45 @@ function readFileAsText(file) {
     }
     
     const reader = new FileReader();
-    
+
     reader.onload = function(e) {
-        const text = e.target.result;
+        const text = decodeCsvBytes(new Uint8Array(e.target.result));
         document.getElementById('csvInput').value = text;
         originalCSV = text;
         showAlert('File loaded successfully!', 'success');
     };
-    
+
     reader.onerror = function() {
         showAlert('Error reading file!', 'danger');
     };
-    
-    reader.readAsText(file);
+
+    // Read raw bytes so we can detect the encoding ourselves — Excel exports
+    // across Europe/Asia are often Windows-1252 or UTF-16, not UTF-8.
+    reader.readAsArrayBuffer(file);
+}
+
+// Decode CSV bytes: honor a BOM (UTF-8/UTF-16), otherwise try strict UTF-8
+// and fall back to Windows-1252 when UTF-8 fails (typical Excel export).
+function decodeCsvBytes(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        return new TextDecoder('utf-8').decode(bytes.subarray(3));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+    }
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+        // Invalid UTF-8 → almost always Windows-1252 (Latin-1 superset).
+        try {
+            return new TextDecoder('windows-1252').decode(bytes);
+        } catch (e2) {
+            return new TextDecoder('utf-8').decode(bytes); // last resort, lossy
+        }
+    }
 }
 
 // Convert CSV delimiter
@@ -269,7 +295,9 @@ function downloadCSV() {
         return;
     }
     
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    // Prepend a UTF-8 BOM so Excel on Windows opens accented/non-Latin
+    // characters correctly instead of as mojibake.
+    const blob = new Blob([String.fromCharCode(0xFEFF), text], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

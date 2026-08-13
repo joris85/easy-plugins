@@ -948,8 +948,17 @@ final class EpImageAudit
 /** Website audit: one page, measured performance + SEO/technical/social checks. */
 final class EpSeoAudit
 {
-    public static function run(string $url): array
+    private static string $lang = 'en';
+
+    /** Pick the English or Dutch string for the current run. */
+    private static function tr(string $en, string $nl): string
     {
+        return self::$lang === 'nl' ? $nl : $en;
+    }
+
+    public static function run(string $url, string $lang = 'en'): array
+    {
+        self::$lang = ($lang === 'nl') ? 'nl' : 'en';
         $origin = (string) parse_url($url, PHP_URL_SCHEME) . '://' . (string) parse_url($url, PHP_URL_HOST);
         $info = null;
         $html = EpAudit::fetch($url, EpAudit::HTML_BYTES_CAP, 15, $info);
@@ -967,17 +976,23 @@ final class EpSeoAudit
             self::structured($html)
         );
 
-        $catOrder = ['Performance', 'SEO & content', 'Technical & structure', 'Structured data & social'];
+        // Category keys stay English for grouping; names are translated for display.
+        $catNames = [
+            'Performance' => self::tr('Performance', 'Snelheid'),
+            'SEO & content' => self::tr('SEO & content', 'SEO & inhoud'),
+            'Technical & structure' => self::tr('Technical & structure', 'Techniek & structuur'),
+            'Structured data & social' => self::tr('Structured data & social', 'Structured data & social'),
+        ];
         $cats = [];
         foreach ($checks as $c) {
             $cats[$c['category']]['checks'][] = $c;
         }
         $categories = [];
-        foreach ($catOrder as $name) {
+        foreach (array_keys($catNames) as $name) {
             if (!isset($cats[$name])) {
                 continue;
             }
-            $categories[] = ['name' => $name, 'score' => self::weightedScore($cats[$name]['checks']), 'checks' => $cats[$name]['checks']];
+            $categories[] = ['name' => $catNames[$name], 'score' => self::weightedScore($cats[$name]['checks']), 'checks' => $cats[$name]['checks']];
         }
 
         $recs = [];
@@ -1034,22 +1049,22 @@ final class EpSeoAudit
         $words = str_word_count(trim(strip_tags((string) preg_replace('#<(script|style)[^>]*>.*?</\1>#is', '', $html))));
         $c = 'SEO & content';
         return [
-            self::check('Title tag', $title !== '' && mb_strlen($title) <= 65, 3,
-                $title !== '' ? 'Title present (' . mb_strlen($title) . ' chars).' : 'No <title> tag.',
-                $title === '' ? 'Add a unique <title> of ~50-60 characters with the main keyword near the front.'
-                    : (mb_strlen($title) > 65 ? 'Shorten the title to ~60 characters so it is not cut off in search results.' : ''), $c),
-            self::check('Meta description', $desc !== '' && mb_strlen($desc) >= 50 && mb_strlen($desc) <= 165, 2,
-                $desc !== '' ? mb_strlen($desc) . '-character description present.' : 'No meta description.',
-                $desc === '' ? 'Add a 120-155 character meta description that sells the click.' : 'Aim the description for 120-155 characters.', $c),
-            self::check('Single H1', $h1count === 1, 2,
-                $h1count === 1 ? 'Exactly one H1.' : ($h1count === 0 ? 'No H1 heading.' : $h1count . ' H1 headings.'),
-                $h1count === 1 ? '' : 'Use exactly one H1 as the page main heading.', $c),
-            self::check('Images have alt text', $imgs[0] === [] || $imgNoAlt === 0, 1,
-                $imgNoAlt === 0 ? 'All images have alt text.' : $imgNoAlt . ' image(s) missing alt text.',
-                $imgNoAlt === 0 ? '' : 'Add descriptive alt text to the images without it.', $c),
-            self::check('Enough content', $words >= 300, 1,
-                $words . ' words of text on the page.',
-                $words >= 300 ? '' : 'Thin content — aim for at least 300 words of genuinely useful text.', $c),
+            self::check(self::tr('Title tag', 'Titel-tag'), $title !== '' && mb_strlen($title) <= 65, 3,
+                $title !== '' ? self::tr('Title present (' . mb_strlen($title) . ' chars).', 'Titel aanwezig (' . mb_strlen($title) . ' tekens).') : self::tr('No <title> tag.', 'Geen <title>-tag.'),
+                $title === '' ? self::tr('Add a unique <title> of ~50-60 characters with the main keyword near the front.', 'Voeg een unieke <title> van ~50-60 tekens toe met het belangrijkste zoekwoord vooraan.')
+                    : (mb_strlen($title) > 65 ? self::tr('Shorten the title to ~60 characters so it is not cut off in search results.', 'Kort de titel in tot ~60 tekens zodat hij niet afgekapt wordt in zoekresultaten.') : ''), $c),
+            self::check(self::tr('Meta description', 'Meta-omschrijving'), $desc !== '' && mb_strlen($desc) >= 50 && mb_strlen($desc) <= 165, 2,
+                $desc !== '' ? self::tr(mb_strlen($desc) . '-character description present.', 'Omschrijving van ' . mb_strlen($desc) . ' tekens aanwezig.') : self::tr('No meta description.', 'Geen meta-omschrijving.'),
+                $desc === '' ? self::tr('Add a 120-155 character meta description that sells the click.', 'Voeg een meta-omschrijving van 120-155 tekens toe die uitnodigt om te klikken.') : self::tr('Aim the description for 120-155 characters.', 'Streef naar een omschrijving van 120-155 tekens.'), $c),
+            self::check(self::tr('Single H1', 'Eén H1'), $h1count === 1, 2,
+                $h1count === 1 ? self::tr('Exactly one H1.', 'Precies één H1.') : ($h1count === 0 ? self::tr('No H1 heading.', 'Geen H1-kop.') : self::tr($h1count . ' H1 headings.', $h1count . ' H1-koppen.')),
+                $h1count === 1 ? '' : self::tr('Use exactly one H1 as the page main heading.', 'Gebruik precies één H1 als hoofdkop van de pagina.'), $c),
+            self::check(self::tr('Images have alt text', 'Afbeeldingen hebben alt-tekst'), $imgs[0] === [] || $imgNoAlt === 0, 1,
+                $imgNoAlt === 0 ? self::tr('All images have alt text.', 'Alle afbeeldingen hebben alt-tekst.') : self::tr($imgNoAlt . ' image(s) missing alt text.', $imgNoAlt . ' afbeelding(en) zonder alt-tekst.'),
+                $imgNoAlt === 0 ? '' : self::tr('Add descriptive alt text to the images without it.', 'Voeg beschrijvende alt-tekst toe aan de afbeeldingen die die missen.'), $c),
+            self::check(self::tr('Enough content', 'Genoeg inhoud'), $words >= 300, 1,
+                self::tr($words . ' words of text on the page.', $words . ' woorden tekst op de pagina.'),
+                $words >= 300 ? '' : self::tr('Thin content — aim for at least 300 words of genuinely useful text.', 'Weinig inhoud — streef naar minstens 300 woorden echt nuttige tekst.'), $c),
         ];
     }
 
@@ -1062,13 +1077,13 @@ final class EpSeoAudit
         $haveSitemap = ($sitemap !== null && $sitemap !== '') || $sitemapInRobots;
         $haveRobots = $robots !== '';
         return [
-            self::check('HTTPS', $https, 3, $https ? 'Served over HTTPS.' : 'Not served over HTTPS.',
-                $https ? '' : 'Serve the whole site over HTTPS and redirect http:// to https://.', $c),
-            self::check('robots.txt', $haveRobots, 1, $haveRobots ? 'robots.txt found.' : 'No robots.txt.',
-                $haveRobots ? '' : 'Add a robots.txt, even a permissive one, so crawlers know the rules.', $c),
-            self::check('XML sitemap', $haveSitemap, 2,
-                $haveSitemap ? 'Sitemap found.' : 'No sitemap.xml and none referenced in robots.txt.',
-                $haveSitemap ? '' : 'Publish an XML sitemap and reference it in robots.txt.', $c),
+            self::check('HTTPS', $https, 3, $https ? self::tr('Served over HTTPS.', 'Wordt via HTTPS geserveerd.') : self::tr('Not served over HTTPS.', 'Wordt niet via HTTPS geserveerd.'),
+                $https ? '' : self::tr('Serve the whole site over HTTPS and redirect http:// to https://.', 'Serveer de hele site via HTTPS en stuur http:// door naar https://.'), $c),
+            self::check('robots.txt', $haveRobots, 1, $haveRobots ? self::tr('robots.txt found.', 'robots.txt gevonden.') : self::tr('No robots.txt.', 'Geen robots.txt.'),
+                $haveRobots ? '' : self::tr('Add a robots.txt, even a permissive one, so crawlers know the rules.', 'Voeg een robots.txt toe, ook een toegeeflijke, zodat crawlers de regels kennen.'), $c),
+            self::check(self::tr('XML sitemap', 'XML-sitemap'), $haveSitemap, 2,
+                $haveSitemap ? self::tr('Sitemap found.', 'Sitemap gevonden.') : self::tr('No sitemap.xml and none referenced in robots.txt.', 'Geen sitemap.xml en geen verwijzing in robots.txt.'),
+                $haveSitemap ? '' : self::tr('Publish an XML sitemap and reference it in robots.txt.', 'Publiceer een XML-sitemap en verwijs ernaar in robots.txt.'), $c),
         ];
     }
 
@@ -1082,19 +1097,19 @@ final class EpSeoAudit
         $favicon = (bool) preg_match('/<link[^>]+rel=["\'][^"\']*icon[^"\']*["\']/i', $html);
         $noindex = (bool) preg_match('/<meta[^>]+name=["\']robots["\'][^>]+content=["\'][^"\']*noindex/i', $html);
         return [
-            self::check('Indexable (no accidental noindex)', !$noindex, 3,
-                $noindex ? 'This page has a noindex tag — it is hidden from Google.' : 'No noindex tag.',
-                $noindex ? 'Remove the noindex robots meta tag unless this page is meant to stay out of search.' : '', $c),
-            self::check('Canonical tag', $canonical, 1, $canonical ? 'Canonical link present.' : 'No canonical link.',
-                $canonical ? '' : 'Add a <link rel="canonical"> so duplicate URLs consolidate to one.', $c),
-            self::check('Mobile viewport', $viewport, 2, $viewport ? 'Responsive viewport meta present.' : 'No viewport meta tag.',
-                $viewport ? '' : 'Add a viewport meta tag for mobile.', $c),
-            self::check('Character encoding', $charset, 1, $charset ? 'charset declared.' : 'No charset meta tag.',
-                $charset ? '' : 'Declare <meta charset="utf-8"> early in the <head>.', $c),
-            self::check('Language declared', $lang, 1, $lang ? 'html lang attribute set.' : 'No lang attribute on <html>.',
-                $lang ? '' : 'Set the page language, e.g. <html lang="en">.', $c),
-            self::check('Favicon', $favicon, 1, $favicon ? 'Favicon link present.' : 'No favicon link found.',
-                $favicon ? '' : 'Add a favicon — browsers and search results show it next to your name.', $c),
+            self::check(self::tr('Indexable (no accidental noindex)', 'Indexeerbaar (geen per ongeluk noindex)'), !$noindex, 3,
+                $noindex ? self::tr('This page has a noindex tag — it is hidden from Google.', 'Deze pagina heeft een noindex-tag — hij is verborgen voor Google.') : self::tr('No noindex tag.', 'Geen noindex-tag.'),
+                $noindex ? self::tr('Remove the noindex robots meta tag unless this page is meant to stay out of search.', 'Verwijder de noindex robots-metatag, tenzij deze pagina bewust buiten de zoekresultaten moet blijven.') : '', $c),
+            self::check(self::tr('Canonical tag', 'Canonical-tag'), $canonical, 1, $canonical ? self::tr('Canonical link present.', 'Canonical-link aanwezig.') : self::tr('No canonical link.', 'Geen canonical-link.'),
+                $canonical ? '' : self::tr('Add a <link rel="canonical"> so duplicate URLs consolidate to one.', 'Voeg een <link rel="canonical"> toe zodat dubbele URL\'s samenkomen op één.'), $c),
+            self::check(self::tr('Mobile viewport', 'Mobiele viewport'), $viewport, 2, $viewport ? self::tr('Responsive viewport meta present.', 'Responsieve viewport-meta aanwezig.') : self::tr('No viewport meta tag.', 'Geen viewport-metatag.'),
+                $viewport ? '' : self::tr('Add a viewport meta tag for mobile.', 'Voeg een viewport-metatag toe voor mobiel.'), $c),
+            self::check(self::tr('Character encoding', 'Tekencodering'), $charset, 1, $charset ? self::tr('charset declared.', 'charset opgegeven.') : self::tr('No charset meta tag.', 'Geen charset-metatag.'),
+                $charset ? '' : self::tr('Declare <meta charset="utf-8"> early in the <head>.', 'Geef <meta charset="utf-8"> vroeg in de <head> op.'), $c),
+            self::check(self::tr('Language declared', 'Taal opgegeven'), $lang, 1, $lang ? self::tr('html lang attribute set.', 'html lang-attribuut ingesteld.') : self::tr('No lang attribute on <html>.', 'Geen lang-attribuut op <html>.'),
+                $lang ? '' : self::tr('Set the page language, e.g. <html lang="en">.', 'Stel de paginataal in, bijv. <html lang="nl">.'), $c),
+            self::check('Favicon', $favicon, 1, $favicon ? self::tr('Favicon link present.', 'Favicon-link aanwezig.') : self::tr('No favicon link found.', 'Geen favicon-link gevonden.'),
+                $favicon ? '' : self::tr('Add a favicon — browsers and search results show it next to your name.', 'Voeg een favicon toe — browsers en zoekresultaten tonen die naast je naam.'), $c),
         ];
     }
 
@@ -1105,12 +1120,12 @@ final class EpSeoAudit
         $og = (bool) preg_match('/<meta[^>]+property=["\']og:/i', $html);
         $twitter = (bool) preg_match('/<meta[^>]+name=["\']twitter:/i', $html);
         return [
-            self::check('Structured data (schema.org)', $schema, 2, $schema ? 'JSON-LD present.' : 'No JSON-LD structured data.',
-                $schema ? '' : 'Add schema.org JSON-LD (Organization/LocalBusiness, Breadcrumb, Article/Product) for rich results.', $c),
-            self::check('Open Graph tags', $og, 1, $og ? 'Open Graph tags present.' : 'No Open Graph tags.',
-                $og ? '' : 'Add og:title, og:description and og:image so shared links look good.', $c),
-            self::check('Twitter Card', $twitter, 1, $twitter ? 'Twitter Card present.' : 'No Twitter Card tags.',
-                $twitter ? '' : 'Add twitter:card meta tags for nicer link previews.', $c),
+            self::check(self::tr('Structured data (schema.org)', 'Structured data (schema.org)'), $schema, 2, $schema ? self::tr('JSON-LD present.', 'JSON-LD aanwezig.') : self::tr('No JSON-LD structured data.', 'Geen JSON-LD structured data.'),
+                $schema ? '' : self::tr('Add schema.org JSON-LD (Organization/LocalBusiness, Breadcrumb, Article/Product) for rich results.', 'Voeg schema.org JSON-LD toe (Organization/LocalBusiness, Breadcrumb, Article/Product) voor rijke resultaten.'), $c),
+            self::check(self::tr('Open Graph tags', 'Open Graph-tags'), $og, 1, $og ? self::tr('Open Graph tags present.', 'Open Graph-tags aanwezig.') : self::tr('No Open Graph tags.', 'Geen Open Graph-tags.'),
+                $og ? '' : self::tr('Add og:title, og:description and og:image so shared links look good.', 'Voeg og:title, og:description en og:image toe zodat gedeelde links er goed uitzien.'), $c),
+            self::check(self::tr('Twitter Card', 'Twitter Card'), $twitter, 1, $twitter ? self::tr('Twitter Card present.', 'Twitter Card aanwezig.') : self::tr('No Twitter Card tags.', 'Geen Twitter Card-tags.'),
+                $twitter ? '' : self::tr('Add twitter:card meta tags for nicer link previews.', 'Voeg twitter:card-metatags toe voor mooiere linkvoorbeelden.'), $c),
         ];
     }
 
@@ -1152,15 +1167,15 @@ final class EpSeoAudit
         $c = 'Performance';
         $kb = static fn (int $b): string => $b >= 1048576 ? round($b / 1048576, 1) . ' MB' : round($b / 1024) . ' KB';
         return [
-            self::check('Time to first byte', $loading['ttfb_ms'] <= 800, 2,
-                'Server responded in ' . $loading['ttfb_ms'] . ' ms (good ≤ 800 ms).',
-                $loading['ttfb_ms'] > 800 ? 'Speed up the server response — caching, a faster host or a CDN typically fixes a slow TTFB.' : '', $c),
-            self::check('Page weight', $loading['weight_bytes'] <= 2_500_000, 2,
-                'About ' . $kb($loading['weight_bytes']) . ' across ' . $loading['requests'] . ' requests (sampled).',
-                $loading['weight_bytes'] > 2_500_000 ? 'Trim the page weight — optimize images (the Image audit shows how), and minify/split JS and CSS.' : '', $c),
-            self::check('Request count', $loading['requests'] <= 60, 1,
-                $loading['requests'] . ' resources requested.',
-                $loading['requests'] > 60 ? 'Reduce the number of requests: combine files, lazy-load below-the-fold assets, drop unused scripts.' : '', $c),
+            self::check(self::tr('Time to first byte', 'Time to first byte'), $loading['ttfb_ms'] <= 800, 2,
+                self::tr('Server responded in ' . $loading['ttfb_ms'] . ' ms (good ≤ 800 ms).', 'Server antwoordde in ' . $loading['ttfb_ms'] . ' ms (goed ≤ 800 ms).'),
+                $loading['ttfb_ms'] > 800 ? self::tr('Speed up the server response — caching, a faster host or a CDN typically fixes a slow TTFB.', 'Versnel de serverreactie — caching, een snellere host of een CDN lost een trage TTFB meestal op.') : '', $c),
+            self::check(self::tr('Page weight', 'Paginagewicht'), $loading['weight_bytes'] <= 2_500_000, 2,
+                self::tr('About ' . $kb($loading['weight_bytes']) . ' across ' . $loading['requests'] . ' requests (sampled).', 'Ongeveer ' . $kb($loading['weight_bytes']) . ' over ' . $loading['requests'] . ' requests (steekproef).'),
+                $loading['weight_bytes'] > 2_500_000 ? self::tr('Trim the page weight — optimize images (the Image audit shows how), and minify/split JS and CSS.', 'Verlaag het paginagewicht — optimaliseer afbeeldingen (de afbeeldingen-audit laat zien hoe) en minify/splits JS en CSS.') : '', $c),
+            self::check(self::tr('Request count', 'Aantal requests'), $loading['requests'] <= 60, 1,
+                self::tr($loading['requests'] . ' resources requested.', $loading['requests'] . ' resources opgevraagd.'),
+                $loading['requests'] > 60 ? self::tr('Reduce the number of requests: combine files, lazy-load below-the-fold assets, drop unused scripts.', 'Verminder het aantal requests: combineer bestanden, laad content onder de vouw lazy en verwijder ongebruikte scripts.') : '', $c),
         ];
     }
 

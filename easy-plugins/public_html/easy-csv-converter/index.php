@@ -288,7 +288,7 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js?v=2026-07-18"></script>
+    <script src="js/app.js?v=2026-08-13"></script>
     
     <!-- Initialize theme -->
     <script>

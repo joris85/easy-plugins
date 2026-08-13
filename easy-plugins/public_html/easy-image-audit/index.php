@@ -8,7 +8,7 @@ $themePath = '../shared/theme.js';
 include '../shared/header.php';
 ?>
 
-    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.4">
+    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.5">
 
     <div class="container-fluid">
         <div class="container tool-page-inner">
@@ -34,6 +34,7 @@ include '../shared/header.php';
                                 'Gratis: één pagina, tot 30 afbeeldingen per audit, 5 audits per 10 minuten.'
                             ) ?>
                         </p>
+                        <p class="audit-example-line"><a href="#" id="auditExample"><i class="fas fa-wand-magic-sparkles me-1"></i><?= easyPluginsText('Try an example', 'Probeer een voorbeeld') ?></a></p>
                     </form>
                 </div>
             </div>
@@ -48,4 +49,4 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="/libraries/audit/audit-ui.js?v=1.4"></script>
+    <script src="/libraries/audit/audit-ui.js?v=1.5"></script>

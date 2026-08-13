@@ -8,7 +8,7 @@ $themePath = '../shared/theme.js';
 include '../shared/header.php';
 ?>
 
-    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.4">
+    <link rel="stylesheet" href="/libraries/audit/audit-ui.css?v=1.5">
     <style>
         .domain-grid {
             display: grid;
@@ -68,6 +68,7 @@ include '../shared/header.php';
                                 'Checkt 12 populaire extensies met live registerdata (RDAP en DNS). Gratis, 5 checks per 10 minuten.'
                             ) ?>
                         </p>
+                        <p class="audit-example-line"><a href="#" id="auditExample"><i class="fas fa-wand-magic-sparkles me-1"></i><?= easyPluginsText('Try an example', 'Probeer een voorbeeld') ?></a></p>
                     </form>
                 </div>
             </div>
@@ -99,4 +100,4 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="/libraries/audit/audit-ui.js?v=1.4"></script>
+    <script src="/libraries/audit/audit-ui.js?v=1.5"></script>

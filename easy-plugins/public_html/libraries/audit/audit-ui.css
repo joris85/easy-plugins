@@ -39,6 +39,25 @@
     color: #6c757d;
 }
 
+.audit-example-line {
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+}
+
+.audit-example-line a {
+    color: #2f855a;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.audit-example-line a:hover {
+    text-decoration: underline;
+}
+
+body.dark .audit-example-line a {
+    color: #81C784;
+}
+
 .audit-status {
     max-width: 760px;
     margin: 0 auto 1.5rem;

@@ -48,6 +48,14 @@ final class EpDomainCheck
             $label = implode('.', $parts);
             $label = str_replace('.', '-', $label); // sub.name → sub-name for the other TLDs
         }
+
+        // Internationalized names (münchen, café, δοκιμή): keep the pretty form
+        // for display, convert to ASCII punycode (xn--…) for the DNS/RDAP query.
+        $displayLabel = $label;
+        $label = self::toAscii($label);
+        if ($typedTld !== null) {
+            $typedTld = self::toAscii($typedTld);
+        }
         if (!self::validLabel($label)) {
             return ['error' => 'invalid_name'];
         }
@@ -80,20 +88,49 @@ final class EpDomainCheck
             $results[$tld] = $res;
         }
 
-        // Keep the TLD order.
+        // Keep the TLD order; show the pretty (unicode) domain, not xn--…
         $ordered = [];
         foreach (array_keys($tlds) as $tld) {
             if (isset($results[$tld])) {
-                $ordered[] = $results[$tld];
+                $res = $results[$tld];
+                $res['domain'] = self::toUnicode($displayLabel . '.' . $tld);
+                $ordered[] = $res;
             }
         }
-        return ['name' => $label, 'typed_tld' => $typedTld, 'results' => $ordered];
+        return ['name' => $displayLabel, 'typed_tld' => $typedTld, 'results' => $ordered];
     }
 
     public static function validLabel(string $label): bool
     {
         return $label !== '' && strlen($label) <= 63
             && (bool) preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/', $label);
+    }
+
+    /** Unicode label → ASCII punycode for DNS/RDAP (no-op without intl). */
+    private static function toAscii(string $s): string
+    {
+        if ($s === '' || !preg_match('/[^\x00-\x7F]/', $s)) {
+            return $s; // already ASCII
+        }
+        if (function_exists('idn_to_ascii')) {
+            $a = idn_to_ascii($s, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+            if (is_string($a) && $a !== '') {
+                return strtolower($a);
+            }
+        }
+        return $s; // intl missing: validLabel will reject non-ASCII cleanly
+    }
+
+    /** ASCII punycode → unicode for display (no-op without intl). */
+    private static function toUnicode(string $s): string
+    {
+        if (str_contains($s, 'xn--') && function_exists('idn_to_utf8')) {
+            $u = idn_to_utf8($s, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+            if (is_string($u) && $u !== '') {
+                return $u;
+            }
+        }
+        return $s;
     }
 
     /** RDAP base for an arbitrary TLD from the IANA bootstrap, cached 7 days. */

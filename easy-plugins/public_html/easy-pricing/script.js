@@ -1,6 +1,34 @@
 // Bereken Tools - JavaScript Functionaliteit voor Percentages, Kortingen en BTW
 
+// Active currency: symbol drives display, locale drives number formatting.
+// Remembered across visits; defaults to the euro (the site's home currency).
+const CURRENCIES = {
+    EUR: { symbol: '€', locale: 'nl-NL' },
+    USD: { symbol: '$', locale: 'en-US' },
+    GBP: { symbol: '£', locale: 'en-GB' },
+    CHF: { symbol: 'CHF ', locale: 'de-CH' },
+    SEK: { symbol: 'kr ', locale: 'sv-SE' }
+};
+let CUR = CURRENCIES.EUR;
+
+// Result-breakdown wording follows the page language.
+const PRICING_NL = document.documentElement.lang === 'nl';
+function ptr(en, nl) { return PRICING_NL ? nl : en; }
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Currency selector: restore choice, re-render nothing (user re-submits).
+    const currencySelect = document.getElementById('currencySelect');
+    if (currencySelect) {
+        try {
+            const saved = localStorage.getItem('easyPricingCurrency');
+            if (saved && CURRENCIES[saved]) { currencySelect.value = saved; CUR = CURRENCIES[saved]; }
+        } catch (e) { /* ignore */ }
+        currencySelect.addEventListener('change', function() {
+            CUR = CURRENCIES[this.value] || CURRENCIES.EUR;
+            try { localStorage.setItem('easyPricingCurrency', this.value); } catch (e) { /* ignore */ }
+        });
+    }
+
     // Calculator 1: Neem een percentage van een getal
     document.getElementById('calculator1').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -9,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = parseFloat(document.getElementById('amount1').value);
         
         if (isNaN(percent) || isNaN(amount) || percent < 0 || amount < 0) {
-            showError('result1', 'Voer geldige getallen in (groter dan of gelijk aan 0)');
+            showError('result1', ptr('Enter valid numbers (0 or higher)','Voer geldige getallen in (groter dan of gelijk aan 0)'));
             return;
         }
         
@@ -23,8 +51,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedAdded = formatNumber(added);
         const formattedSubtracted = formatNumber(subtracted);
         
-        showResult('result1', `<span class="clickable-amount" data-value="${formattedResult}">€${formattedResult}</span>`);
-        showCalculation('result1', `${percent}% van €${formattedAmount} = €${formattedResult}`);
+        showResult('result1', `<span class="clickable-amount" data-value="${formattedResult}">${CUR.symbol}${formattedResult}</span>`);
+        showCalculation('result1', `${percent}% ${ptr('of','van')} ${CUR.symbol}${formattedAmount} = ${CUR.symbol}${formattedResult}`);
         
         // Toon extra berekeningen
         showAdditionalResults('result1', {
@@ -41,12 +69,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const amountB = parseFloat(document.getElementById('amount2b').value);
         
         if (isNaN(amountA) || isNaN(amountB) || amountA < 0 || amountB < 0) {
-            showError('result2', 'Voer geldige getallen in (groter dan of gelijk aan 0)');
+            showError('result2', ptr('Enter valid numbers (0 or higher)','Voer geldige getallen in (groter dan of gelijk aan 0)'));
             return;
         }
         
         if (amountB === 0) {
-            showError('result2', 'Het totaal kan niet 0 zijn');
+            showError('result2', ptr('The total cannot be 0','Het totaal kan niet 0 zijn'));
             return;
         }
         
@@ -54,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedPercentage = formatNumber(percentage);
         
         showResult('result2', `<span class="clickable-amount" data-value="${formattedPercentage}">${formattedPercentage}%</span>`);
-        showCalculation('result2', `€${formatNumber(amountA)} is ${formattedPercentage}% van €${formatNumber(amountB)}`);
+        showCalculation('result2', `${CUR.symbol}${formatNumber(amountA)} ${ptr('is','is')} ${formattedPercentage}% ${ptr('of','van')} ${CUR.symbol}${formatNumber(amountB)}`);
     });
 
     // Calculator 3: Verhoging / Verlaging
@@ -66,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const operation = document.getElementById('operation3').value;
         
         if (isNaN(amount) || isNaN(percent) || amount < 0 || percent < 0) {
-            showError('result3', 'Voer geldige getallen in (groter dan of gelijk aan 0)');
+            showError('result3', ptr('Enter valid numbers (0 or higher)','Voer geldige getallen in (groter dan of gelijk aan 0)'));
             return;
         }
         
@@ -85,8 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedAmount = formatNumber(amount);
         const formattedPercent = formatNumber(percent);
         
-        showResult('result3', `<span class="clickable-amount" data-value="${formattedResult}">€${formattedResult}</span>`);
-        showCalculation('result3', `€${formattedAmount} ${operationText} ${formattedPercent}% = €${formattedResult}`);
+        showResult('result3', `<span class="clickable-amount" data-value="${formattedResult}">${CUR.symbol}${formattedResult}</span>`);
+        showCalculation('result3', `${CUR.symbol}${formattedAmount} ${operationText} ${formattedPercent}% = ${CUR.symbol}${formattedResult}`);
     });
 
     // Calculator 4: Percentage verschil
@@ -97,12 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const amountB = parseFloat(document.getElementById('amount4b').value);
         
         if (isNaN(amountA) || isNaN(amountB) || amountA < 0 || amountB < 0) {
-            showError('result4', 'Voer geldige getallen in (groter dan of gelijk aan 0)');
+            showError('result4', ptr('Enter valid numbers (0 or higher)','Voer geldige getallen in (groter dan of gelijk aan 0)'));
             return;
         }
         
         if (amountA === 0) {
-            showError('result4', 'De eerste waarde kan niet 0 zijn');
+            showError('result4', ptr('The first value cannot be 0','De eerste waarde kan niet 0 zijn'));
             return;
         }
         
@@ -111,11 +139,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedAmountA = formatNumber(amountA);
         const formattedAmountB = formatNumber(amountB);
         
-        let changeType = percentageDiff > 0 ? 'stijging' : 'daling';
+        let changeType = percentageDiff > 0 ? ptr('increase', 'stijging') : ptr('decrease', 'daling');
         let sign = percentageDiff > 0 ? '+' : '-';
-        
+
         showResult('result4', `<span class="clickable-amount" data-value="${sign}${formattedPercentage}">${sign}${formattedPercentage}%</span>`);
-        showCalculation('result4', `Van €${formattedAmountA} naar €${formattedAmountB} is een ${changeType} van ${sign}${formattedPercentage}%`);
+        showCalculation('result4', ptr(
+            `From ${CUR.symbol}${formattedAmountA} to ${CUR.symbol}${formattedAmountB} is a ${changeType} of ${sign}${formattedPercentage}%`,
+            `Van ${CUR.symbol}${formattedAmountA} naar ${CUR.symbol}${formattedAmountB} is een ${changeType} van ${sign}${formattedPercentage}%`));
     });
 
 
@@ -157,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const discountType = document.querySelector('input[name="discount-type"]:checked').value;
         
         if (isNaN(originalPrice) || originalPrice < 0) {
-            showError('korting-result', 'Voer een geldige originele prijs in');
+            showError('korting-result', ptr('Enter a valid original price','Voer een geldige originele prijs in'));
             return;
         }
         
@@ -167,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const discountPercent = parseFloat(document.getElementById('discount-percent').value);
             
             if (isNaN(discountPercent) || discountPercent < 0 || discountPercent > 100) {
-                showError('korting-result', 'Voer een geldig kortingspercentage in (0-100%)');
+                showError('korting-result', ptr('Enter a valid discount percentage (0-100%)','Voer een geldig kortingspercentage in (0-100%)'));
                 return;
             }
             
@@ -177,16 +207,16 @@ document.addEventListener('DOMContentLoaded', function() {
             discountAmount = parseFloat(document.getElementById('discount-amount').value);
             
             if (isNaN(discountAmount) || discountAmount < 0) {
-                showError('korting-result', 'Voer een geldig kortingsbedrag in');
+                showError('korting-result', ptr('Enter a valid discount amount','Voer een geldig kortingsbedrag in'));
                 return;
             }
             
             if (discountAmount > originalPrice) {
-                showError('korting-result', 'Korting kan niet groter zijn dan de originele prijs');
+                showError('korting-result', ptr('The discount cannot be larger than the original price','Korting kan niet groter zijn dan de originele prijs'));
                 return;
             }
             
-            discountText = `€${formatNumber(discountAmount)}`;
+            discountText = `${CUR.symbol}${formatNumber(discountAmount)}`;
         }
         
         newPrice = originalPrice - discountAmount;
@@ -195,11 +225,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedDiscount = formatNumber(discountAmount);
         const formattedNew = formatNumber(newPrice);
         
-        showResult('korting-result', `<span class="clickable-amount" data-value="${formattedNew}">€${formattedNew}</span>`);
-        showCalculation('korting-result', 
-            `Originele prijs: <span class="clickable-amount" data-value="${formattedOriginal}">€${formattedOriginal}</span><br>` +
-            `Korting (${discountText}): <span class="clickable-amount" data-value="${formattedDiscount}">€${formattedDiscount}</span><br>` +
-            `Nieuwe prijs: <span class="clickable-amount" data-value="${formattedNew}">€${formattedNew}</span>`);
+        showResult('korting-result', `<span class="clickable-amount" data-value="${formattedNew}">${CUR.symbol}${formattedNew}</span>`);
+        showCalculation('korting-result',
+            `${ptr('Original price', 'Originele prijs')}: <span class="clickable-amount" data-value="${formattedOriginal}">${CUR.symbol}${formattedOriginal}</span><br>` +
+            `${ptr('Discount', 'Korting')} (${discountText}): <span class="clickable-amount" data-value="${formattedDiscount}">${CUR.symbol}${formattedDiscount}</span><br>` +
+            `${ptr('New price', 'Nieuwe prijs')}: <span class="clickable-amount" data-value="${formattedNew}">${CUR.symbol}${formattedNew}</span>`);
     });
 
     // BTW Calculator
@@ -211,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btwType = document.querySelector('input[name="btw-type"]:checked').value;
         
         if (isNaN(amount) || amount < 0) {
-            showError('btw-result', 'Voer een geldig bedrag in (groter dan of gelijk aan 0)');
+            showError('btw-result', ptr('Enter a valid amount (0 or higher)','Voer een geldig bedrag in (groter dan of gelijk aan 0)'));
             return;
         }
         
@@ -231,11 +261,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const formattedInclusive = formatNumber(inclusiveAmount);
         const formattedBtw = formatNumber(btwAmount);
         
-        showResult('btw-result', `<span class="clickable-amount" data-value="${formattedInclusive}">€${formattedInclusive}</span>`);
-        showCalculation('btw-result', 
-            `Bedrag inclusief BTW: <span class="clickable-amount" data-value="${formattedInclusive}">€${formattedInclusive}</span><br>` +
-            `Bedrag exclusief BTW: <span class="clickable-amount" data-value="${formattedExclusive}">€${formattedExclusive}</span><br>` +
-            `BTW (${btwRate}%): <span class="clickable-amount" data-value="${formattedBtw}">€${formattedBtw}</span>`);
+        showResult('btw-result', `<span class="clickable-amount" data-value="${formattedInclusive}">${CUR.symbol}${formattedInclusive}</span>`);
+        showCalculation('btw-result',
+            `${ptr('Amount incl. VAT', 'Bedrag inclusief BTW')}: <span class="clickable-amount" data-value="${formattedInclusive}">${CUR.symbol}${formattedInclusive}</span><br>` +
+            `${ptr('Amount excl. VAT', 'Bedrag exclusief BTW')}: <span class="clickable-amount" data-value="${formattedExclusive}">${CUR.symbol}${formattedExclusive}</span><br>` +
+            `${ptr('VAT', 'BTW')} (${btwRate}%): <span class="clickable-amount" data-value="${formattedBtw}">${CUR.symbol}${formattedBtw}</span>`);
     });
 
     // Toggle discount type inputs
@@ -289,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const discountType = document.querySelector('input[name="discount-type"]:checked').value;
                 
                 if (isNaN(originalPrice) || originalPrice < 0) {
-                    showError('korting-result', 'Voer een geldige originele prijs in');
+                    showError('korting-result', ptr('Enter a valid original price','Voer een geldige originele prijs in'));
                     return;
                 }
                 
@@ -299,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const discountPercent = parseFloat(document.getElementById('discount-percent').value);
                     
                     if (isNaN(discountPercent) || discountPercent < 0 || discountPercent > 100) {
-                        showError('korting-result', 'Voer een geldig kortingspercentage in (0-100%)');
+                        showError('korting-result', ptr('Enter a valid discount percentage (0-100%)','Voer een geldig kortingspercentage in (0-100%)'));
                         return;
                     }
                     
@@ -309,17 +339,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     discountAmount = parseFloat(document.getElementById('discount-amount').value);
                     
                     if (isNaN(discountAmount) || discountAmount < 0) {
-                        showError('korting-result', 'Voer een geldig kortingsbedrag in');
+                        showError('korting-result', ptr('Enter a valid discount amount','Voer een geldig kortingsbedrag in'));
                         return;
                     }
                     
                     // Controleer of korting niet groter is dan originele prijs
                     if (discountAmount > originalPrice) {
-                        showError('korting-result', 'Korting kan niet groter zijn dan de originele prijs');
+                        showError('korting-result', ptr('The discount cannot be larger than the original price','Korting kan niet groter zijn dan de originele prijs'));
                         return;
                     }
                     
-                    discountText = `€${formatNumber(discountAmount)}`;
+                    discountText = `${CUR.symbol}${formatNumber(discountAmount)}`;
                 }
                 
                 newPrice = originalPrice - discountAmount;
@@ -328,11 +358,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const formattedDiscount = formatNumber(discountAmount);
                 const formattedNew = formatNumber(newPrice);
                 
-                showResult('korting-result', `€${formattedNew}`);
-                showCalculation('korting-result', 
-                    `Originele prijs: €${formattedOriginal}<br>` +
-                    `Korting (${discountText}): €${formattedDiscount}<br>` +
-                    `Nieuwe prijs: €${formattedNew}`);
+                showResult('korting-result', `${CUR.symbol}${formattedNew}`);
+                showCalculation('korting-result',
+                    `${ptr('Original price', 'Originele prijs')}: ${CUR.symbol}${formattedOriginal}<br>` +
+                    `${ptr('Discount', 'Korting')} (${discountText}): ${CUR.symbol}${formattedDiscount}<br>` +
+                    `${ptr('New price', 'Nieuwe prijs')}: ${CUR.symbol}${formattedNew}`);
             });
         }
     }
@@ -350,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const btwType = document.querySelector('input[name="btw-type"]:checked').value;
                 
                 if (isNaN(amount) || amount < 0) {
-                    showError('btw-result', 'Voer een geldig bedrag in (groter dan of gelijk aan 0)');
+                    showError('btw-result', ptr('Enter a valid amount (0 or higher)','Voer een geldig bedrag in (groter dan of gelijk aan 0)'));
                     return;
                 }
                 
@@ -372,11 +402,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const formattedInclusive = formatNumber(inclusiveAmount);
                 const formattedBtw = formatNumber(btwAmount);
                 
-                showResult('btw-result', `€${formattedInclusive}`);
-                showCalculation('btw-result', 
-                    `Bedrag exclusief BTW: €${formattedExclusive}<br>` +
-                    `BTW (${btwRate}%): €${formattedBtw}<br>` +
-                    `Bedrag inclusief BTW: €${formattedInclusive}`);
+                showResult('btw-result', `${CUR.symbol}${formattedInclusive}`);
+                showCalculation('btw-result',
+                    `${ptr('Amount excl. VAT', 'Bedrag exclusief BTW')}: ${CUR.symbol}${formattedExclusive}<br>` +
+                    `${ptr('VAT', 'BTW')} (${btwRate}%): ${CUR.symbol}${formattedBtw}<br>` +
+                    `${ptr('Amount incl. VAT', 'Bedrag inclusief BTW')}: ${CUR.symbol}${formattedInclusive}`);
             });
         }
     }
@@ -384,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Helper functions
 function formatNumber(num) {
-    return new Intl.NumberFormat('nl-NL', {
+    return new Intl.NumberFormat(CUR.locale, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     }).format(num);

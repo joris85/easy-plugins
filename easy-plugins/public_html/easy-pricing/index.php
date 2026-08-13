@@ -9,6 +9,22 @@ include '../shared/header.php';
         <div class="container tool-page-inner">
             <?php $toolInfoSlug = 'easy-pricing'; include __DIR__ . '/../shared/tool-info-bar.php'; ?>
 
+            <!-- Currency selector -->
+            <div class="row justify-content-center mb-3">
+                <div class="col-lg-8 d-flex justify-content-center align-items-center gap-2">
+                    <label for="currencySelect" class="form-label mb-0 fw-semibold">
+                        <i class="fas fa-coins me-1"></i><?= easyPluginsText('Currency', 'Valuta') ?>
+                    </label>
+                    <select id="currencySelect" class="form-select form-select-sm" style="width:auto;">
+                        <option value="EUR">€ Euro (EUR)</option>
+                        <option value="USD">$ US Dollar (USD)</option>
+                        <option value="GBP">£ Pound (GBP)</option>
+                        <option value="CHF">CHF Swiss Franc</option>
+                        <option value="SEK">kr Swedish Krona (SEK)</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Navigation Tabs -->
             <div class="row justify-content-center mb-4">
                 <div class="col-lg-8">
@@ -430,4 +446,4 @@ include '../shared/header.php';
 
     <?php include '../shared/footer.php'; ?>
 
-    <script src="script.js?v=2026-07-13"></script>
+    <script src="script.js?v=2026-08-13"></script>

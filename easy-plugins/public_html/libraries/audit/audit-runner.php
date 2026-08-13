@@ -118,11 +118,13 @@ function epAuditRespond(string $tool, callable $audit): never
             'message' => 'Enter a public website address, like example.com.']);
     }
     $url = EpAudit::norm($url);
+    $lang = (is_array($body) && ($body['lang'] ?? '') === 'nl') ? 'nl' : 'en';
+    $cacheKey = $tool . '-' . $lang; // results differ by language
 
     // {refresh: true} skips the cache read (rate limit still applies, so
     // refresh spam costs the visitor their own quota, not our server).
     $refresh = is_array($body) && !empty($body['refresh']);
-    if (!$refresh && ($cached = epAuditCacheGet($tool, $url)) !== null) {
+    if (!$refresh && ($cached = epAuditCacheGet($cacheKey, $url)) !== null) {
         epAuditJson(200, ['success' => true, 'cached' => true, 'result' => $cached]);
     }
 
@@ -135,7 +137,7 @@ function epAuditRespond(string $tool, callable $audit): never
 
     set_time_limit(75);
     ignore_user_abort(false);
-    $result = $audit($url);
+    $result = $audit($url, $lang);
 
     if (isset($result['error'])) {
         // Never score a site that just blocked us (gotcha #6).
@@ -144,6 +146,6 @@ function epAuditRespond(string $tool, callable $audit): never
     }
     $result['url'] = $url;
     $result['generated_at'] = gmdate('c');
-    epAuditCachePut($tool, $url, $result);
+    epAuditCachePut($cacheKey, $url, $result);
     epAuditJson(200, ['success' => true, 'cached' => false, 'result' => $result]);
 }

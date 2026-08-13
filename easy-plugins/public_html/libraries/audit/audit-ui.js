@@ -36,12 +36,26 @@
 
     let forceRefresh = false;
 
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
         e.preventDefault();
-        const url = input.value.trim();
-        if (!url) { input.focus(); return; }
         const refresh = forceRefresh;
         forceRefresh = false;
+        runAudit(input.value.trim(), refresh, true);
+    });
+
+    async function runAudit(url, refresh, pushUrl) {
+        if (!url) { input.focus(); return; }
+        input.value = url;
+
+        // Keep the checked value in the address bar so results are shareable
+        // and bookmarkable (and land on a real URL search engines can index).
+        if (pushUrl) {
+            try {
+                const u = new URL(window.location.href);
+                u.searchParams.set('url', url);
+                window.history.replaceState({}, '', u);
+            } catch (e) { /* older browsers: skip */ }
+        }
 
         button.disabled = true;
         errorBox.style.display = 'none';
@@ -57,7 +71,7 @@
             const res = await fetch(api, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(refresh ? { url, refresh: true } : { url }),
+                body: JSON.stringify(Object.assign({ url, lang: isNl ? 'nl' : 'en' }, refresh ? { refresh: true } : {})),
                 signal: controller.signal
             });
             const data = await res.json().catch(() => ({ success: false, error: 'bad_response' }));
@@ -78,7 +92,35 @@
             clearTimeout(timer);
             button.disabled = false;
         }
-    });
+    }
+
+    // A demo target per tool, so first-time visitors can see a real result in
+    // one click without thinking of a URL. Wikipedia is public, stable, fast
+    // and safe to hammer; the domain checker gets a plain sample name.
+    const EXAMPLE = { seo: 'en.wikipedia.org', links: 'en.wikipedia.org', images: 'en.wikipedia.org', domain: 'my-new-project' };
+
+    function wireExtras() {
+        const exampleLink = document.getElementById('auditExample');
+        if (exampleLink) {
+            exampleLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                runAudit(EXAMPLE[tool] || 'en.wikipedia.org', false, true);
+            });
+        }
+    }
+
+    // Deep link: /easy-website-audit/?url=example.com runs on load.
+    function runFromQuery() {
+        try {
+            const q = new URL(window.location.href).searchParams.get('url');
+            if (q && q.trim()) {
+                runAudit(q.trim(), false, false);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    wireExtras();
+    runFromQuery();
 
     // Translated messages per known error code, so a Dutch page never shows an
     // English server string. Falls back to the server message, then a generic.
