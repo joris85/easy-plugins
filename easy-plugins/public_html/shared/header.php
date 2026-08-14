@@ -430,12 +430,20 @@ $langSwitchLabel = $isNlPage ? 'EN' : 'NL';
 </nav>
 
 <script>
-let dropdownTimer = null;
-const allDropdownIds = ['imageToolsDropdown', 'textDataDropdown', 'webToolsDropdown'];
+// One hide timer per menu, so entering menu B never cancels A's pending hide.
+const dropdownTimers = {};
+
+// Every top-level navbar dropdown, read from the DOM so newly added menus
+// (Audits, Coding, …) are always included — a hardcoded list here once left
+// new menus stuck open when hovering across the navbar.
+function getAllDropdownIds() {
+    return Array.from(document.querySelectorAll('.navbar .nav-item.dropdown > a.dropdown-toggle[id]'))
+        .map(a => a.id);
+}
 
 // Close all dropdowns except the specified one
 function closeAllDropdownsExcept(exceptId) {
-    allDropdownIds.forEach(dropdownId => {
+    getAllDropdownIds().forEach(dropdownId => {
         if (dropdownId !== exceptId) {
             const dropdown = document.getElementById(dropdownId);
             if (dropdown) {
@@ -450,15 +458,15 @@ function closeAllDropdownsExcept(exceptId) {
 
 // Show dropdown on hover
 function showDropdown(dropdownId) {
-    // Clear any pending hide timer
-    if (dropdownTimer) {
-        clearTimeout(dropdownTimer);
-        dropdownTimer = null;
+    // Clear any pending hide timer for THIS menu
+    if (dropdownTimers[dropdownId]) {
+        clearTimeout(dropdownTimers[dropdownId]);
+        dropdownTimers[dropdownId] = null;
     }
-    
+
     // Close all other dropdowns first
     closeAllDropdownsExcept(dropdownId);
-    
+
     const dropdown = document.getElementById(dropdownId);
     const menu = document.getElementById(dropdownId + 'Menu');
     if (dropdown && menu) {
@@ -474,8 +482,8 @@ function showDropdown(dropdownId) {
 
 // Hide dropdown on mouse leave with small delay
 function hideDropdown(dropdownId) {
-    // Add small delay to prevent flickering when moving between trigger and menu
-    dropdownTimer = setTimeout(() => {
+    // Small delay prevents flickering when moving between trigger and menu
+    dropdownTimers[dropdownId] = setTimeout(() => {
         const dropdown = document.getElementById(dropdownId);
         if (dropdown) {
             const bsDropdown = bootstrap.Dropdown.getInstance(dropdown);
@@ -483,7 +491,7 @@ function hideDropdown(dropdownId) {
                 bsDropdown.hide();
             }
         }
-        dropdownTimer = null;
+        dropdownTimers[dropdownId] = null;
     }, 100);
 }
 </script>
