@@ -1,0 +1,47 @@
+/* Easy QR */
+
+.qr-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.qr-tab {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: transparent;
+    border-radius: 999px;
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4a5560;
+    cursor: pointer;
+}
+
+.qr-tab.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+}
+
+.qr-output {
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#qrCanvas {
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+body.dark .qr-tab {
+    border-color: #3a3f45;
+    color: #b9c0c7;
+}
+
+body.dark .qr-tab.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+}

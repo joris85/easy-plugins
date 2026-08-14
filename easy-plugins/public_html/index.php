@@ -148,6 +148,10 @@ $toolHref = function ($slug) {
                 'easy-broken-links' => ['fa-link-slash', '#dc3545'],
                 'easy-image-audit' => ['fa-magnifying-glass', '#17a2b8'],
                 'easy-domain-check' => ['fa-globe', '#4CAF50'],
+                'easy-favicon' => ['fa-star', '#f0ad4e'],
+                'easy-qr' => ['fa-qrcode', '#1e1e1e'],
+                'easy-color' => ['fa-palette', '#bf4080'],
+                'easy-ip-check' => ['fa-network-wired', '#17a2b8'],
             ];
             $allMeta = easyPluginsSeoMeta();
             foreach ($homeCards as $cardSlug => [$cardIcon, $cardColor]):

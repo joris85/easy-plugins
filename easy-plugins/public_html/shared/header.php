@@ -39,6 +39,14 @@ if (strpos($currentPath, '/easy-image/') !== false) {
     $currentTool = 'easy-image-audit';
 } elseif (strpos($currentPath, '/easy-domain-check/') !== false) {
     $currentTool = 'easy-domain-check';
+} elseif (strpos($currentPath, '/easy-favicon/') !== false) {
+    $currentTool = 'easy-favicon';
+} elseif (strpos($currentPath, '/easy-qr/') !== false) {
+    $currentTool = 'easy-qr';
+} elseif (strpos($currentPath, '/easy-color/') !== false) {
+    $currentTool = 'easy-color';
+} elseif (strpos($currentPath, '/easy-ip-check/') !== false) {
+    $currentTool = 'easy-ip-check';
 } elseif (strpos($currentPath, '/plugins/') !== false) {
     $currentTool = 'plugins';
 }
@@ -254,6 +262,12 @@ if (isset($canonicalPath)):
                                     <small class="text-muted d-block ms-4">Rotate images with real-time preview</small>
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-favicon' ? 'active' : '' ?>" href="<?= $navHref('easy-favicon') ?>" data-tool="easy-favicon">
+                                    <img src="/brand/tools/easy-favicon.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Favicon
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Favicon van een afbeelding' : 'Favicon from an image' ?></small>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     
@@ -292,7 +306,7 @@ if (isset($canonicalPath)):
                     
                     <!-- Web Tools Dropdown -->
                     <li class="nav-item dropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
-                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-identify-me', 'easy-less', 'easy-sass', 'easy-domain-check']) ? 'active' : '' ?>" href="#" id="webToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('webToolsDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-html', 'easy-identify-me', 'easy-domain-check', 'easy-qr', 'easy-color', 'easy-ip-check']) ? 'active' : '' ?>" href="#" id="webToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('webToolsDropdown')">
                             <svg class="nav-cat-icon me-1" width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path d="M18.5 9 C 13.5 10.5, 15.5 16, 13.5 20 C 12.5 22, 10.5 23, 9 24 C 10.5 25, 12.5 26, 13.5 28 C 15.5 32, 13.5 37.5, 18.5 39" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M29.5 9 C 34.5 10.5, 32.5 16, 34.5 20 C 35.5 22, 37.5 23, 39 24 C 37.5 25, 35.5 26, 34.5 28 C 32.5 32, 34.5 37.5, 29.5 39" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg><span data-translate="NAV_WEB_TOOLS">Web Tools</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" id="webToolsDropdownMenu" aria-labelledby="webToolsDropdown" onmouseenter="showDropdown('webToolsDropdown')" onmouseleave="hideDropdown('webToolsDropdown')">
@@ -303,6 +317,45 @@ if (isset($canonicalPath)):
                                 </a>
                             </li>
                             <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-qr' ? 'active' : '' ?>" href="<?= $navHref('easy-qr') ?>" data-tool="easy-qr">
+                                    <img src="/brand/tools/easy-qr.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy QR
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'QR-code generator' : 'QR code generator' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-color' ? 'active' : '' ?>" href="<?= $navHref('easy-color') ?>" data-tool="easy-color">
+                                    <img src="/brand/tools/easy-color.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Color
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Kleurenkiezer & contrast' : 'Color picker & contrast' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-domain-check' ? 'active' : '' ?>" href="<?= $navHref('easy-domain-check') ?>" data-tool="easy-domain-check">
+                                    <img src="/brand/tools/easy-domain-check.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Domain Check
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Is je domeinnaam vrij?' : 'Is your domain name available?' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-ip-check' ? 'active' : '' ?>" href="<?= $navHref('easy-ip-check') ?>" data-tool="easy-ip-check">
+                                    <img src="/brand/tools/easy-ip-check.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy IP Check
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'IP & DNS opzoeken' : 'IP & DNS lookup' ?></small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-identify-me' ? 'active' : '' ?>" href="<?= $navHref('easy-identify-me') ?>" data-tool="easy-identify-me">
+                                    <img src="/brand/tools/easy-identify-me.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Identify Me
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Je eigen IP & apparaat' : 'Your own IP & device' ?></small>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Coding Dropdown -->
+                    <li class="nav-item dropdown" onmouseenter="showDropdown('codingDropdown')" onmouseleave="hideDropdown('codingDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-less', 'easy-sass']) ? 'active' : '' ?>" href="#" id="codingDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('codingDropdown')">
+                            <svg class="nav-cat-icon me-1" width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path d="M17 14 L 7 24 L 17 34" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 14 L 41 24 L 31 34" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-translate="NAV_CODING"><?= easyPluginsIsNl() ? 'Code' : 'Coding' ?></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" id="codingDropdownMenu" aria-labelledby="codingDropdown" onmouseenter="showDropdown('codingDropdown')" onmouseleave="hideDropdown('codingDropdown')">
+                            <li>
                                 <a class="dropdown-item <?= $currentTool === 'easy-less' ? 'active' : '' ?>" href="<?= $navHref('easy-less') ?>" data-tool="easy-less">
                                     <img src="/brand/tools/easy-less.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Less
                                     <small class="text-muted d-block ms-4">LESS to CSS compiler</small>
@@ -312,18 +365,6 @@ if (isset($canonicalPath)):
                                 <a class="dropdown-item <?= $currentTool === 'easy-sass' ? 'active' : '' ?>" href="<?= $navHref('easy-sass') ?>" data-tool="easy-sass">
                                     <img src="/brand/tools/easy-sass.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy SASS
                                     <small class="text-muted d-block ms-4">SASS/SCSS to CSS compiler</small>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-identify-me' ? 'active' : '' ?>" href="<?= $navHref('easy-identify-me') ?>" data-tool="easy-identify-me">
-                                    <img src="/brand/tools/easy-identify-me.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Identify Me
-                                    <small class="text-muted d-block ms-4">System information tool</small>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item <?= $currentTool === 'easy-domain-check' ? 'active' : '' ?>" href="<?= $navHref('easy-domain-check') ?>" data-tool="easy-domain-check">
-                                    <img src="/brand/tools/easy-domain-check.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Domain Check
-                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'Is je domeinnaam vrij?' : 'Is your domain name available?' ?></small>
                                 </a>
                             </li>
                         </ul>

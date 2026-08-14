@@ -1,0 +1,89 @@
+/* Easy Color */
+
+.color-big-swatch {
+    height: 90px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.color-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.color-field label {
+    width: 42px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.color-field input {
+    font-family: monospace;
+}
+
+.color-swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 0.5rem;
+}
+
+.color-swatch {
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.color-swatch__hex {
+    font-family: monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.color-swatch__label {
+    font-size: 0.7rem;
+    opacity: 0.85;
+}
+
+.color-grad-preview {
+    height: 90px;
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.color-code {
+    background: #1e2530;
+    color: #d6e2ee;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.82rem;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.color-contrast-preview {
+    border-radius: 10px;
+    padding: 1.25rem;
+    font-size: 1.1rem;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+body.dark .color-field label {
+    color: #9aa4ad;
+}

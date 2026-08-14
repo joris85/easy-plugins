@@ -25,6 +25,13 @@ Full tool documentation in one markdown file: https://easy-plugins.com/llms-full
 - [Easy SASS](https://easy-plugins.com/easy-sass/): Compile SASS/SCSS to CSS in the browser.
 - [Easy Identify Me](https://easy-plugins.com/easy-identify-me/): Show your IP address, location, browser and device details in one copyable overview.
 - [Easy Domain Check](https://easy-plugins.com/easy-domain-check/): Check whether a domain name is available across 12 popular extensions (.com, .nl, .net, .org, .be, .de, .eu, .io, .co, .dev, .app, .shop) using live registry data (RDAP and DNS). Shows registration year for taken domains. Searches are not logged or shared.
+- [Easy QR](https://easy-plugins.com/easy-qr/): Free QR code generator for a link, plain text, WiFi login or contact card (vCard), with custom colors and an optional center logo. Downloads as PNG or SVG. Generated in the browser; no tracking, no expiry.
+- [Easy Color](https://easy-plugins.com/easy-color/): Color picker with HEX/RGB/HSL, shades and matching palettes (complement, analogous, triadic), a CSS gradient generator and a WCAG contrast checker. Runs in the browser.
+- [Easy IP Check](https://easy-plugins.com/easy-ip-check/): IP and DNS lookup. Enter an IP or domain to see resolved IPs (A/AAAA), reverse DNS (PTR), the DNS record set (MX, NS, TXT, SOA, CNAME) and IP location, ISP and ASN.
+
+## Image tools (continued)
+
+- [Easy Favicon](https://easy-plugins.com/easy-favicon/): Turn one image into a complete favicon set — favicon.ico (multi-size), all PNG sizes, apple-touch-icon, site.webmanifest and the paste-ready HTML — downloaded as a ZIP. Runs entirely in the browser.
 
 ## Audit tools
 

@@ -187,6 +187,50 @@ if (!function_exists('easyPluginsSeoMeta')) {
                     'Honest three-way answer: available, taken, or verify',
                 ],
             ],
+            'easy-favicon' => [
+                'name' => 'Easy Favicon',
+                'tagline' => 'Turn any image into a favicon set',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Generates favicon.ico, all PNG sizes and apple-touch-icon',
+                    'Creates site.webmanifest and the paste-ready HTML',
+                    'Background color, padding and rounded-corner options',
+                    'Downloads everything as a ZIP; runs fully in your browser',
+                ],
+            ],
+            'easy-qr' => [
+                'name' => 'Easy QR',
+                'tagline' => 'Free QR code generator',
+                'category' => 'UtilitiesApplication',
+                'features' => [
+                    'QR codes for a link, plain text, WiFi login or contact card',
+                    'Custom colors and an optional logo in the center',
+                    'Download as sharp PNG or scalable SVG',
+                    'Runs entirely in your browser, nothing is uploaded',
+                ],
+            ],
+            'easy-color' => [
+                'name' => 'Easy Color',
+                'tagline' => 'Color picker, palettes & contrast',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Pick a color and get HEX, RGB and HSL instantly',
+                    'Generate shades, tints and matching palettes',
+                    'CSS gradient generator with copyable code',
+                    'WCAG contrast checker for accessible text',
+                ],
+            ],
+            'easy-ip-check' => [
+                'name' => 'Easy IP Check',
+                'tagline' => 'IP & DNS lookup for any host',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Resolve a domain to its IP addresses (A and AAAA)',
+                    'Reverse DNS (PTR) for any IP address',
+                    'Full DNS record set: MX, NS, TXT, SOA, CNAME',
+                    'IP location, ISP and ASN from live data',
+                ],
+            ],
         ];
 
         foreach (easyPluginsSeoNlOverlay() as $slug => $extra) {
@@ -318,6 +362,34 @@ if (!function_exists('easyPluginsSeoNlOverlay')) {
                 'blurb' => 'Type a name and see instantly which of 12 popular extensions are still available, straight from the domain registries (RDAP and DNS).',
                 'blurb_nl' => 'Typ een naam en zie direct welke van 12 populaire extensies nog vrij zijn, rechtstreeks uit de domeinregisters (RDAP en DNS).',
             ],
+            'easy-favicon' => [
+                'title_nl' => 'Easy Favicon - Gratis favicon generator',
+                'desc_nl' => 'Maak van elke afbeelding een complete favicon-set: favicon.ico, alle PNG-formaten, apple-touch-icon, site.webmanifest en de HTML om te plakken. Gratis, in je browser.',
+                'tagline_nl' => 'Maak een favicon van elke afbeelding',
+                'blurb' => 'Upload one image and get a complete favicon set: favicon.ico, every PNG size, apple-touch-icon, a web manifest and the exact HTML to paste. Nothing is uploaded.',
+                'blurb_nl' => 'Upload één afbeelding en krijg een complete favicon-set: favicon.ico, elk PNG-formaat, apple-touch-icon, een web manifest en de exacte HTML om te plakken. Er wordt niets geüpload.',
+            ],
+            'easy-qr' => [
+                'title_nl' => 'Easy QR - Gratis QR-code generator',
+                'desc_nl' => 'Maak gratis een QR-code voor een link, tekst, wifi of contactkaart. Eigen kleuren en een logo in het midden. Download als scherpe PNG of schaalbare SVG.',
+                'tagline_nl' => 'Gratis QR-code generator',
+                'blurb' => 'Make a QR code for a link, text, WiFi login or contact card, with your own colors and an optional logo. Download it as a sharp PNG or a scalable SVG.',
+                'blurb_nl' => 'Maak een QR-code voor een link, tekst, wifi-login of contactkaart, met eigen kleuren en een optioneel logo. Download als scherpe PNG of schaalbare SVG.',
+            ],
+            'easy-color' => [
+                'title_nl' => 'Easy Color - Kleurenkiezer, paletten en contrast',
+                'desc_nl' => 'Kies een kleur en krijg direct HEX, RGB en HSL. Genereer tinten, paletten en CSS-gradiënten, en controleer het contrast volgens WCAG. Gratis, in je browser.',
+                'tagline_nl' => 'Kleurenkiezer, paletten & contrast',
+                'blurb' => 'Pick a color and read it as HEX, RGB and HSL, build shades and matching palettes, generate CSS gradients and check text contrast against WCAG.',
+                'blurb_nl' => 'Kies een kleur en lees hem als HEX, RGB en HSL, maak tinten en bijpassende paletten, genereer CSS-gradiënten en controleer tekstcontrast volgens WCAG.',
+            ],
+            'easy-ip-check' => [
+                'title_nl' => 'Easy IP Check - IP en DNS opzoeken',
+                'desc_nl' => 'Gratis IP- en DNS-lookup: vul een IP-adres of domein in en zie de IP-adressen, reverse DNS, MX/NS/TXT/SOA-records en de locatie, ISP en ASN van het IP.',
+                'tagline_nl' => 'IP & DNS opzoeken voor elke host',
+                'blurb' => 'Enter an IP address or domain and see its resolved IPs, reverse DNS, the full DNS record set (MX, NS, TXT, SOA, CNAME) and the IP location, ISP and ASN.',
+                'blurb_nl' => 'Vul een IP-adres of domein in en zie de IP-adressen, reverse DNS, de volledige DNS-records (MX, NS, TXT, SOA, CNAME) en de locatie, ISP en ASN van het IP.',
+            ],
         ];
     }
 }
@@ -442,6 +514,34 @@ if (!function_exists('easyPluginsToolFaq')) {
                 ['Can this tool register the domain for me?', 'No, it only checks availability. You register at any registrar you like, or ask a webmaster like jorsites.com to arrange the domain and website in one go.'],
                 ['Is my search stored or shared?', 'No. The result is cached for 10 minutes so repeat checks are instant, and nothing else is stored. Your searches are not logged, sold or used to pre-register domains.'],
             ],
+            'easy-favicon' => [
+                ['Is Easy Favicon free?', 'Yes, completely free with no account and no watermark.'],
+                ['What do I get?', 'A favicon.ico with multiple sizes built in, separate PNGs (16, 32, 48, 64, 180, 192 and 512 pixels), an apple-touch-icon, a site.webmanifest, and the exact HTML to paste into your page head. Everything downloads as one ZIP.'],
+                ['Does my image get uploaded?', 'No. The whole favicon set is generated in your browser with the canvas, so your image never leaves your device.'],
+                ['What image should I use?', 'A square image works best, ideally at least 512x512 pixels. A transparent PNG or an SVG gives the cleanest result; you can also add a background color and rounded corners in the tool.'],
+                ['Where do I put the files?', 'Upload the files from the ZIP to the root folder of your website (next to your index page) and paste the HTML snippet into the head of your pages.'],
+            ],
+            'easy-qr' => [
+                ['Is Easy QR free?', 'Yes, completely free with no account, no watermark and no expiry on the codes.'],
+                ['Do the QR codes expire or get tracked?', 'No. The code is generated in your browser and encodes your data directly, so there is no redirect, no tracking and nothing that can stop working later.'],
+                ['What can I put in a QR code?', 'A website link, plain text, WiFi login details (so guests can connect by scanning), or a contact card (vCard) that adds you to someone\'s phone.'],
+                ['Can I add my logo and colors?', 'Yes. You can set the foreground and background colors and drop a logo into the center. QR codes stay scannable with a logo thanks to their built-in error correction.'],
+                ['PNG or SVG?', 'Use PNG for websites, social media and documents. Use SVG when it needs to scale to any size without blur, such as for print or large signage.'],
+            ],
+            'easy-color' => [
+                ['Is Easy Color free?', 'Yes, completely free with no account.'],
+                ['What formats does it show?', 'For any color you pick it shows HEX, RGB and HSL, and you can type any of those to convert between them.'],
+                ['Does it check accessibility?', 'Yes. The contrast checker compares a text and background color and tells you whether it passes WCAG AA and AAA for normal and large text.'],
+                ['Can it make a matching palette?', 'Yes. From one color it generates shades and tints plus complementary and analogous colors, and it has a CSS gradient generator with copyable code.'],
+                ['Does my data get uploaded?', 'No. Everything runs in your browser.'],
+            ],
+            'easy-ip-check' => [
+                ['Is Easy IP Check free?', 'Yes, completely free with no account. Lookups are limited to 5 per 10 minutes.'],
+                ['What can I look up?', 'Either an IP address or a domain name. For a domain you get its IP addresses, DNS records (MX, NS, TXT, SOA, CNAME) and the location of its server. For an IP you get the reverse DNS name plus its location, ISP and ASN.'],
+                ['What is reverse DNS (PTR)?', 'It is the hostname an IP address points back to. For example, 8.8.8.8 reverse-resolves to dns.google. It is useful for identifying mail servers and checking a server\'s configuration.'],
+                ['Where does the location data come from?', 'IP location, ISP and ASN come from a live public IP database (ipwho.is). It is accurate to the city or region, not a precise street address.'],
+                ['Can it check my mail (MX) setup?', 'Yes. Enter your domain and the MX records show which servers receive your email and in what priority order, exactly as other mail servers see them.'],
+            ],
         ];
     }
 }
@@ -466,6 +566,10 @@ if (!function_exists('easyPluginsRelatedTools')) {
             'easy-broken-links' => ['easy-website-audit', 'easy-image-audit'],
             'easy-image-audit' => ['easy-image', 'easy-website-audit', 'easy-broken-links'],
             'easy-domain-check' => ['easy-website-audit', 'easy-identify-me'],
+            'easy-favicon' => ['easy-image', 'easy-png', 'easy-color'],
+            'easy-qr' => ['easy-favicon', 'easy-color', 'easy-identify-me'],
+            'easy-color' => ['easy-favicon', 'easy-less', 'easy-sass'],
+            'easy-ip-check' => ['easy-domain-check', 'easy-identify-me', 'easy-website-audit'],
         ];
     }
 }

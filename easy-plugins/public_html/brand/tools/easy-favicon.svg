@@ -1,0 +1,6 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="easy-favicon">
+  <path d="M12 6 h16 l8 8 v28 a2 2 0 0 1 -2 2 H12 a2 2 0 0 1 -2 -2 V8 a2 2 0 0 1 2 -2 Z" fill="none" stroke="#4CAF50" stroke-width="4"/>
+  <path d="M27 6 v8 h8" fill="none" stroke="#66BB6A" stroke-width="3.4" stroke-linejoin="round"/>
+  <circle cx="23" cy="28" r="6.5" fill="none" stroke="#43A047" stroke-width="4"/>
+  <path d="M23 20 v4 M23 32 v4 M15 28 h4 M27 28 h4" stroke="#A5D6A7" stroke-width="3" stroke-linecap="round"/>
+</svg>

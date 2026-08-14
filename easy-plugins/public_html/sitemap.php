@@ -36,6 +36,10 @@ $toolPages = [
     '/easy-broken-links/',
     '/easy-image-audit/',
     '/easy-domain-check/',
+    '/easy-favicon/',
+    '/easy-qr/',
+    '/easy-color/',
+    '/easy-ip-check/',
 ];
 
 $pluginPages = [
@@ -55,6 +59,10 @@ $pluginPages = [
     '/plugins/easy-broken-links',
     '/plugins/easy-image-audit',
     '/plugins/easy-domain-check',
+    '/plugins/easy-favicon',
+    '/plugins/easy-qr',
+    '/plugins/easy-color',
+    '/plugins/easy-ip-check',
 ];
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

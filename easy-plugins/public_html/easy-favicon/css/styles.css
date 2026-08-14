@@ -1,0 +1,91 @@
+/* Easy Favicon */
+
+.favicon-dropzone {
+    border: 2px dashed rgba(76, 175, 80, 0.4);
+    border-radius: 12px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.favicon-dropzone:hover,
+.favicon-dropzone.dragover {
+    background: rgba(76, 175, 80, 0.06);
+    border-color: #4CAF50;
+}
+
+.favicon-dropzone i {
+    font-size: 2.4rem;
+    color: #4CAF50;
+    margin-bottom: 0.6rem;
+}
+
+.favicon-preview-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.75rem;
+    flex-wrap: wrap;
+}
+
+/* Browser-tab mock so people see the real 16px result in context */
+.favicon-tab-mock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #e9edf1;
+    border-radius: 8px 8px 0 0;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    color: #333;
+    max-width: 190px;
+}
+
+.favicon-tab-mock img {
+    flex-shrink: 0;
+}
+
+.favicon-swatch {
+    text-align: center;
+}
+
+.favicon-swatch img {
+    display: block;
+    margin: 0 auto 0.25rem;
+    background-image: linear-gradient(45deg, #e6e6e6 25%, transparent 25%), linear-gradient(-45deg, #e6e6e6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6e6e6 75%), linear-gradient(-45deg, transparent 75%, #e6e6e6 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+.favicon-swatch small {
+    color: #6c757d;
+}
+
+.favicon-snippet {
+    background: #1e2530;
+    color: #d6e2ee;
+    border-radius: 10px;
+    padding: 1rem;
+    font-size: 0.82rem;
+    overflow-x: auto;
+    margin-bottom: 0.75rem;
+}
+
+.favicon-snippet code {
+    color: inherit;
+    white-space: pre;
+}
+
+body.dark .favicon-tab-mock {
+    background: #2a2f36;
+    color: #cfd4d9;
+}
+
+body.dark .favicon-dropzone {
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+body.dark .favicon-dropzone:hover,
+body.dark .favicon-dropzone.dragover {
+    background: rgba(76, 175, 80, 0.1);
+}
