@@ -135,7 +135,7 @@ include '../shared/header.php';
         <?php include '../shared/footer.php'; ?>
     </div>
 
-    <script src="js/app.js?v=2.3"></script>
+    <script src="js/app.js?v=2026-08-14"></script>
     
     <!-- Initialize theme -->
     <script>

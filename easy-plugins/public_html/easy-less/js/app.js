@@ -85,10 +85,10 @@ function initializeEditors() {
     });
     
     // Apply dark mode theme if needed
-    applyTheme();
+    applyEditorTheme();
     
     // Watch for theme changes
-    const observer = new MutationObserver(applyTheme);
+    const observer = new MutationObserver(applyEditorTheme);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     
     // Real-time compilation with debouncing
@@ -106,7 +106,7 @@ function initializeEditors() {
     updateStatistics();
 }
 
-function applyTheme() {
+function applyEditorTheme() {
     const isDark = document.body.classList.contains('dark');
     if (isDark) {
         lessEditor.setOption('theme', 'monokai');
