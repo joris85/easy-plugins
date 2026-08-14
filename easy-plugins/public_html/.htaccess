@@ -91,6 +91,10 @@ Options -Indexes
 <FilesMatch "\.(md|sh|log|bak|orig|sql|dist|lock)$">
     Require all denied
 </FilesMatch>
+# router.php is a local dev-server helper only; never serve it in production.
+<Files "router.php">
+    Require all denied
+</Files>
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
