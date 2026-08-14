@@ -47,6 +47,8 @@ if (strpos($currentPath, '/easy-image/') !== false) {
     $currentTool = 'easy-color';
 } elseif (strpos($currentPath, '/easy-ip-check/') !== false) {
     $currentTool = 'easy-ip-check';
+} elseif (strpos($currentPath, '/easy-json/') !== false) {
+    $currentTool = 'easy-json';
 } elseif (strpos($currentPath, '/plugins/') !== false) {
     $currentTool = 'plugins';
 }
@@ -351,10 +353,16 @@ if (isset($canonicalPath)):
 
                     <!-- Coding Dropdown -->
                     <li class="nav-item dropdown" onmouseenter="showDropdown('codingDropdown')" onmouseleave="hideDropdown('codingDropdown')">
-                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-less', 'easy-sass']) ? 'active' : '' ?>" href="#" id="codingDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('codingDropdown')">
+                        <a class="nav-link dropdown-toggle <?= in_array($currentTool, ['easy-less', 'easy-sass', 'easy-json']) ? 'active' : '' ?>" href="#" id="codingDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" onmouseenter="showDropdown('codingDropdown')">
                             <svg class="nav-cat-icon me-1" width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path d="M17 14 L 7 24 L 17 34" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 14 L 41 24 L 31 34" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-translate="NAV_CODING"><?= easyPluginsIsNl() ? 'Code' : 'Coding' ?></span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" id="codingDropdownMenu" aria-labelledby="codingDropdown" onmouseenter="showDropdown('codingDropdown')" onmouseleave="hideDropdown('codingDropdown')">
+                            <li>
+                                <a class="dropdown-item <?= $currentTool === 'easy-json' ? 'active' : '' ?>" href="<?= $navHref('easy-json') ?>" data-tool="easy-json">
+                                    <img src="/brand/tools/easy-json.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy JSON
+                                    <small class="text-muted d-block ms-4"><?= easyPluginsIsNl() ? 'JSON formatteren & valideren' : 'Format & validate JSON' ?></small>
+                                </a>
+                            </li>
                             <li>
                                 <a class="dropdown-item <?= $currentTool === 'easy-less' ? 'active' : '' ?>" href="<?= $navHref('easy-less') ?>" data-tool="easy-less">
                                     <img src="/brand/tools/easy-less.svg" alt="" width="18" height="18" class="me-2 nav-tool-icon">Easy Less

@@ -40,6 +40,7 @@ $toolPages = [
     '/easy-qr/',
     '/easy-color/',
     '/easy-ip-check/',
+    '/easy-json/',
 ];
 
 $pluginPages = [
@@ -63,6 +64,7 @@ $pluginPages = [
     '/plugins/easy-qr',
     '/plugins/easy-color',
     '/plugins/easy-ip-check',
+    '/plugins/easy-json',
 ];
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

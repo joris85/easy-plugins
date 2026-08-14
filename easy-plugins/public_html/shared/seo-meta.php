@@ -231,6 +231,17 @@ if (!function_exists('easyPluginsSeoMeta')) {
                     'IP location, ISP and ASN from live data',
                 ],
             ],
+            'easy-json' => [
+                'name' => 'Easy JSON',
+                'tagline' => 'Format, validate & minify JSON',
+                'category' => 'DeveloperApplication',
+                'features' => [
+                    'Pretty-print with 2 spaces, 4 spaces or tabs',
+                    'Clear validation errors with line and column',
+                    'Minify for production and sort keys alphabetically',
+                    'Copy or download the result; runs fully in your browser',
+                ],
+            ],
         ];
 
         foreach (easyPluginsSeoNlOverlay() as $slug => $extra) {
@@ -390,6 +401,13 @@ if (!function_exists('easyPluginsSeoNlOverlay')) {
                 'blurb' => 'Enter an IP address or domain and see its resolved IPs, reverse DNS, the full DNS record set (MX, NS, TXT, SOA, CNAME) and the IP location, ISP and ASN.',
                 'blurb_nl' => 'Vul een IP-adres of domein in en zie de IP-adressen, reverse DNS, de volledige DNS-records (MX, NS, TXT, SOA, CNAME) en de locatie, ISP en ASN van het IP.',
             ],
+            'easy-json' => [
+                'title_nl' => 'Easy JSON - JSON formatteren, valideren en minificeren',
+                'desc_nl' => 'Gratis JSON-formatter en -validator: pretty-print met je eigen inspringing, minify, sorteer keys en krijg duidelijke foutmeldingen met regel en kolom. In je browser.',
+                'tagline_nl' => 'JSON formatteren, valideren & minificeren',
+                'blurb' => 'Paste JSON and format it with your preferred indent, minify it for production, sort keys, and get clear error messages with the exact line and column when something is wrong.',
+                'blurb_nl' => 'Plak JSON en formatteer met je eigen inspringing, minify voor productie, sorteer keys en krijg duidelijke foutmeldingen met de exacte regel en kolom als er iets mis is.',
+            ],
         ];
     }
 }
@@ -542,6 +560,13 @@ if (!function_exists('easyPluginsToolFaq')) {
                 ['Where does the location data come from?', 'IP location, ISP and ASN come from a live public IP database (ipwho.is). It is accurate to the city or region, not a precise street address.'],
                 ['Can it check my mail (MX) setup?', 'Yes. Enter your domain and the MX records show which servers receive your email and in what priority order, exactly as other mail servers see them.'],
             ],
+            'easy-json' => [
+                ['Is Easy JSON free?', 'Yes, completely free with no account.'],
+                ['Does my JSON get uploaded?', 'No. Parsing, formatting and minifying all happen in your browser; the data never leaves your device. Safe for API responses and config files.'],
+                ['What happens when my JSON is invalid?', 'You get the parser\'s error message plus the exact line and column of the problem, so you can jump straight to it.'],
+                ['What does minify do?', 'It removes all whitespace so the JSON is as small as possible — the form you want in production APIs and config payloads. Formatting does the opposite: it pretty-prints with the indentation you choose.'],
+                ['Can it sort the keys?', 'Yes. Sort keys orders every object\'s keys alphabetically (recursively), which makes large files diffable and easier to compare.'],
+            ],
         ];
     }
 }
@@ -570,6 +595,7 @@ if (!function_exists('easyPluginsRelatedTools')) {
             'easy-qr' => ['easy-favicon', 'easy-color', 'easy-identify-me'],
             'easy-color' => ['easy-favicon', 'easy-less', 'easy-sass'],
             'easy-ip-check' => ['easy-domain-check', 'easy-identify-me', 'easy-website-audit'],
+            'easy-json' => ['easy-html', 'easy-search-replace', 'easy-csv-converter'],
         ];
     }
 }

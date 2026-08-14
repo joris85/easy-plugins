@@ -23,6 +23,7 @@ Full tool documentation in one markdown file: https://easy-plugins.com/llms-full
 - [Easy Pricing](https://easy-plugins.com/easy-pricing/): Calculators for percentages, discounts and VAT.
 - [Easy LESS](https://easy-plugins.com/easy-less/): Compile LESS to CSS in the browser with error messages.
 - [Easy SASS](https://easy-plugins.com/easy-sass/): Compile SASS/SCSS to CSS in the browser.
+- [Easy JSON](https://easy-plugins.com/easy-json/): Format, validate and minify JSON in the browser. Pretty-print with 2/4 spaces or tabs, minify, sort keys alphabetically, and see validation errors with the exact line and column. Copy or download the result; nothing is uploaded.
 - [Easy Identify Me](https://easy-plugins.com/easy-identify-me/): Show your IP address, location, browser and device details in one copyable overview.
 - [Easy Domain Check](https://easy-plugins.com/easy-domain-check/): Check whether a domain name is available across 12 popular extensions (.com, .nl, .net, .org, .be, .de, .eu, .io, .co, .dev, .app, .shop) using live registry data (RDAP and DNS). Shows registration year for taken domains. Searches are not logged or shared.
 - [Easy QR](https://easy-plugins.com/easy-qr/): Free QR code generator for a link, plain text, WiFi login or contact card (vCard), with custom colors and an optional center logo. Downloads as PNG or SVG. Generated in the browser; no tracking, no expiry.
