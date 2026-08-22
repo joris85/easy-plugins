@@ -1,6 +1,8 @@
-# Toss the Pics — Tetris waiting game (Easy Image)
+# Toss the Pics — Blocks waiting game (Easy Image)
 
-Optional overlay while images process: play Tetris with your upload thumbnails. Blocks get a thin green border when that image finishes.
+A falling-blocks puzzle shown while uploads are processing.
+
+Optional overlay while images process: a falling-blocks game played with your upload thumbnails. A piece gets a thin green border when that image finishes processing.
 
 ## Enable / disable
 
@@ -29,10 +31,10 @@ $easyImageTossToyEnabled = false;
 
 | File | Purpose |
 |------|---------|
-| `toss-toy.config.js` | Feature flag and Tetris pacing |
+| `toss-toy.config.js` | Feature flag and game pacing |
 | `toss-toy.css` | Overlay styles |
 | `toss-toy.js` | Host shell + `TossToy.open()` API |
-| `toss-toy-tetris.js` | Image Tetris game |
+| `toss-toy-blocks.js` | The falling-blocks game |
 | `toss-toy-bridge.js` | Hooks into Easy Image upload flow |
 
 ## Controls
@@ -42,11 +44,11 @@ $easyImageTossToyEnabled = false;
 
 ## Easter egg
 
-Hover the **upload dropzone** — a hidden 👾 appears in the corner. Click it for secret Tetris (uses your previews if uploaded, otherwise silly placeholders).
+Hover the **upload dropzone** — a hidden 👾 appears in the corner. Click it for the secret Blocks game (uses your previews if uploaded, otherwise silly placeholders).
 
 Disable in `toss-toy.config.js`: `easterEgg: { enabled: false }`.
 
 ## When it appears
 
 - **2 or more** images in one run (or **1 large image**)
-- `prefers-reduced-motion`: static grid only, no Tetris
+- `prefers-reduced-motion`: static grid only, no game

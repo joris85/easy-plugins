@@ -1,12 +1,12 @@
 /**
- * Toss Tetris — shared scoreboard API (server-backed with local fallback).
+ * Toss Blocks — shared scoreboard API (server-backed with local fallback).
  */
 (function (global) {
     'use strict';
 
-    const API_URL = 'toss-toy/tetris-scores.php';
-    const LOCAL_BEST_KEY = 'easyImageTetrisBest';
-    const LOCAL_ENTRIES_KEY = 'easyImageTetrisScores';
+    const API_URL = 'toss-toy/blocks-scores.php';
+    const LOCAL_BEST_KEY = 'easyImageBlocksBest';
+    const LOCAL_ENTRIES_KEY = 'easyImageBlocksScores';
 
     let cachedEntries = null;
     let cachedBest = 0;
@@ -140,7 +140,7 @@
         };
     }
 
-    global.TossTetrisScores = {
+    global.TossBlocksScores = {
         fetchLeaderboard,
         submitScore,
         getCachedLeaderboard,

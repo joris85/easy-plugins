@@ -1,6 +1,6 @@
 /**
- * Toss the Pics — image Tetris waiting game
- * API: TossTetris.create({ stageEl, images, imageMap, doneIds, config, addListener, removeListeners })
+ * Toss the Pics — image Blocks waiting game
+ * API: TossBlocks.create({ stageEl, images, imageMap, doneIds, config, addListener, removeListeners })
  */
 (function (global) {
     'use strict';
@@ -146,7 +146,7 @@
         let scoreSubmitted = false;
         let scoreSubmitting = false;
         const baseDropIntervalMs = dropIntervalMs;
-        const scoresApi = global.TossTetrisScores || null;
+        const scoresApi = global.TossBlocksScores || null;
 
         function getBestScore() {
             if (scoresApi) {
@@ -187,17 +187,17 @@
                 return;
             }
             if (!entries.length) {
-                leaderboardListEl.innerHTML = '<li class="toss-toy-tetris-board-empty">No scores yet — be the first!</li>';
+                leaderboardListEl.innerHTML = '<li class="toss-toy-blocks-board-empty">No scores yet — be the first!</li>';
                 return;
             }
             leaderboardListEl.innerHTML = entries.map((entry, index) => {
                 const rank = index + 1;
-                const rankClass = rank <= 3 ? ' toss-toy-tetris-board-rank--top' : '';
+                const rankClass = rank <= 3 ? ' toss-toy-blocks-board-rank--top' : '';
                 return ''
-                    + '<li class="toss-toy-tetris-board-row">'
-                    + '<span class="toss-toy-tetris-board-rank' + rankClass + '">' + rank + '</span>'
-                    + '<span class="toss-toy-tetris-board-name">' + escapeHtml(entry.name || 'Player') + '</span>'
-                    + '<span class="toss-toy-tetris-board-score">' + (entry.score || 0).toLocaleString() + '</span>'
+                    + '<li class="toss-toy-blocks-board-row">'
+                    + '<span class="toss-toy-blocks-board-rank' + rankClass + '">' + rank + '</span>'
+                    + '<span class="toss-toy-blocks-board-name">' + escapeHtml(entry.name || 'Player') + '</span>'
+                    + '<span class="toss-toy-blocks-board-score">' + (entry.score || 0).toLocaleString() + '</span>'
                     + '</li>';
             }).join('');
         }
@@ -216,7 +216,7 @@
             }
             leaderboardEl.hidden = false;
             stageEl.classList.add('toss-toy-stage--leaderboard-open');
-            leaderboardListEl.innerHTML = '<li class="toss-toy-tetris-board-empty">Loading…</li>';
+            leaderboardListEl.innerHTML = '<li class="toss-toy-blocks-board-empty">Loading…</li>';
             loadLeaderboard().then((entries) => {
                 if (!leaderboardEl || leaderboardEl.hidden) {
                     return;
@@ -303,7 +303,7 @@
                 scoreEntryMsgEl.textContent = '';
             }
             if (gameOverEl) {
-                const hint = gameOverEl.querySelector('.toss-toy-tetris-over-hint');
+                const hint = gameOverEl.querySelector('.toss-toy-blocks-over-hint');
                 if (hint) {
                     hint.textContent = 'Score saved! ' + score.toLocaleString()
                         + ' · Board best ' + leaderboardBest.toLocaleString();
@@ -406,7 +406,7 @@
             const best = getBestScore();
             updateHud();
             if (gameOverEl) {
-                const hint = gameOverEl.querySelector('.toss-toy-tetris-over-hint');
+                const hint = gameOverEl.querySelector('.toss-toy-blocks-over-hint');
                 if (hint) {
                     hint.textContent = 'Score ' + score.toLocaleString()
                         + ' · Best ' + best.toLocaleString();
@@ -431,7 +431,7 @@
             hideLeaderboard();
             setScoreEntryVisible(false);
             if (gameOverEl) {
-                const hint = gameOverEl.querySelector('.toss-toy-tetris-over-hint');
+                const hint = gameOverEl.querySelector('.toss-toy-blocks-over-hint');
                 if (hint) {
                     hint.textContent = 'Blocks reached the top.';
                 }
@@ -763,7 +763,7 @@
                     const active = document.activeElement;
                     const typingInName = active
                         && active.classList
-                        && active.classList.contains('toss-toy-tetris-name-input');
+                        && active.classList.contains('toss-toy-blocks-name-input');
                     if (typingInName) {
                         if (e.key === 'Enter') {
                             submitScoreFromForm();
@@ -840,22 +840,22 @@
 
         function createHud() {
             hudEl = document.createElement('div');
-            hudEl.className = 'toss-toy-tetris-hud';
+            hudEl.className = 'toss-toy-blocks-hud';
             hudEl.innerHTML = ''
-                + '<div class="toss-toy-tetris-hud-stat"><span>Score</span><strong class="toss-toy-tetris-score">0</strong></div>'
-                + '<div class="toss-toy-tetris-hud-stat"><span>Lines</span><strong class="toss-toy-tetris-lines">0</strong></div>'
-                + '<div class="toss-toy-tetris-hud-stat"><span>Lv</span><strong class="toss-toy-tetris-level">1</strong></div>'
-                + '<button type="button" class="toss-toy-tetris-hud-stat toss-toy-tetris-hud-best" aria-label="View high scores">'
-                + '<span>Best</span><strong class="toss-toy-tetris-best">0</strong>'
+                + '<div class="toss-toy-blocks-hud-stat"><span>Score</span><strong class="toss-toy-blocks-score">0</strong></div>'
+                + '<div class="toss-toy-blocks-hud-stat"><span>Lines</span><strong class="toss-toy-blocks-lines">0</strong></div>'
+                + '<div class="toss-toy-blocks-hud-stat"><span>Lv</span><strong class="toss-toy-blocks-level">1</strong></div>'
+                + '<button type="button" class="toss-toy-blocks-hud-stat toss-toy-blocks-hud-best" aria-label="View high scores">'
+                + '<span>Best</span><strong class="toss-toy-blocks-best">0</strong>'
                 + '</button>'
-                + '<div class="toss-toy-tetris-score-flash" aria-live="polite"></div>';
+                + '<div class="toss-toy-blocks-score-flash" aria-live="polite"></div>';
             stageEl.appendChild(hudEl);
-            scoreEl = hudEl.querySelector('.toss-toy-tetris-score');
-            linesEl = hudEl.querySelector('.toss-toy-tetris-lines');
-            levelEl = hudEl.querySelector('.toss-toy-tetris-level');
-            bestEl = hudEl.querySelector('.toss-toy-tetris-best');
-            bestBtn = hudEl.querySelector('.toss-toy-tetris-hud-best');
-            scoreFlashEl = hudEl.querySelector('.toss-toy-tetris-score-flash');
+            scoreEl = hudEl.querySelector('.toss-toy-blocks-score');
+            linesEl = hudEl.querySelector('.toss-toy-blocks-lines');
+            levelEl = hudEl.querySelector('.toss-toy-blocks-level');
+            bestEl = hudEl.querySelector('.toss-toy-blocks-best');
+            bestBtn = hudEl.querySelector('.toss-toy-blocks-hud-best');
+            scoreFlashEl = hudEl.querySelector('.toss-toy-blocks-score-flash');
             addListener(bestBtn, 'click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -867,19 +867,19 @@
 
         function createLeaderboardPanel() {
             leaderboardEl = document.createElement('div');
-            leaderboardEl.className = 'toss-toy-tetris-board';
+            leaderboardEl.className = 'toss-toy-blocks-board';
             leaderboardEl.hidden = true;
             leaderboardEl.innerHTML = ''
-                + '<div class="toss-toy-tetris-board-panel" role="dialog" aria-label="High scores">'
-                + '<div class="toss-toy-tetris-board-head">'
-                + '<h3 class="toss-toy-tetris-board-title">High scores</h3>'
-                + '<button type="button" class="toss-toy-tetris-board-close" aria-label="Close high scores">×</button>'
+                + '<div class="toss-toy-blocks-board-panel" role="dialog" aria-label="High scores">'
+                + '<div class="toss-toy-blocks-board-head">'
+                + '<h3 class="toss-toy-blocks-board-title">High scores</h3>'
+                + '<button type="button" class="toss-toy-blocks-board-close" aria-label="Close high scores">×</button>'
                 + '</div>'
-                + '<ol class="toss-toy-tetris-board-list"></ol>'
+                + '<ol class="toss-toy-blocks-board-list"></ol>'
                 + '</div>';
             stageEl.appendChild(leaderboardEl);
-            leaderboardListEl = leaderboardEl.querySelector('.toss-toy-tetris-board-list');
-            const closeBtn = leaderboardEl.querySelector('.toss-toy-tetris-board-close');
+            leaderboardListEl = leaderboardEl.querySelector('.toss-toy-blocks-board-list');
+            const closeBtn = leaderboardEl.querySelector('.toss-toy-blocks-board-close');
             addListener(closeBtn, 'click', (event) => {
                 event.preventDefault();
                 hideLeaderboard();
@@ -893,26 +893,26 @@
 
         function createGameOverOverlay() {
             gameOverEl = document.createElement('div');
-            gameOverEl.className = 'toss-toy-tetris-over';
+            gameOverEl.className = 'toss-toy-blocks-over';
             gameOverEl.hidden = true;
             gameOverEl.innerHTML = ''
-                + '<p class="toss-toy-tetris-over-title">You lost</p>'
-                + '<p class="toss-toy-tetris-over-hint">Blocks reached the top.</p>'
-                + '<div class="toss-toy-tetris-score-entry" hidden>'
-                + '<label class="toss-toy-tetris-score-label" for="toss-toy-tetris-name">Your name</label>'
-                + '<div class="toss-toy-tetris-score-form">'
-                + '<input id="toss-toy-tetris-name" class="toss-toy-tetris-name-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Enter name">'
-                + '<button type="button" class="toss-toy-tetris-save-score">Save score</button>'
+                + '<p class="toss-toy-blocks-over-title">You lost</p>'
+                + '<p class="toss-toy-blocks-over-hint">Blocks reached the top.</p>'
+                + '<div class="toss-toy-blocks-score-entry" hidden>'
+                + '<label class="toss-toy-blocks-score-label" for="toss-toy-blocks-name">Your name</label>'
+                + '<div class="toss-toy-blocks-score-form">'
+                + '<input id="toss-toy-blocks-name" class="toss-toy-blocks-name-input" type="text" maxlength="20" autocomplete="nickname" placeholder="Enter name">'
+                + '<button type="button" class="toss-toy-blocks-save-score">Save score</button>'
                 + '</div>'
-                + '<p class="toss-toy-tetris-score-entry-msg" aria-live="polite"></p>'
+                + '<p class="toss-toy-blocks-score-entry-msg" aria-live="polite"></p>'
                 + '</div>'
-                + '<button type="button" class="toss-toy-tetris-replay">Play again</button>';
+                + '<button type="button" class="toss-toy-blocks-replay">Play again</button>';
             stageEl.appendChild(gameOverEl);
-            replayBtn = gameOverEl.querySelector('.toss-toy-tetris-replay');
-            scoreEntryEl = gameOverEl.querySelector('.toss-toy-tetris-score-entry');
-            nameInputEl = gameOverEl.querySelector('.toss-toy-tetris-name-input');
-            saveScoreBtn = gameOverEl.querySelector('.toss-toy-tetris-save-score');
-            scoreEntryMsgEl = gameOverEl.querySelector('.toss-toy-tetris-score-entry-msg');
+            replayBtn = gameOverEl.querySelector('.toss-toy-blocks-replay');
+            scoreEntryEl = gameOverEl.querySelector('.toss-toy-blocks-score-entry');
+            nameInputEl = gameOverEl.querySelector('.toss-toy-blocks-name-input');
+            saveScoreBtn = gameOverEl.querySelector('.toss-toy-blocks-save-score');
+            scoreEntryMsgEl = gameOverEl.querySelector('.toss-toy-blocks-score-entry-msg');
             addListener(replayBtn, 'click', (event) => {
                 event.preventDefault();
                 restartGame();
@@ -929,7 +929,7 @@
                 canvas = document.createElement('canvas');
                 stageEl.appendChild(canvas);
                 ctx = canvas.getContext('2d');
-                stageEl.classList.add('toss-toy-stage--tetris');
+                stageEl.classList.add('toss-toy-stage--blocks');
                 createHud();
                 createLeaderboardPanel();
                 createGameOverOverlay();
@@ -990,7 +990,7 @@
                 gameOverEl = null;
                 replayBtn = null;
                 stageEl.classList.remove(
-                    'toss-toy-stage--tetris',
+                    'toss-toy-stage--blocks',
                     'toss-toy-stage--game-over',
                     'toss-toy-stage--leaderboard-open'
                 );
@@ -999,5 +999,5 @@
         };
     }
 
-    global.TossTetris = { create };
+    global.TossBlocks = { create };
 })(window);

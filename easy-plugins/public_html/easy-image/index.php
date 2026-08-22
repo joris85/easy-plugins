@@ -15,8 +15,8 @@ include '../shared/header.php';
     <!-- Easy Image Specific CSS -->
     <link rel="stylesheet" href="css/styles.css?v=2.28">
 <?php if (!empty($easyImageTossToyEnabled)): ?>
-    <link rel="stylesheet" href="toss-toy/toss-toy.css?v=8">
-    <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=3">
+    <link rel="stylesheet" href="toss-toy/toss-toy.css?v=9">
+    <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=4">
 <?php endif; ?>
     <div class="container-fluid">
         <div class="container tool-page-inner">
@@ -1030,12 +1030,12 @@ include '../shared/header.php';
     <script src="js/config.js?v=2026-07-13"></script>
     <script src="js/urlParams.js?v=2.12.0"></script>
 <?php if (!empty($easyImageTossToyEnabled)): ?>
-    <script src="toss-toy/toss-toy.config.js?v=3"></script>
-    <script src="toss-toy/toss-toy-tetris-scores.js?v=1"></script>
-    <script src="toss-toy/toss-toy-tetris.js?v=6"></script>
-    <script src="toss-toy/toss-toy-easter-egg.js?v=2"></script>
-    <script src="toss-toy/toss-toy.js?v=10"></script>
-    <script src="toss-toy/toss-toy-bridge.js?v=2"></script>
+    <script src="toss-toy/toss-toy.config.js?v=4"></script>
+    <script src="toss-toy/toss-toy-blocks-scores.js?v=2"></script>
+    <script src="toss-toy/toss-toy-blocks.js?v=7"></script>
+    <script src="toss-toy/toss-toy-easter-egg.js?v=3"></script>
+    <script src="toss-toy/toss-toy.js?v=11"></script>
+    <script src="toss-toy/toss-toy-bridge.js?v=3"></script>
 <?php endif; ?>
     <script src="js/app.js?v=2.36.0"></script>
     <!-- Bootstrap for shared components -->

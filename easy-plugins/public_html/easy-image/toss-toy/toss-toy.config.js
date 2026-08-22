@@ -12,13 +12,13 @@ window.TOSS_TOY_CONFIG = {
     showForSingleLargeImage: true,
     /** Max bouncing cards (0 = show all images) */
     maxVisibleCards: 0,
-    tetris: {
+    blocks: {
         /** Target falling pieces per minute (image pool cycles at repeatsPerImage each) */
         piecesPerMinute: 20,
         /** How many times each upload appears in one pool cycle */
         repeatsPerImage: 4
     },
-    /** Hidden icon on the upload dropzone opens secret Tetris */
+    /** Hidden icon on the upload dropzone opens the secret Blocks game */
     easterEgg: {
         enabled: true
     }

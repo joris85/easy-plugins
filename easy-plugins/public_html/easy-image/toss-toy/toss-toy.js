@@ -1,11 +1,11 @@
 /**
- * Toss the Pics — Tetris waiting game host
+ * Toss the Pics — Blocks waiting game host
  * Public API: TossToy.open({ mount, images, reducedMotion, onContinue })
  */
 (function (global) {
     'use strict';
 
-    const HINT = 'This is tetris, use your keyboard to play ;-)';
+    const HINT = 'This is Blocks — use your keyboard to play ;-)';
     const COUNTDOWN_SECONDS = 10;
 
     function createOverlayDom(reducedMotion) {
@@ -84,7 +84,7 @@
         if (isPlayground) {
             dom.overlayEl.classList.add('toss-toy-playground');
             dom.titleEl.innerHTML = '<span class="toss-toy-spark toss-egg-icon" aria-hidden="true">'
-                + (global.TOSS_EGG_ICON_SVG || '') + '</span> You found secret Tetris!';
+                + (global.TOSS_EGG_ICON_SVG || '') + '</span> You found the secret Blocks game!';
             const progressRow = dom.backdrop.querySelector('.toss-toy-progress-row');
             if (progressRow) {
                 progressRow.hidden = true;
@@ -156,7 +156,7 @@
             if (active) {
                 dom.keepPlayingEl.hidden = false;
                 dom.keepPlayingEl.disabled = true;
-                dom.keepPlayingEl.textContent = 'Playing Tetris…';
+                dom.keepPlayingEl.textContent = 'Playing Blocks…';
                 dom.keepPlayingEl.setAttribute('aria-pressed', 'true');
             } else {
                 dom.keepPlayingEl.disabled = false;
@@ -173,7 +173,7 @@
                 dom.readyMsgEl.textContent = 'All done! Opening your downloads in ' + countdownValue + ' second'
                     + (countdownValue === 1 ? '' : 's') + '…';
             } else if (keepPlayingMode) {
-                dom.readyMsgEl.textContent = 'All done! Keep playing Tetris, or click Go to download when you\'re ready.';
+                dom.readyMsgEl.textContent = 'All done! Keep playing Blocks, or click Go to download when you\'re ready.';
             } else if (instance.allDone) {
                 dom.readyMsgEl.textContent = 'All done! Click Go to download when you\'re ready.';
             }
@@ -301,17 +301,17 @@
             }
         }
 
-        function startTetris() {
+        function startBlocks() {
             destroyActiveGame();
-            if (!global.TossTetris) {
+            if (!global.TossBlocks) {
                 return;
             }
-            instance.activeGame = global.TossTetris.create({
+            instance.activeGame = global.TossBlocks.create({
                 stageEl: dom.stageEl,
                 images: visibleImages,
                 imageMap: instance.imageMap,
                 doneIds: instance.doneIds,
-                config: cfg.tetris || {},
+                config: cfg.blocks || {},
                 addListener: addGameListener
             });
             instance.activeGame.start();
@@ -490,7 +490,7 @@
             visibleImages.forEach((item, i) => {
                 instance.imageMap[String(item.id)] = loaded[i];
             });
-            startTetris();
+            startBlocks();
             updateProgress();
         });
 

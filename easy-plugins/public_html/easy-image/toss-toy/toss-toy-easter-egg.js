@@ -1,5 +1,5 @@
 /**
- * Hidden Tetris easter egg — Easy Image upload dropzone
+ * Hidden Blocks-game easter egg — Easy Image upload dropzone
  */
 (function (global) {
     'use strict';
@@ -43,7 +43,7 @@
         }));
     }
 
-    function openSecretTetris() {
+    function openSecretBlocks() {
         if (activeEgg || document.querySelector('.toss-toy-backdrop')) {
             return;
         }
@@ -71,7 +71,7 @@
         btn.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
-            openSecretTetris();
+            openSecretBlocks();
         });
 
         btn.addEventListener('mousedown', (event) => {
