@@ -565,7 +565,7 @@ const CATALOG = [
   {
     slug: 'missiles', name: 'Easy Missiles', cat: 'arcade',
     desc: 'Thirty interceptors, six cities, lead your shots.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   },
   {

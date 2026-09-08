@@ -28,8 +28,9 @@ and the whole site is static.
 | [Easy Tilt](games/tilt/index.html) | 1 | Weighted marbles on see-saws. The rising pan throws towards the weight |
 | [Easy Tilt Versus](games/tilt/versus.html) | 2 | Two boards as one ring. Throw marbles into the other player's field |
 | [Easy Lights](games/lights/index.html) | 1 | Each press flips a cross of lights. Turn them all off |
+| [Easy Missiles](games/missiles/index.html) | 1 | Thirty interceptors, six cities. Lead your shots and let the blast do the work |
 
-Eight more are specified and queued. See
+Seven more are specified and queued. See
 [docs/Easy Games Blueprint.md](docs/Easy%20Games%20Blueprint.md) for the exact
 mechanics of every one of them plus the build plan.
 
