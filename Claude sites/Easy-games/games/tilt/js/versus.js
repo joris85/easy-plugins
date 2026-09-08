@@ -32,25 +32,47 @@
 
   const DUR = {
     land: 0.34, launch: 0.46, tilt: 0.22, clear: 0.40,
-    merge: 0.34, blast: 0.30, wrap: 0.01, cross: 0.01, send: 0.14, tint: 0.20,
+    merge: 0.34, blast: 0.30, wrap: 0.01, cross: 0.01, tint: 0.20,
     jokerise: 0.20, level: 0.45, overflow: 0.60,
     starclear: 0.80, arm: 0.26, cascadeCapped: 0.01, reload: 0.01, fizzle: 0.22,
     earn: 0.40, inert: 0.18, tower: 0.45, twister: 0.50,
     level0: 0.25, blocked: 0.30, blackout: 0.40, darken: 0.30
   };
 
+  /* The two modes are the manual's two modes, and they differ in more than the
+     marble that crosses. Arcade is survival: the last player standing wins,
+     nothing arrives in the supply for free, and every extra has to be earned by
+     clearing. Competition is a scoring race that happens to share a ring: it
+     plays exactly like the solo game, and the highest score wins whoever fell
+     over first. */
   const MODES = {
     arcade: {
       name: 'Arcade',
       attack: K.STONE,
-      blurb: 'Marbles thrown into the other field turn to <b>stone</b>. They never match, and only a Crusher removes one.'
+      earn: true,               // extras are earned by clearing, never dealt
+      special: 0,               // and none fall into the supply on their own
+      goal: 'last one standing wins',
+      blurb: 'Marbles thrown into the other field turn to <b>stone</b>: they never match, and only force removes one. ' +
+             'Extras do not fall into your supply here - you earn them by clearing, and an even clear earns a weapon.'
     },
     competition: {
       name: 'Competition',
       attack: K.HEART,
-      blurb: 'Marbles thrown into the other field arrive as <b>Hearts</b>, exactly as they would coming back round your own ring. Points decide it, not survival.'
+      earn: false,
+      special: R.DEFAULTS.specialChance,
+      goal: 'highest score wins',
+      blurb: 'Plays like the solo game, on a shared ring. Marbles thrown across arrive as <b>Hearts</b>. ' +
+             'When someone overloads the round ends, and the <b>higher score</b> wins it - not the survivor.'
     }
   };
+
+  /** The mode's rules, applied to both boards of a pair (new, resumed, or backdrop). */
+  function applyMode(pair, m) {
+    for (const b of pair) {
+      b.earnExtras = MODES[m].earn;
+      b.cfg = Object.assign({}, b.cfg, { specialChance: MODES[m].special });
+    }
+  }
 
   /* ---------- state ---------- */
 
@@ -89,12 +111,18 @@
         <li><b>That catapult is the attack.</b> Build a big enough weight
             difference and the marble flies clean out of your field and lands in
             theirs. There is no separate attack button.</li>
-        <li>What it becomes on arrival depends on the mode. In <b>Arcade</b> it
-            turns to stone and blocks them. In <b>Competition</b> it turns into a
-            Joker and helps them, so filling their board is the only way to
-            win.</li>
-        <li>Overload any pan and you lose the round. Your opponent does not have
-            to do anything clever - they just have to outlast you.</li>
+        <li><b>Arcade</b>: a marble arriving across turns to <b>stone</b> and
+            blocks them. Nothing falls into your supply for free - you
+            <b>earn</b> extras by clearing. An <b>odd</b> number cleared pays
+            you something helpful; an <b>even</b> number pays you a weapon that
+            does nothing at home and has to be catapulted into their field.
+            Overload a pan and you are out; the last one standing wins.</li>
+        <li><b>Competition</b>: plays exactly like the solo game, on a shared
+            ring. A marble arriving across is a <b>Heart</b>. When someone
+            overloads the round ends and the <b>higher score</b> wins it, no
+            matter who fell over.</li>
+        <li>The first press of your drop key <b>picks up</b> the marble above
+            you. After that, where you drop is where your next one comes from.</li>
       </ul>
       <p>Both players drop whenever they like. Nobody waits for a turn.</p>`
   });
@@ -109,7 +137,7 @@
       get() {
         return baseRules +
           '<h2 style="margin:22px 0 4px">Every marble</h2>' +
-          V.marbleList(R, boards ? boards[0] : null, true);
+          V.marbleList(R, boards ? boards[0] : null, mode === 'arcade');
       }
     });
   })();
@@ -144,14 +172,12 @@
     // Different seeds, so the two players are not handed an identical game and
     // reduced to racing the same script.
     boards = R.link(R.makeBoard({}, seed), R.makeBoard({}, seed ^ 0x5bf03635), MODES[mode].attack);
-    // Arcade rules: extras stop falling into the supply and must be earned by
-    // clearing. An odd clear pays you something useful, an even clear pays you a
-    // weapon that does nothing until you land it in the other field.
-    for (const b of boards) b.earnExtras = true;
+    applyMode(boards, mode);
     views = boards.map(viewFrom);
     cranes = [3, 3];
-    R.pickUp(boards[0], cranes[0]);
-    R.pickUp(boards[1], cranes[1]);
+    // Nobody is handed a marble. The first press of each player's drop key picks
+    // one up from wherever their crane is standing - their choice, as in the
+    // original, rather than a marble forced on them from column three.
     pending = [false, false];
     particles = [[], []];
     flash = [[], []];
@@ -207,7 +233,7 @@
       if (!a || !z || a.over || z.over) return null;
       if (!a.dropped && !z.dropped) return null;
       R.link(a, z, MODES[d.mode].attack);
-      a.earnExtras = true; z.earnExtras = true;
+      applyMode([a, z], d.mode);
       return { boards: [a, z], mode: d.mode,
                wins: Array.isArray(d.wins) && d.wins.length === 2 ? d.wins.slice() : [0, 0] };
     } catch (e) { return null; }
@@ -258,6 +284,16 @@
     // board does not swallow this player's input with no feedback.
     if (state === 'anim') { pending[side] = true; return; }
     if (state !== 'play') return;
+    if (!b.held) {
+      // An empty crane picks up rather than drops. Only ever true at the start
+      // of a round, before this player has touched anything.
+      if (R.isBlocked(b, cranes[side])) return;
+      R.pickUp(b, cranes[side]);
+      ghostCache[side] = null;
+      Sfx.tick(true);
+      updateHud();
+      return;
+    }
     const events = R.dropFromDepot(b, cranes[side]);
     if (!events.length || events[0].type === 'rejected') return;
     // The engine resolves instantly, so a round can already be decided while the
@@ -491,11 +527,22 @@
         // rather than patched - there is no incremental version of "scattered".
         resyncViews();
         break;
+      case 'inert': {
+        // A weapon dropped at home does nothing, on purpose. Without saying so
+        // it reads as a marble that simply failed to work.
+        flash[s].push({ x: xOf(s, ev.col), y: slotY(s, ev.col, ev.row) - G.ballD,
+                        text: 'inert here - throw it', t: 0, chain: 1 });
+        break;
+      }
+      case 'blocked': {
+        for (const c of ev.cols) {
+          flash[s].push({ x: xOf(s, c), y: G.ceilingY + 44, text: 'sealed', t: 0, chain: 2 });
+        }
+        break;
+      }
       case 'level0':
-      case 'blocked':
       case 'blackout':
       case 'darken':
-      case 'inert':
         break;
       default:
         break;
@@ -848,25 +895,24 @@
 
     V.drawGhost(ctx, info, K);
 
-    const sends = pred.events.filter((e) => e.type === 'send').length;
-    if (!pred.fatal && (pred.attacks || sends)) drawAttackMarker(side, pred, sends);
+    if (!pred.fatal && pred.attacks) drawAttackMarker(side, pred);
   }
 
   /** Tell the player, before they commit, that this drop reaches the other board. */
-  function drawAttackMarker(side, pred, sends) {
+  function drawAttackMarker(side, pred) {
     const launch = pred.events.find((e) => e.type === 'launch' && e.crossed);
-    const x = launch ? V.colX(launch.from) : ORIGIN[side] + G.W / 2;
+    if (!launch) return;
+    const x = V.colX(launch.from);
     const y = G.ceilingY + 26;
     ctx.save();
     ctx.fillStyle = 'rgba(255,176,46,.95)';
     ctx.font = '800 12px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const label = launch
-      ? (launch.dir > 0 ? 'THROWS ACROSS \u25b6' : '\u25c0 THROWS ACROSS')
-      : 'SENDS ' + sends + (sends === 1 ? ' MARBLE' : ' MARBLES');
+    const label = (pred.kills ? 'THIS ENDS THEM ' : 'THROWS ACROSS ') +
+                  (launch.dir > 0 ? '\u25b6' : '\u25c0');
+    if (pred.kills) ctx.fillStyle = 'rgba(255,84,112,.95)';
     ctx.fillText(label, x, y);
-    if (!launch) { ctx.restore(); return; }
     ctx.strokeStyle = 'rgba(255,176,46,.6)';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 4]);
@@ -889,7 +935,7 @@
       { label: 'P2 joker in', value: R.jokerIn(boards[1]) },
       { label: 'P2 score', value: boards[1].score, accent: true }
     ]);
-    Shell.status(MODES[mode].name, 'first to overload loses');
+    Shell.status(MODES[mode].name, MODES[mode].goal);
   }
 
   /* ---------- round and match ---------- */
@@ -897,16 +943,20 @@
   function roundOver() {
     state = 'over';
     clearMatch();
-    // If both boards died in the same cascade, the higher score takes it.
+    // Arcade is survival: the one still standing wins, and a double death goes
+    // to the score. Competition is the manual's scoring race: whoever fell over,
+    // the higher score takes the round.
     const dead = [boards[0].over, boards[1].over];
+    const byScore = () => boards[0].score === boards[1].score ? -1 : (boards[0].score > boards[1].score ? 0 : 1);
     let winner;
-    if (dead[0] && dead[1]) winner = boards[0].score === boards[1].score ? -1 : (boards[0].score > boards[1].score ? 0 : 1);
+    if (mode === 'competition' || (dead[0] && dead[1])) winner = byScore();
     else winner = dead[0] ? 1 : 0;
     if (winner >= 0) wins[winner]++;
     updateHud();
 
     Shell.gameOverCard({
-      title: winner < 0 ? 'A dead heat' : NAMES[winner] + ' wins the round',
+      title: winner < 0 ? 'A dead heat'
+           : NAMES[winner] + ' wins the round' + (mode === 'competition' ? ' on points' : ''),
       scoreLabel: 'Rounds won',
       score: wins[0] + ' - ' + wins[1],
       extra: `<div class="rowBetween"><span>${NAMES[0]}</span><b style="color:var(--text)">${boards[0].score} &middot; level ${boards[0].level}</b></div>
@@ -927,7 +977,7 @@
     if (menuSave) { boards = menuSave.boards; mode = menuSave.mode; }
     else {
       boards = R.link(R.makeBoard({}, 1), R.makeBoard({}, 2), MODES[mode].attack);
-      for (const b of boards) b.earnExtras = true;
+      applyMode(boards, mode);
     }
     views = boards.map(viewFrom);
     ghostCache = [null, null];
@@ -980,7 +1030,7 @@
   function showReference() {
     refWasPaused = Loop.paused;
     if (!refWasPaused) Loop.pause();
-    Shell.overlay(V.marbleCard(R, boards ? boards[0] : null, true) +
+    Shell.overlay(V.marbleCard(R, boards ? boards[0] : null, mode === 'arcade') +
       '<div class="btnRow"><button class="primary" data-act="closeRef">Back</button></div></div>');
   }
 

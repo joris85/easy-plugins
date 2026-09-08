@@ -21,7 +21,8 @@ python3 -m http.server 8899
 ```
 
 Then `http://localhost:8899/`. There is a `.claude/launch.json` entry named
-`easy-bomber` that does the same thing on port 8899.
+`easy-games` that does the same thing; it takes whatever port it is given
+(`autoPort`), since 8899 is often held by a `php -S` from another project.
 
 ```bash
 node games/tilt/test/rules.test.js      # 272 checks, exits non-zero on failure
@@ -75,7 +76,14 @@ and each has a regression test:
   old capacity check was wrong in both directions - 0.17% false alarms and 5.6%
   of fatal drops unwarned.
 - An extra **must land on top of something**; on an empty pan it does nothing.
-- Any special ball thrown off the field **returns as a Bomb**, Stars included.
+  Passive kinds (Heart, Joker, Stars) are never "wasted" this way.
+- Any special ball thrown off the field **returns as a Bomb**, Stars and Stones
+  included.
+- **A marble thrown across can end the opponent's game the moment it lands.**
+  Overflow used to be checked only on the dropping board.
+- **Score weighs the marbles** (manual: weight x count x level x bonus).
+- **Shapes stop at the walls**; nothing reaches round the edge of a field.
+- **The first press picks up** a marble from wherever the crane stands.
 
 ---
 
@@ -86,12 +94,17 @@ neighbours - so all the local rules needed no change at all. The two fields are
 one closed ring of sixteen columns, and **the only thing that crosses is a
 throw**.
 
-- **Arcade**: a marble thrown across arrives as a **Stone** (cannot match, blocks).
-- **Competition**: it arrives as a **Heart** (neutral - a scoring race).
+- **Arcade**: survival. A marble thrown across arrives as a **Stone** (cannot
+  match, blocks). Nothing is dealt into the supply; every extra is **earned by
+  clearing**, and the parity decides whose it is: an **odd** clear pays you
+  something helpful, an **even** clear pays you an **attack** extra which does
+  nothing in your own field and must be catapulted into theirs. Last one
+  standing wins.
+- **Competition**: a scoring race. Plays exactly like solo; a marble thrown
+  across arrives as a **Heart**. When someone overloads, the **higher score**
+  wins the round, whoever fell over.
 
-Extras are **earned by clearing**, and the parity decides whose they are: an
-**odd** clear pays you something helpful, an **even** clear pays you an **attack**
-extra which does nothing in your own field and must be catapulted into theirs.
+`applyMode()` in versus.js is the single place these differences live.
 
 > An earlier build had clears automatically spraying stones at the opponent. That
 > is nowhere in the manual - it was invented to solve a frequency problem and has
@@ -106,11 +119,23 @@ confirmation; leaving deliberately via the back links does not.
 
 ---
 
+## Review, 2026-09-08
+
+A fresh-context Fable agent reviewed the whole thing against the manual text.
+Verdict then: solo solid, two-player not. Everything it found as a bug or a
+source contradiction is fixed and has a regression test under
+`== REVIEW: ... ==` in the suite. Left deliberately as documented departures:
+matching in visual rows, "throw towards the heavy side" (OBSERVED, not in any
+document), the Joker-every-15 counter (the manual only says "next extra"), and
+the time-decaying bonus lamps replaced by cascade depth.
+
 ## Open items
 
 1. **Eight games still queued**: Words, Solitaire, Invaders, Missiles, Blocks,
    Muncher, Sudoku, Picture. Specified in `docs/Easy Games Blueprint.md`.
-2. **Nothing is committed.** The entire repo is untracked. Worth a first commit.
+2. **Committed** as `0646be2` on `main` (2026-09-08). The git root is `~/Sites`,
+   a checkout shared with other projects and sessions, so always stage this
+   directory by path, never `git add -A`.
 3. **Arcade vs Competition default.** Currently Arcade. Competition is the more
    interesting idea (attacking helps them, so you win by outlasting) but takes a
    round to click. A play decision, not a code one.

@@ -1293,13 +1293,13 @@ console.log('\n== two boards, one ring ==');
 {
   // Off the LEFT edge arrives at their RIGHT columns, so the ring really is
   // closed rather than one field simply overflowing into the other.
-  const [a, z] = R.link(B({}, 1), B({}, 2), K.JOKER);
+  const [a, z] = R.link(B({}, 1), B({}, 2), K.HEART);
   a.stacks[1].push(M(a, 0, 1));
   R.refreshTilt(a, 0);
   const l = R.dropMarble(a, 0, M(a, 1, 4)).find((e) => e.type === 'launch');
   ok('it crossed the other way', l && l.crossed && l.toSide === 1);
   ok('landing in their right-hand half', l.to >= 4, 'column ' + l.to);
-  check('and Competition mode sends Jokers, not Stones', l.marble.kind, K.JOKER);
+  check('and Competition mode sends Hearts, not Stones', l.marble.kind, K.HEART);
 }
 {
   // Every throw distance must land somewhere sensible on the joint ring.
@@ -1459,6 +1459,195 @@ console.log('\n== previewing a match never touches the opponent ==');
   check('400 previews leave our own board alone', shape(a), beforeA);
   check('and leave the opponent completely alone', shape(z), beforeZ);
   ok('the link survives', a.neighbour === z && z.neighbour === a);
+}
+
+
+console.log('\n== REVIEW: a marble thrown across can end the opponent right now ==');
+{
+  /* The reviewer's soak found zero kills ever registering at the attacking
+     drop: overflow was only checked on the board that dropped, so the victim
+     survived over capacity until their own next move, which then got blamed. */
+  const [a, z] = R.link(B({}, 1), B({}, 2), K.STONE);
+  for (let i = 0; i < 7; i++) { z.stacks[0].push(M(z, i % 3, 1)); z.stacks[1].push(M(z, i % 3, 1)); }
+  R.refreshTilt(z, 0);
+  check('their pans are full but legal', [R.capacityOf(z, 0), z.stacks[0].length], [7, 7]);
+  a.stacks[6].push(M(a, 0, 1));
+  R.refreshTilt(a, 3);
+  const p = R.predictDrop(a, 7, M(a, 1, 3));
+  check('the preview knows this drop kills them', p.kills, true);
+  const ev = R.dropMarble(a, 7, M(a, 1, 3));
+  ok('the marble crossed', ev.some((e) => e.type === 'cross'));
+  check('and the opponent is over NOW, not next turn', z.over, true);
+  ok('with an overflow event stamped on their board', ev.some((e) => e.type === 'overflow' && e.side === 1));
+}
+
+console.log('\n== REVIEW: every colour-reading extra reads a visible colour ==');
+{
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 0, 1), M(b, 1, 1), M(b, 2, 0, K.HEART));   // hidden colour 2 on top
+  R.dropMarble(b, 0, M(b, 5, 0, K.TINT));
+  check('a Tint landing on a Heart repaints nothing', b.stacks[0].map((m) => m.colour).slice(0, 2), [0, 1]);
+}
+{
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 0, 1), M(b, 1, 0, K.SILVER));               // a Star with hidden colour 1
+  b.stacks[3].push(M(b, 1, 2), M(b, 1, 2));
+  R.dropMarble(b, 0, M(b, 4, 0, K.COLZAP));
+  check('a Colour Zap landing on a Star destroys nothing elsewhere', b.stacks[3].length, 2);
+  ok('and the Star survives', b.stacks[0].some((m) => m.kind === K.SILVER));
+}
+{
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 1, 0, K.HEART));
+  b.stacks[4].push(M(b, 1, 2));
+  R.dropMarble(b, 0, M(b, 4, 0, K.COLJOKER));
+  check('a Colour Joker landing on a Heart turns nothing wild', b.stacks[4][0].kind, K.PLAIN);
+}
+{
+  const b = B({}, 3);
+  b.stacks[2].push(M(b, 0, 1), M(b, 1, 1), M(b, 2, 0, K.JOKER));
+  R.dropMarble(b, 2, M(b, 6, 0, K.TINT3));
+  check('a Tint 3x3 on a Joker does not paint the Tint\'s own hidden colour', b.stacks[2].map((m) => m.colour).slice(0, 2), [0, 1]);
+}
+
+console.log('\n== REVIEW: a Colour Bomb lays mines, it does not fire them ==');
+{
+  const b = B({}, 3);
+  b.stacks[3].push(M(b, 1, 1), M(b, 1, 1));
+  b.stacks[0].push(M(b, 1, 1));
+  const ev = R.dropMarble(b, 3, M(b, 4, 0, K.COLBOMB));
+  // Every self-removing extra emits a 'blast' for its own cell. A detonating
+  // mine is the one stamped with the Bomb's kind, and there must be none.
+  ok('no mine exploded in the same landing', !ev.some((e) => e.type === 'blast' && e.kind === K.BOMB), JSON.stringify(types(ev)));
+  check('three mines are armed', b.stacks.reduce((n, c) => n + c.filter((m) => m.kind === K.BOMB && m.armed).length, 0), 3);
+  const ev2 = R.dropMarble(b, 3, M(b, 2, 1));
+  ok('the next thing to land on one sets it off', ev2.some((e) => e.type === 'blast'));
+}
+
+console.log('\n== REVIEW: nothing is "wasted" by a marble that never had an effect ==');
+{
+  for (const kind of [K.HEART, K.JOKER, K.SILVER, K.GOLD]) {
+    const b = B({}, 3);
+    const ev = R.dropMarble(b, 2, M(b, 0, 0, kind));
+    ok('a ' + kind + ' on an empty pan does not fizzle', !ev.some((e) => e.type === 'fizzle'));
+  }
+  const b = B({}, 3);
+  ok('a Crusher on an empty pan still does', R.dropMarble(b, 2, M(b, 0, 0, K.CRUSHER)).some((e) => e.type === 'fizzle'));
+}
+
+console.log('\n== REVIEW: a Stone off the edge is a special ball, so it comes back a Bomb ==');
+{
+  const b = B({}, 1);
+  b.stacks[6].push(M(b, 0, 0, K.STONE));
+  R.refreshTilt(b, 3);
+  const l = R.dropMarble(b, 7, M(b, 1, 9)).find((e) => e.type === 'launch');
+  check('a thrown Stone returns as a Bomb', l && l.marble.kind, K.BOMB);
+}
+
+console.log('\n== REVIEW: Tower fills to the brim, not over it ==');
+{
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  z.stacks[0].push(M(z, 1, 1), M(z, 2, 1));
+  R.refreshTilt(z, 0);                                   // col 0 down: capacity 8
+  const tower = M(a, 0, 0, K.TOWER); tower.crossed = true;
+  R.landMarble(z, 0, tower, [], { flown: new Set(), depth: 1, guard: 0 }, true);
+  check('the column is exactly at capacity', z.stacks[0].length, R.capacityOf(z, 0));
+  R.dropMarble(z, 3, M(z, 0, 1));
+  check('and the game is not over by itself', z.over, false);
+}
+
+console.log('\n== REVIEW: a Blocker stays put and seals both neighbours, drops AND throws ==');
+{
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  z.stacks[5].push(M(z, 1, 1));
+  const blocker = M(a, 0, 0, K.BLOCKER); blocker.crossed = true;
+  const ev = [];
+  R.landMarble(z, 5, blocker, ev, { flown: new Set(), depth: 1, guard: 0 }, true);
+  ok('it is still on the board', z.stacks[5].some((m) => m.kind === K.BLOCKER));
+  check('columns 4 and 6 are sealed', [R.isBlocked(z, 4), R.isBlocked(z, 6), R.isBlocked(z, 5)], [true, true, false]);
+  R.pickUp(z, 4);
+  check('a drop into a sealed column is refused', R.dropFromDepot(z, 4)[0].type, 'rejected');
+  // A throw aimed at column 4 carries on past it.
+  z.stacks[2].push(M(z, 1, 1));
+  R.refreshTilt(z, 1);
+  const l = R.dropMarble(z, 3, M(z, 2, 3)).find((e) => e.type === 'launch');
+  check('distance two from column 2 would be column 4', l && l.distance, 2);
+  ok('but it landed past the seal', l && l.to !== 4, 'landed ' + (l && l.to));
+  // Destroy the Blocker and the seal lifts.
+  R.dropMarble(z, 5, M(z, 0, 0, K.CRUSHER));
+  check('a Crusher removes it', z.stacks[5].length, 0);
+  check('and the seal is gone', R.isBlocked(z, 4), false);
+}
+
+console.log('\n== REVIEW: shapes stop at the walls ==');
+{
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 1, 1), M(b, 2, 1));
+  b.stacks[7].push(M(b, 1, 1), M(b, 2, 1));
+  R.dropMarble(b, 0, M(b, 0, 0, K.BOMB));
+  check('a Bomb at column 0 does not reach round to column 7', b.stacks[7].length, 2);
+  const c = B({}, 3);
+  c.stacks[0].push(M(c, 1, 1), M(c, 2, 1));
+  c.stacks[7].push(M(c, 1, 1), M(c, 2, 1));
+  const st = M(c, 0, 0, K.STONEMAKER); st.crossed = true;
+  R.landMarble(c, 0, st, [], { flown: new Set(), depth: 1, guard: 0 }, true);
+  check('nor does a Stonemaker', c.stacks[7].filter((m) => m.kind === K.STONE).length, 0);
+}
+{
+  // Flash Diagonal paints only downward.
+  // Colours staggered so nothing on the board can form a trio and clear.
+  const b = B({}, 3);
+  for (let col = 0; col < 8; col++) for (let r = 0; r < 4; r++) b.stacks[col].push(M(b, (col * 2 + r) % 6, 0));
+  b.stacks[3].pop(); b.stacks[3].push(M(b, 7, 0));            // target colour 7 under the landing
+  const wasColour = new Map();
+  b.stacks.forEach((c) => c.forEach((m) => wasColour.set(m.id, m.colour)));
+  R.dropMarble(b, 3, M(b, 0, 0, K.FLASHDIAG));
+  const painted = [];
+  b.stacks.forEach((c, col) => c.forEach((m, r) => { if (wasColour.get(m.id) !== 7 && m.colour === 7) painted.push([col, r]); }));
+  ok('something was painted', painted.length > 0);
+  ok('every painted cell sits BELOW the landing row', painted.every(([col, r]) => R.toVisual(b, col, r) < 4),
+     JSON.stringify(painted));
+}
+
+console.log('\n== REVIEW: the score formula weighs the marbles ==');
+{
+  const light = B({}, 3), heavy = B({}, 3);
+  for (const [b, w] of [[light, 1], [heavy, 5]]) {
+    b.stacks[0].push(M(b, 1, w)); b.stacks[1].push(M(b, 1, w));
+    R.dropMarble(b, 2, M(b, 1, w));
+  }
+  ok('the same trio built from heavier marbles pays more', heavy.score > light.score, light.score + ' vs ' + heavy.score);
+  ok('and a weightless clear still pays something', (() => {
+    const b = B({}, 3);
+    b.stacks[0].push(M(b, 1, 0)); b.stacks[1].push(M(b, 1, 0));
+    R.dropMarble(b, 2, M(b, 1, 0));
+    return b.score > 0;
+  })());
+}
+
+console.log('\n== REVIEW: a saved match keeps its blackouts and seals ==');
+{
+  const b = R.makeBoard({}, 9);
+  R.pickUp(b, 2);
+  for (let i = 0; i < 10; i++) R.dropFromDepot(b, i % 8);
+  b.darkUntil = b.dropped + 6;
+  const some = b.stacks.find((c) => c.length)[0];
+  some.dark = b.dropped + 4;
+  some.crossed = true;
+  const r = R.restore(JSON.parse(JSON.stringify(R.serialize(b))));
+  check('the whole-field blackout survives', r.darkUntil, b.darkUntil);
+  const back = r.stacks.flat().find((m) => m.id === some.id);
+  check('a darkened marble is still dark', back.dark, some.dark);
+  check('and a crossed weapon is still armed', back.crossed, true);
+}
+
+console.log('\n== REVIEW: the first press picks up, from wherever the crane is ==');
+{
+  const b = R.makeBoard({}, 5);
+  check('a new board hands out nothing', b.held, null);
+  const want = b.depot[6][0];
+  R.pickUp(b, 6);
+  ok('the player picks from their own column', b.held === want);
 }
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' CHECKS PASSED' : pass + ' passed, ' + fail + ' FAILED'));

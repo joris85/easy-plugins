@@ -122,6 +122,11 @@ const TiltRules = (function () {
 
   const isAttack = (m) => !!m && ATTACKS.indexOf(m.kind) >= 0;
 
+  /** Kinds with no landing effect at all. Nothing is wasted by dropping one on
+      an empty pan, so the "it needs to land on something" rule must not fire. */
+  const PASSIVE = new Set([KIND.PLAIN, KIND.STONE, KIND.HEART, KIND.JOKER,
+                           KIND.SILVER, KIND.GOLD, KIND.QUESTION, KIND.BLOCKER]);
+
   /* The level at which each extra enters play.
 
      The manual prints an exact level beside each extra: Joker 6, Bomb 8,
@@ -189,49 +194,6 @@ const TiltRules = (function () {
     return [a, b];
   }
 
-  /**
-   * A clear sends marbles into the other field.
-   *
-   * The catapult is the faithful way to attack, and it is the satisfying one,
-   * but on measurement it is nowhere near frequent enough to carry a match: a
-   * throw only happens when a see-saw FLIPS, and a bot actively hunting for one
-   * found an attacking drop available on 1.8% of its turns - about five in a
-   * three-hundred-drop match. That is a mechanic, not a game.
-   *
-   * So clearing also attacks, which is what the original's reward table does in
-   * its own way: it hands you an extra for a clear, and the even-sized ones are
-   * attack extras meant to be thrown at your opponent. Here a clear of four or
-   * more sends (size - 3) marbles straight across, capped, which makes the thing
-   * you already want to do - clear big - the thing that pressures them.
-   *
-   * They arrive by LANDING, not by being stacked in place, so everything follows
-   * normally: they can tip the receiver's see-saws, set off a dormant Bomb, and
-   * overload a pan. Being attacked is a real event on their board, not a cosmetic
-   * one.
-   */
-  function sendAcross(board, count, events, ctx) {
-    const foe = board.neighbour;
-    if (!foe || foe.over || count <= 0) return;
-    // A cap per drop, because two boards feeding each other could otherwise
-    // volley a single cascade back and forth until the guard trips.
-    const room = Math.max(0, 6 - (ctx.sent || 0));
-    const n = Math.min(count, room);
-    if (n <= 0) return;
-    ctx.sent = (ctx.sent || 0) + n;
-
-    for (let i = 0; i < n; i++) {
-      if (foe.over) break;
-      // Into their roomiest pan: an attack should build pressure everywhere
-      // rather than snipe one column and end the round out of nowhere.
-      let best = 0;
-      for (let c = 1; c < foe.cols; c++) if (headroom(foe, c) > headroom(foe, best)) best = c;
-      const m = makeMarble(foe, { kind: foe.attack, colour: Math.floor(board.rng() * coloursFor(foe)), weight: 0 });
-      emit(events, board, { type: 'send', to: best, toSide: foe.side, marble: m, index: i, of: n });
-      landMarble(foe, best, m, events, ctx, true);
-    }
-    checkOverflow(foe, events);
-  }
-
   /** Stamp each event with the board it happened on, for a two-board replay. */
   function emit(events, board, ev) {
     ev.side = board.side || 0;
@@ -272,8 +234,7 @@ const TiltRules = (function () {
       since: 0,                              // marbles made since the last Joker
       tilt: new Array(c.scales).fill(0),     // -1 left down, 0 level, +1 right down
       rng: makeRng(seed),
-      blocked: new Array(cols).fill(0),
-      darkUntil: 0,
+      darkUntil: 0,                          // whole-field blackout, in drops
       side: 0,                               // which half of a versus match
       neighbour: null,                       // the other player's board, if any
       attack: KIND.STONE,                    // what a marble becomes crossing over
@@ -599,8 +560,12 @@ const TiltRules = (function () {
     const removed = [];
     for (let dc = -1; dc <= 1; dc++) {
       for (let dr = -1; dr <= 1; dr++) {
-        // The board is a ring, so a blast at the edge reaches round it.
-        const c = wrapColumn(board, col + dc).col;
+        // Bounded by the walls. The board is a ring for THROWS, but a blast
+        // at column 0 reaching round to column 7 is not something the player
+        // guide describes, and in a match column 7 of the ring is the other
+        // player's field.
+        const c = col + dc;
+        if (c < 0 || c >= board.cols) continue;
         const r = toIndex(board, c, vrow + dr);
         if (board.stacks[c][r]) removed.push({ col: c, row: r, marble: board.stacks[c][r] });
       }
@@ -738,13 +703,18 @@ const TiltRules = (function () {
     emit(events, board, { type: 'land', col, row: board.stacks[col].length, marble, chain: ctx.depth, flown: !!flown });
     board.stacks[col].push(marble);
 
+    // Anything arriving in this pan sets off a Bomb that was ALREADY lying
+    // dormant in it. Snapshot before the extra acts: a Colour Bomb lays fresh
+    // mines in this same column, and firing one of those immediately turned
+    // "the board becomes a minefield" into a crater at the landing point.
+    const dormant = new Set();
+    for (const q of board.stacks[col]) if (q && q.armed && q !== marble) dormant.add(q.id);
+
     applyExtra(board, col, marble, events, ctx);
 
-    // Anything arriving in this pan sets off a Bomb lying dormant in it - but
-    // never the marble that just arrived, or a bomb would detonate on arming.
     for (let r = board.stacks[col].length - 1; r >= 0; r--) {
       const q = board.stacks[col][r];
-      if (q && q.armed && q !== marble) { q.armed = false; detonate(board, col, r, events); break; }
+      if (q && q.armed && dormant.has(q.id)) { q.armed = false; detonate(board, col, r, events); break; }
     }
     settle(board, events, ctx);
     tipScale(board, scaleOf(col), events, ctx);
@@ -770,7 +740,7 @@ const TiltRules = (function () {
         for (let c = 0; c < board.cols; c++) {
           for (let r = 0; r < board.stacks[c].length; r++) all.push({ col: c, row: r, marble: board.stacks[c][r] });
         }
-        const gain = clear.star === KIND.GOLD ? scoreFor(all.length, ctx.depth, board.level) * 2 : 0;
+        const gain = clear.star === KIND.GOLD ? scoreFor(all.length, weightOfCells(board, all), ctx.depth, board.level) * 2 : 0;
         board.score += gain;
         board.cleared += all.length;
         board.chainBest = Math.max(board.chainBest, ctx.depth);
@@ -781,7 +751,7 @@ const TiltRules = (function () {
         continue;
       }
       if (clear) {
-        const gain = scoreFor(clear.cells.length, ctx.depth, board.level);
+        const gain = scoreFor(clear.cells.length, weightOfCells(board, clear.cells), ctx.depth, board.level);
         board.score += gain;
         board.cleared += clear.cells.length;
         board.chainBest = Math.max(board.chainBest, ctx.depth);
@@ -894,7 +864,12 @@ const TiltRules = (function () {
     const dir = after;                             // +1 right pan heavy, -1 left
     const raw = light + dir * distance;
 
-    const landing = landingFor(board, raw);
+    let landing = landingFor(board, raw);
+    // A Blocker seals the columns beside it against throws as well as drops, so
+    // a marble bound for a sealed column carries on to the next open one.
+    for (let step = 1; isBlocked(landing.board, landing.col) && step <= board.cols * 2; step++) {
+      landing = landingFor(board, raw + dir * step);
+    }
     const target = landing.board;
     const crossed = target !== board;
 
@@ -932,9 +907,12 @@ const TiltRules = (function () {
     });
     ctx.depth++;
     landMarble(target, landing.col, flying, events, ctx, true);
-    // A marble that crossed has landed on the OTHER board, so that board is the
-    // one whose see-saws and capacity now need re-checking. landMarble already
-    // did that for the target; nothing here may touch it again.
+    // Overflow is otherwise only checked at the end of dropMarble, on the board
+    // that DROPPED. A marble that crossed can overload the other board right
+    // now, and if nobody looks, the victim survives until their own next move -
+    // which then gets the blame. A review soak found zero kills ever registering
+    // at the attacking drop before this line existed.
+    if (crossed) checkOverflow(target, events);
   }
 
   /**
@@ -981,7 +959,9 @@ const TiltRules = (function () {
        you to keep stars and bombs apart. */
     if (m.kind === KIND.HEART) return makeMarble(board, { kind: KIND.BOMB, colour: m.colour });
     if (m.kind === KIND.BOMB) return makeMarble(board, { kind: KIND.HEART, colour: m.colour });
-    if (isExtra(m)) return makeMarble(board, { kind: KIND.BOMB, colour: m.colour });
+    // "Every other special ball" includes a Stone; isExtra deliberately excludes
+    // Stones elsewhere, which is why this cannot use it.
+    if (m.kind !== KIND.PLAIN) return makeMarble(board, { kind: KIND.BOMB, colour: m.colour });
     return makeMarble(board, { kind: KIND.HEART, colour: m.colour });
   }
 
@@ -989,7 +969,9 @@ const TiltRules = (function () {
 
   /* All measured in VISUAL rows, so a shape is what the player sees rather than
      what the arrays happen to hold. A pan tilted down sits a whole marble lower,
-     so array indices and screen rows are not the same thing. */
+     so array indices and screen rows are not the same thing. All bounded by the
+     walls of the field: the player guide describes the Flash as spanning "the 2
+     walls", and nothing suggests a shape wraps round the edge. */
 
   /** The 3x3 block centred on a cell. */
   function blockAround(board, col, idx) {
@@ -997,7 +979,8 @@ const TiltRules = (function () {
     const out = [];
     for (let dc = -1; dc <= 1; dc++) {
       for (let dr = -1; dr <= 1; dr++) {
-        const c = wrapColumn(board, col + dc).col;
+        const c = col + dc;
+        if (c < 0 || c >= board.cols) continue;
         const r = toIndex(board, c, vrow + dr);
         if (board.stacks[c][r]) out.push({ col: c, row: r });
       }
@@ -1011,7 +994,23 @@ const TiltRules = (function () {
     const out = [];
     for (const step of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
       for (let k = 1; k < board.cols; k++) {
-        const c = wrapColumn(board, col + step[0] * k).col;
+        const c = col + step[0] * k;
+        if (c < 0 || c >= board.cols) continue;
+        const r = toIndex(board, c, vrow + step[1] * k);
+        if (board.stacks[c][r]) out.push({ col: c, row: r });
+      }
+    }
+    return uniqueCells(out);
+  }
+
+  /** Only the two diagonals running DOWN from a cell - "beneath", per the guide. */
+  function diagonalsBelow(board, col, idx) {
+    const vrow = toVisual(board, col, idx);
+    const out = [];
+    for (const step of [[1, -1], [-1, -1]]) {
+      for (let k = 1; k < board.cols; k++) {
+        const c = col + step[0] * k;
+        if (c < 0 || c >= board.cols) continue;
         const r = toIndex(board, c, vrow + step[1] * k);
         if (board.stacks[c][r]) out.push({ col: c, row: r });
       }
@@ -1025,7 +1024,8 @@ const TiltRules = (function () {
     const out = [];
     for (let d = 1; d < board.cols; d++) {
       for (let dc = -d; dc <= d; dc++) {
-        const c = wrapColumn(board, col + dc).col;
+        const c = col + dc;
+        if (c < 0 || c >= board.cols) continue;
         const r = toIndex(board, c, vrow - d);
         if (board.stacks[c][r]) out.push({ col: c, row: r });
       }
@@ -1114,7 +1114,7 @@ const TiltRules = (function () {
        The Bomb is the documented exception, and not really an exception at all:
        it does not go off either, it lies there armed and detonates when
        something lands on it later. */
-    if (idx === 0 && isExtra(m) && m.kind !== KIND.BOMB) {
+    if (idx === 0 && !PASSIVE.has(m.kind) && m.kind !== KIND.BOMB) {
       emit(events, board, { type: 'fizzle', col, row: idx, kind: m.kind });
       return;
     }
@@ -1180,8 +1180,10 @@ const TiltRules = (function () {
         break;
       }
       case KIND.COLZAP: {
-        const target = stack[idx - 1];
-        if (target && matchable(target) && target.kind !== KIND.JOKER) {
+        // targetUnder answers null for a Heart, a Star or another extra: they
+        // carry a colour field, but not one anybody can see.
+        const target = targetUnder(board, col, idx);
+        if (target) {
           for (let c = 0; c < board.cols; c++) {
             for (let r = 0; r < board.stacks[c].length; r++) {
               const q = at(board, c, r);
@@ -1196,11 +1198,12 @@ const TiltRules = (function () {
         break;
       }
       case KIND.TINT: {
-        const top = stack[idx - 1];
-        // A Stone has an invisible colour and a Joker has no fixed one, so
-        // neither can define "the colour it landed on".
-        const usable = top && matchable(top) && top.kind !== KIND.JOKER;
-        const colour = usable ? top.colour : m.colour;
+        // Nothing with a visible colour underneath means nothing to copy. The
+        // old fallback painted the column in the Tint's OWN hidden colour,
+        // which is a colour nobody had ever seen.
+        const top = targetUnder(board, col, idx);
+        if (!top) { push(col, idx); break; }
+        const colour = top.colour;
         const painted = [];
         const before = [];
         for (let r = 0; r < stack.length; r++) {
@@ -1218,8 +1221,8 @@ const TiltRules = (function () {
         break;
       }
       case KIND.COLJOKER: {
-        const target = stack[idx - 1];
-        if (target && matchable(target) && target.kind !== KIND.JOKER) {
+        const target = targetUnder(board, col, idx);
+        if (target) {
           const turned = [];
           const before = [];
           for (let c = 0; c < board.cols; c++) {
@@ -1257,19 +1260,19 @@ const TiltRules = (function () {
          a marble counts as, which is often worth more than removing it. */
       case KIND.TINT3: {
         const t = targetUnder(board, col, idx);
-        paint(board, blockAround(board, col, idx), t ? t.colour : m.colour, events, m);
+        if (t) paint(board, blockAround(board, col, idx), t.colour, events, m);
         push(col, stack.indexOf(m));
         break;
       }
       case KIND.TRIFLASH: {
         const t = targetUnder(board, col, idx);
-        paint(board, triangleBelow(board, col, idx), t ? t.colour : m.colour, events, m);
+        if (t) paint(board, triangleBelow(board, col, idx), t.colour, events, m);
         push(col, stack.indexOf(m));
         break;
       }
       case KIND.FLASHDIAG: {
         const t = targetUnder(board, col, idx);
-        paint(board, diagonalsFrom(board, col, idx), t ? t.colour : m.colour, events, m);
+        if (t) paint(board, diagonalsBelow(board, col, idx), t.colour, events, m);
         push(col, stack.indexOf(m));
         break;
       }
@@ -1277,7 +1280,8 @@ const TiltRules = (function () {
         // A triangle, but only TWO marbles per row take the colour - which is
         // what separates it from the Triangle Flash it grows up into.
         const t = targetUnder(board, col, idx);
-        const colour = t ? t.colour : m.colour;
+        if (!t) { push(col, stack.indexOf(m)); break; }
+        const colour = t.colour;
         const byRow = new Map();
         for (const c of triangleBelow(board, col, idx)) {
           const v = toVisual(board, c.col, c.row);
@@ -1299,7 +1303,7 @@ const TiltRules = (function () {
         const t = targetUnder(board, col, idx);
         const floor = [];
         for (let c = 0; c < board.cols; c++) if (board.stacks[c].length) floor.push({ col: c, row: 0 });
-        paint(board, floor, t ? t.colour : m.colour, events, m);
+        if (t) paint(board, floor, t.colour, events, m);
         push(col, stack.indexOf(m));
         break;
       }
@@ -1339,10 +1343,12 @@ const TiltRules = (function () {
         break;
       }
       case KIND.TOWER: {
-        // Fills the column to the brim. If that overflows the pan, it ends them.
+        // "Full to the brim": exactly to capacity, never past it. It still kills,
+        // just not by itself - a full pan dies the moment its see-saw rises and
+        // the capacity drops from under it, and there is no room left to work.
         const room = capacityOf(board, col) - stack.length;
         const added = [];
-        for (let i = 0; i < room + 1; i++) {
+        for (let i = 0; i < room; i++) {
           const stone = makeMarble(board, { kind: KIND.STONE, colour: 0, weight: 0 });
           stack.push(stone);
           added.push({ col, row: stack.length - 1, marble: stone });
@@ -1379,15 +1385,12 @@ const TiltRules = (function () {
         break;
       }
       case KIND.BLOCKER: {
-        // Seals the columns either side. Nothing may be dropped there until it
-        // lifts, so it does not destroy anything - it takes away their options.
-        const left = wrapColumn(board, col - 1).col;
-        const right = wrapColumn(board, col + 1).col;
-        const until = board.dropped + 12;
-        board.blocked[left] = Math.max(board.blocked[left], until);
-        board.blocked[right] = Math.max(board.blocked[right], until);
-        emit(events, board, { type: 'blocked', cols: [left, right], until });
-        push(col, stack.indexOf(m));
+        // It stays put, and the columns either side are sealed for as long as it
+        // does: nothing dropped or thrown lands there ("until its gone", in the
+        // guide's words). It removes nothing - it takes away their options - and
+        // it goes the way a Stone goes, to a Crusher, a zap or a blast.
+        const cols = [col - 1, col + 1].filter((c) => c >= 0 && c < board.cols);
+        emit(events, board, { type: 'blocked', col, cols });
         break;
       }
       case KIND.SHADOWMAKER: {
@@ -1435,10 +1438,19 @@ const TiltRules = (function () {
   /* The manual states a trio formula but the surviving scan lost the graphic, so
      this shape is our own: it rewards big flood clears and deep chains, and
      scales gently with level. */
-  function scoreFor(count, chain, level) {
-    const base = count * count * 5;
-    return Math.round(base * (1 + (chain - 1) * 0.6) * (1 + (level - 1) * 0.05));
+  /* The manual names the factors in plain text: the summed WEIGHT of the
+     cleared marbles, their number, the level, the bonus, and the difficulty;
+     the player guide gives it as their product. So a clear built from heavy
+     marbles is worth more than the same clear built from light ones, which is
+     what makes the five-stack merge a scoring engine and not just tidying. The
+     original's bonus is a bank of lamps that decays with time; this version
+     pays the cascade depth instead, since a drop resolves instantly here. */
+  function scoreFor(count, weight, chain, level) {
+    return Math.round(Math.max(1, weight) * count * level * (1 + (chain - 1) * 0.6));
   }
+
+  const weightOfCells = (board, cells) =>
+    cells.reduce((w, c) => w + ((at(board, c.col, c.row) || {}).weight || 0), 0);
 
   /* ---------- end of game ---------- */
 
@@ -1460,7 +1472,8 @@ const TiltRules = (function () {
    * the position in the random stream, so even the marbles still to come match.
    */
   function serialize(board) {
-    const pack = (x) => x && { i: x.id, k: x.kind, c: x.colour, w: x.weight, a: x.armed ? 1 : 0 };
+    const pack = (x) => x && { i: x.id, k: x.kind, c: x.colour, w: x.weight, a: x.armed ? 1 : 0,
+                              d: x.dark || 0, x: x.crossed ? 1 : 0 };
     return {
       v: 1,
       cfg: board.cfg,
@@ -1475,7 +1488,8 @@ const TiltRules = (function () {
       rng: board.rng.state(),
       level: board.level, dropped: board.dropped, score: board.score,
       cleared: board.cleared, chainBest: board.chainBest,
-      since: board.since, over: !!board.over
+      since: board.since, over: !!board.over,
+      darkUntil: board.darkUntil || 0
     };
   }
 
@@ -1527,7 +1541,12 @@ const TiltRules = (function () {
     // could reach the game-over card and render as [object Object].
     if (!int(data.cleared, 0, 1e9) || !int(data.chainBest, 0, 1e6)) return null;
 
-    const unpack = (x) => ({ id: x.i, kind: x.k, colour: x.c, weight: x.w, armed: !!x.a });
+    const unpack = (x) => {
+      const m = { id: x.i, kind: x.k, colour: x.c, weight: x.w, armed: !!x.a };
+      if (int(x.d, 1, 1e9)) m.dark = x.d;
+      if (x.x) m.crossed = true;
+      return m;
+    };
     const board = makeBoard({}, 1);
     board.stacks = data.stacks.map((col) => col.map(unpack));
     board.depot = data.depot.map((col) => col.map(unpack));
@@ -1538,6 +1557,7 @@ const TiltRules = (function () {
     board.cleared = data.cleared; board.chainBest = data.chainBest;
     board.crane = int(data.crane, 0, cols - 1) ? data.crane : null;
     board.since = data.since; board.over = !!data.over;
+    board.darkUntil = int(data.darkUntil, 0, 1e9) ? data.darkUntil : 0;
 
     // Ids must never be reissued. The view matches marbles by identity, so a
     // fresh marble carrying a restored marble's id would animate the wrong one.
@@ -1657,9 +1677,13 @@ const TiltRules = (function () {
     };
   }
 
-  /** A Blocker seals a column for a while. Nothing may be dropped into it. */
+  /** Sealed while a Blocker sits in the column beside it. Derived, never stored. */
   function isBlocked(board, col) {
-    return !!(board.blocked && board.blocked[col] > board.dropped);
+    for (const c of [col - 1, col + 1]) {
+      if (c < 0 || c >= board.cols) continue;
+      if (board.stacks[c].some((m) => m.kind === KIND.BLOCKER)) return true;
+    }
+    return false;
   }
 
   /** Is this board currently blacked out by a Shadow Clock? */
@@ -1689,9 +1713,9 @@ const TiltRules = (function () {
     rowOffset, toVisual, toIndex, atVisual,
     weightRangeFor, coloursFor, unlockedKinds,
     tallest, totalMarbles, isSettled, isCritical, wouldOverflow, headroom,
-    cloneBoard, cloneLinked, predictDrop, link, landingFor, emit, sendAcross,
+    cloneBoard, cloneLinked, predictDrop, link, landingFor, emit,
     ATTACKS, HELPFUL, isAttack,
-    blockAround, diagonalsFrom, triangleBelow, paint, convertTo, darken,
+    blockAround, diagonalsFrom, diagonalsBelow, triangleBelow, paint, convertTo, darken, PASSIVE,
     allOfColour, targetUnder, awardExtra, isBlocked, isDark,
     serialize, restore
   };

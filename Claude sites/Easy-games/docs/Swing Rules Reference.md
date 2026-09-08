@@ -357,8 +357,9 @@ Two of those deserve emphasis, because they change how you play:
 - **Bonus** is the decaying lamp bank. Clear again before the lamps go out and
   the bonus multiplies, which is what makes speed pay.
 
-Graded **MANUAL** rather than CONFIRMED: one source states it, and I could not
-find it corroborated anywhere else. It is consistent with everything visible on
+Graded **MANUAL** rather than CONFIRMED: the German manual names the factors and
+the player guide gives the product, which is two sources agreeing on the shape,
+but neither is a second independent witness to the exact arithmetic. It is consistent with everything visible on
 the HUD, which is weak support but not nothing.
 
 What is independently established:
@@ -608,10 +609,11 @@ Things the screenshots corrected, now matched exactly:
   stand in for a Heart, as the original's own Extras text says; a Joker still may
   not fake a Star, because a Star trio sweeps the whole board and that has to be
   earned. Every other extra never matches at all.
-- **A Star survives a trip round the ring.** The transformation rule has a
-  catch-all that turned any extra into a Bomb, which quietly destroyed the
-  reward for finishing a level about one game in eight. Stars and Stones now
-  cross the edge unchanged.
+- **Any special ball off the edge returns as a Bomb, Stars and Stones included.**
+  An earlier pass exempted Stars, reasoning that destroying a level reward could
+  not be intended. The manual says otherwise in plain words - a Heart "as well
+  as every other special ball" comes back as a Bomb - so that exemption was a
+  design opinion, and it is gone. Throwing a Star out costs you the Star.
 - **Five stacked Hearts do not merge.** The merge sums weights and returns an
   ordinary marble, which would quietly convert Hearts into something else.
 
@@ -661,23 +663,44 @@ Deliberate departures:
   The original shows the totals; it makes you subtract the pair yourself every
   single turn, even though that difference *is* the launch distance.
 
-**Two players are now built**, as the closed ring described in section 11: two
+**Two players are built**, as the closed ring described in section 11: two
 fields side by side, throws crossing between them by physics, arriving as Stones
-in Arcade and Jokers in Competition. Two departures worth recording:
+in Arcade and Hearts in Competition. The two modes follow the manual's two
+modes: Arcade is survival, with nothing dealt into the supply and every extra
+earned by clearing on the odd/even rule; Competition plays like the solo game
+and the higher score takes the round whoever fell over.
 
-- **Clearing also attacks.** The catapult is the faithful route and it is the
-  satisfying one, but measurement killed it as the *only* route: a throw only
-  happens when a see-saw flips, and a bot actively hunting for an attacking drop
-  found one available on **1.8% of its turns** - about five attacks in a
-  three-hundred-drop match. So a clear of four or more sends its surplus across.
-  That lifted it to a median of fourteen marbles sent per match and roughly
-  halved match length, which is the difference between a mechanic and a game.
-  The original reaches the same place from the other direction, awarding attack
-  extras for clears; this is a blunter version of that idea.
-- **The reward table is not implemented.** The original's odd-clear/even-clear
-  split between helpful extras and attack extras is documented in section 11 but
-  not built.
+An earlier build had clears automatically spraying stones at the opponent. That
+is nowhere in the manual; it was invented to solve a frequency problem and it
+was removed the moment it was challenged. Attacking is exactly the manual's
+route now: earn a weapon with an even clear, and catapult it across.
 
-Nine of the 31 extras are implemented. The remaining 22, the Question Mark and
-the Flash family are documented here so the omissions are deliberate rather than
-accidental.
+All 31 extras are implemented and documented in the game's own guide. What is
+still not reproduced is the manual's exact mapping from clear size to a specific
+extra, with its 75%/25% splits, because the scan's OCR destroys the tables
+(section 13). The helpful and attack pools are drawn from uniformly instead.
+
+**A fresh-eyes review on 2026-09-08**, run against the manual text rather than
+this document, found and led to these further corrections:
+
+- A marble thrown across could not end the opponent's game at the moment it
+  landed - overflow was only checked on the board that dropped, so the victim
+  lived until their own next move, which then took the blame. Zero kills had
+  ever registered at the attacking drop.
+- Competition awarded the round to the survivor; the manual says the highest
+  score.
+- Arcade still dealt random extras into the supply, against "Die Extras fallen
+  nicht ohne weiteres in den Vorrat".
+- Tint, Colour Zap and Colour Joker still read the hidden colour of a Heart or
+  a Star beneath them - the "only an ordinary marble carries a visible colour"
+  rule had been applied to matching but not to every extra that reads a colour.
+- The score ignored weight, though the manual names it first among the factors.
+- Tower always overflowed; the guide says "full to the brim".
+- The Blocker vanished on landing and sealed against drops only; the guide says
+  nothing can be dropped *or thrown* beside it "until its gone".
+- The first marble was forced on the player from column three; the original
+  lets you pick it up from wherever you stand.
+- Shapes wrapped round the edge of the field, which in a match is the other
+  player's board; they now stop at the walls, as the guide's "the 2 walls"
+  suggests.
+

@@ -78,7 +78,7 @@
     name: 'Tilt',
     width: G.W, height: G.H, max: 600, pad: 240,
     tools: ['sound', 'pause', 'help'],
-    foot: '<b>Left</b> and <b>right</b> carry your marble &middot; <b>down</b> or <b>space</b> drops it &middot; you are then handed the next marble from that column',
+    foot: '<b>Left</b> and <b>right</b> move the crane &middot; <b>down</b> or <b>space</b> picks up, then drops &middot; you are then handed the next marble from the column you dropped into',
     rules: `
       <ul>
         <li>Drop marbles into eight columns. Each pair of columns sits on a
@@ -229,12 +229,14 @@
       tiltTarget: new Array(board.cfg.scales).fill(0)
     };
     craneCol = 3;
-    R.pickUp(board, craneCol);
+    // Nobody is handed a marble. The first press of the drop key picks one up
+    // from wherever the crane stands - the player's choice, as in the original.
     queue = []; anim = null; particles = []; flash = []; pendingDrop = false;
     coachQueue = []; coachNow = null; paintCoach();
     state = 'play';
     Shell.hide();
     updateHud();
+    Shell.banner('Pick up a marble');
   }
 
   /* ---------- input ---------- */
@@ -258,6 +260,15 @@
     // swallow several seconds of input with no feedback.
     if (state === 'anim') { pendingDrop = true; return; }
     if (state !== 'play') return;
+    if (!board.held) {
+      // An empty crane picks up rather than drops. Only ever true before the
+      // first move of a new game.
+      R.pickUp(board, craneCol);
+      ghostCache = null;
+      Sfx.tick(true);
+      updateHud();
+      return;
+    }
     const events = R.dropFromDepot(board, craneCol);
     if (!events.length || events[0].type === 'rejected') return;
     // The engine resolves the whole drop instantly, so the game can already be
