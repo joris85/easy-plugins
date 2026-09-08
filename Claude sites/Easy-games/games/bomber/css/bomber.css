@@ -1,0 +1,86 @@
+/* Easy Bomber specific styling. Shared tokens and chrome come from base.css. */
+
+/* ---------- menu player slots ---------- */
+
+.menu .slot {
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
+  grid-template-areas: "dot who seg" ". keys keys";
+  align-items: center;
+  gap: 6px 9px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.slot.off { opacity: .5; }
+.slot .dot { grid-area: dot; }
+.slot .who { grid-area: who; font-weight: 600; font-size: 14px; min-width: 54px; }
+.slot .seg { grid-area: seg; justify-self: end; }
+.slot .keys, .slot .levels { grid-area: keys; }
+
+.keys { font-size: 12px; color: var(--dim); }
+.keys b { color: var(--text); font-weight: 600; }
+.keys.dim { font-style: italic; }
+
+.levels { display: flex; gap: 5px; }
+
+.winsRow {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 12px 0 0; border-top: 1px solid var(--line);
+  font-size: 13px; color: var(--dim);
+}
+
+/* ---------- controls remapping screen ---------- */
+
+.ctlRow {
+  display: grid;
+  grid-template-columns: 14px 60px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.ctlRow .who { font-size: 13px; font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.badge {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 62px; padding: 4px 7px; font-size: 12px; font-weight: 600;
+}
+.badge em {
+  font-style: normal; font-size: 9px; color: var(--dim);
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.badge.capturing { background: var(--accent); color: #241a03; }
+
+.helpGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.helpGrid ul.items { list-style: none; padding-left: 0; }
+@media (max-width: 560px) { .helpGrid { grid-template-columns: 1fr; } }
+
+/* ---------- round countdown and results ---------- */
+
+.count { text-align: center; }
+.count small {
+  display: block; font-size: 13px; color: var(--dim);
+  letter-spacing: 2px; text-transform: uppercase;
+}
+.count .big {
+  font-size: clamp(56px, 16vw, 120px);
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 176, 46, .6), 0 6px 0 rgba(0, 0, 0, .35);
+  animation: popIn .4s ease-out;
+}
+@keyframes popIn { from { transform: scale(1.5); opacity: 0; } }
+
+/* ---------- ability tags in the HUD ---------- */
+
+.abil { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; min-height: 16px; }
+.ab {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  padding: 2px 5px; border-radius: 4px; background: #2b3550; color: var(--dim);
+}
+.ab.kick { background: #1d4d31; color: #7ee2a3; }
+.ab.remote { background: #322a5c; color: #b8a8ff; }
+.ab.pierce { background: #5a2020; color: #ff9d9d; }
+.ab.vest { background: #1d3d5c; color: #8fd4ff; }
+.ab.sick { background: #4a2050; color: #eaa0ff; animation: pulse 1.1s infinite; }

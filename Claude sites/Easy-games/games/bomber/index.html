@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Easy Bomber - local multiplayer bomb maze</title>
+<meta name="description" content="Easy Bomber is a free browser bomb maze game for two to four players on one keyboard, with CPU opponents, power-ups and sudden death.">
+<link rel="stylesheet" href="../../shared/css/base.css">
+<link rel="stylesheet" href="css/bomber.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <a class="back" href="../../index.html">&#9664; Games</a>
+    <div class="brand">Easy <span>Bomber</span></div>
+    <div class="clock">
+      <div id="timer" class="statusMain">2:01</div>
+      <div id="round" class="statusSub"></div>
+    </div>
+    <div class="tools">
+      <button id="btnMute" type="button">Sound on</button>
+      <button id="btnPause" type="button">Pause</button>
+      <button id="btnMenu" type="button">Menu</button>
+    </div>
+  </header>
+
+  <div id="stageWrap" class="stageWrap" style="--stage-max:720px;--stage-ratio:1.1538;--stage-pad:250px">
+    <canvas id="stage" width="720" height="624"></canvas>
+    <div id="banner" class="banner"></div>
+    <div id="overlay" class="overlay hidden"><div id="overlayInner"></div></div>
+  </div>
+
+  <div id="hud" class="hud"></div>
+
+  <p class="foot">Escape pauses &middot; M mutes &middot; everything runs in the browser, no server needed</p>
+</div>
+
+<script src="../../shared/js/utils.js"></script>
+<script src="../../shared/js/input.js"></script>
+<script src="../../shared/js/audio.js"></script>
+<script src="js/config.js"></script>
+<script src="js/arena.js"></script>
+<script src="js/player.js"></script>
+<script src="js/bot.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

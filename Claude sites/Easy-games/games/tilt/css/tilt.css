@@ -1,0 +1,39 @@
+/* Easy Tilt specific styling. Shared chrome comes from base.css. */
+
+.ballKey { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+.ballKey .bk {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--dim);
+}
+.ballKey .bk i {
+  width: 16px; height: 16px; border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .12);
+}
+
+.specials { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; margin: 6px 0 10px; }
+@media (max-width: 620px) { .specials { grid-template-columns: 1fr; } }
+.specials div { font-size: 13px; color: var(--dim); line-height: 1.5; }
+.specials b { color: var(--text); }
+
+/* The coaching strip. It sits BELOW the board on purpose: an overlay that
+   covers the thing it is explaining is worse than no explanation at all. */
+.coach {
+  max-width: 620px;
+  margin: 10px auto 0;
+  padding: 0 14px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(14, 19, 30, .94);
+  transition: max-height .25s ease, opacity .25s ease, padding .25s ease;
+}
+.coach.on {
+  max-height: 140px;
+  opacity: 1;
+  padding: 11px 14px;
+  border-color: rgba(255, 176, 46, .6);
+}
+.coach b { display: block; color: var(--accent); font-size: 14px; margin-bottom: 3px; }
+.coach span { display: block; color: #d5ddf0; font-size: 13px; line-height: 1.5; }
