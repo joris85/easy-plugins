@@ -417,7 +417,7 @@ const CATALOG = [
   {
     slug: 'words', name: 'Easy Words', cat: 'puzzle',
     desc: 'Five letters, six guesses, one word a day.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   },
   {

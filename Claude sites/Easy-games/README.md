@@ -30,8 +30,9 @@ and the whole site is static.
 | [Easy Lights](games/lights/index.html) | 1 | Each press flips a cross of lights. Turn them all off |
 | [Easy Missiles](games/missiles/index.html) | 1 | Thirty interceptors, six cities. Lead your shots and let the blast do the work |
 | [Easy Invaders](games/invaders/index.html) | 1 | The rack speeds up as you thin it out. Shields erode pixel by pixel |
+| [Easy Words](games/words/index.html) | 1 | Five letters, six guesses. One word a day, or free play with hard mode |
 
-Six more are specified and queued. See
+Five more are specified and queued. See
 [docs/Easy Games Blueprint.md](docs/Easy%20Games%20Blueprint.md) for the exact
 mechanics of every one of them plus the build plan.
 
