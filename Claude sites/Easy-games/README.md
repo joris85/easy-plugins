@@ -29,8 +29,9 @@ and the whole site is static.
 | [Easy Tilt Versus](games/tilt/versus.html) | 2 | Two boards as one ring. Throw marbles into the other player's field |
 | [Easy Lights](games/lights/index.html) | 1 | Each press flips a cross of lights. Turn them all off |
 | [Easy Missiles](games/missiles/index.html) | 1 | Thirty interceptors, six cities. Lead your shots and let the blast do the work |
+| [Easy Invaders](games/invaders/index.html) | 1 | The rack speeds up as you thin it out. Shields erode pixel by pixel |
 
-Seven more are specified and queued. See
+Six more are specified and queued. See
 [docs/Easy Games Blueprint.md](docs/Easy%20Games%20Blueprint.md) for the exact
 mechanics of every one of them plus the build plan.
 

@@ -429,7 +429,7 @@ const CATALOG = [
   {
     slug: 'invaders', name: 'Easy Invaders', cat: 'arcade',
     desc: 'They speed up as you thin them out. That is the trick.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   },
   {
