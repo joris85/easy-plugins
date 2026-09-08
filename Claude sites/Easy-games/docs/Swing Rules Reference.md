@@ -349,13 +349,15 @@ the HUD shows.
 A trio is worth its **total weight**, multiplied by the **number of marbles**
 cleared, the **level**, the **bonus**, and the **difficulty setting**.
 
-Two of those deserve emphasis, because they change how you play:
+All five factors are now in the rebuild, including the lamps. Two of them
+deserve emphasis, because they change how you play:
 
 - Score scales with **weight**, not just count. So a merged marble carrying the
   combined weight of five is worth far more than five light ones, and the
   five-stack merge is a scoring engine rather than just a tidying move.
-- **Bonus** is the decaying lamp bank. Clear again before the lamps go out and
-  the bonus multiplies, which is what makes speed pay.
+- **Bonus** is the decaying lamp bank, x1 to x4. A clear lights the next lamp,
+  the lit lamp multiplies the clear after it, and the lamps go out after a few
+  seconds - which is what makes speed pay.
 
 Graded **MANUAL** rather than CONFIRMED: the German manual names the factors and
 the player guide gives the product, which is two sources agreeing on the shape,
@@ -525,13 +527,15 @@ given what is queued above each one.
 
 Being blunt about the gaps:
 
-1. **The Arcade reward tables.** The manual maps the exact number of marbles
-   cleared to the extra you receive - one table for helpful extras, one for
-   attacks, with 75%/25% splits where a count can yield either of two - and the
-   scan's OCR destroys the table structure. Legible fragments only: Bomb; Cutter
-   (75%) / Sting (25%); a Multicolour Zap paired with Bomb (25%); Blocker. This
-   is now the single biggest recoverable-in-principle gap: a clean scan of those
-   two pages would close it.
+1. **The Arcade reward tables, exactly.** The manual maps the number of marbles
+   cleared to the extra earned, with 75%/25% splits where a count can pay either
+   of two, and the scan's OCR destroys the layout. The *pairs* are legible, and
+   they appear in the text in order of increasing size, so the rebuild uses
+   that reading (graded INFERRED): 3 pays a Bomb; 5 a Cutter (75%) or Sting
+   (25%); 7 a Multicolour Zap (75%) or Bomb (25%); 4 a Stonemaker (75%) or
+   Colour Stone (25%); 6 a Twister (75%) or Tower (25%). Anything beyond the
+   fragments is drawn evenly from what the table never names. A clean scan of
+   those two pages would confirm or correct the sizes.
 2. **The exact weighting inside the score formula.** Section 9 recovers the five
    factors, but not how difficulty scales or how the bonus is computed.
 3. **How the weight range grows with level.** The range itself is now largely
@@ -675,10 +679,10 @@ is nowhere in the manual; it was invented to solve a frequency problem and it
 was removed the moment it was challenged. Attacking is exactly the manual's
 route now: earn a weapon with an even clear, and catapult it across.
 
-All 31 extras are implemented and documented in the game's own guide. What is
-still not reproduced is the manual's exact mapping from clear size to a specific
-extra, with its 75%/25% splits, because the scan's OCR destroys the tables
-(section 13). The helpful and attack pools are drawn from uniformly instead.
+All 31 extras are implemented and documented in the game's own guide. The
+reward tables follow the manual's legible fragments, ordered by clear size
+(section 13); only the sizes are a reading, the pairs and their odds are the
+manual's.
 
 **A fresh-eyes review on 2026-09-08**, run against the manual text rather than
 this document, found and led to these further corrections:
@@ -694,7 +698,16 @@ this document, found and led to these further corrections:
 - Tint, Colour Zap and Colour Joker still read the hidden colour of a Heart or
   a Star beneath them - the "only an ordinary marble carries a visible colour"
   rule had been applied to matching but not to every extra that reads a colour.
-- The score ignored weight, though the manual names it first among the factors.
+- The score ignored weight, though the manual names it first among the factors;
+  and the cascade depth had been standing in for the bonus. The bonus is now
+  the original's: lamps x1 to x4 that a clear lights and that go out after a
+  few seconds, so clearing *again* before they do is what pays.
+- A landing that overloaded a pan was only fatal if the rest of the cascade
+  failed to clear it. The guide's rule is physical - a column that reaches the
+  crane - and it is now judged at the moment of landing, at the tilt the landing
+  itself causes.
+- In Competition an eliminated player now drops out and the other plays on, as
+  the manual describes, so the survivor gets their chance at the higher score.
 - Tower always overflowed; the guide says "full to the brim".
 - The Blocker vanished on landing and sealed against drops only; the guide says
   nothing can be dropped *or thrown* beside it "until its gone".

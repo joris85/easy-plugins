@@ -66,6 +66,16 @@
     }
   };
 
+  /* Arcade ends the moment anyone overloads. Competition follows the manual:
+     an eliminated player drops out and the other may play on alone, so the
+     round only ends when both have fallen - and the survivor gets their chance
+     at the higher score, which is what "highest score wins" needs to mean. */
+  function roundIsOver(pair, m) {
+    return m === 'competition' ? (pair[0].over && pair[1].over) : (pair[0].over || pair[1].over);
+  }
+
+  const nowSeconds = () => performance.now() / 1000;
+
   /** The mode's rules, applied to both boards of a pair (new, resumed, or backdrop). */
   function applyMode(pair, m) {
     for (const b of pair) {
@@ -209,7 +219,7 @@
 
   function saveMatch() {
     if (!boards || state === 'menu' || state === 'over') return;
-    if (boards[0].over || boards[1].over) return;
+    if (roundIsOver(boards, mode)) return;
     boards[0].crane = cranes[0];
     boards[1].crane = cranes[1];
     try {
@@ -230,7 +240,7 @@
       const z = R.restore(d.boards[1]);
       // Either half failing invalidates the whole match: a restored board paired
       // with a fresh one is not the game anybody left.
-      if (!a || !z || a.over || z.over) return null;
+      if (!a || !z || roundIsOver([a, z], d.mode)) return null;
       if (!a.dropped && !z.dropped) return null;
       R.link(a, z, MODES[d.mode].attack);
       applyMode([a, z], d.mode);
@@ -294,12 +304,17 @@
       updateHud();
       return;
     }
-    const events = R.dropFromDepot(b, cranes[side]);
+    const events = R.dropFromDepot(b, cranes[side], nowSeconds());
     if (!events.length || events[0].type === 'rejected') return;
     // The engine resolves instantly, so a round can already be decided while the
     // ending is still animating. Drop the save now, or refreshing during that
     // second would rewind to before the losing drop.
-    if (b.over || boards[1 - side].over) clearMatch();
+    if (roundIsOver(boards, mode)) clearMatch();
+    else if (b.over || boards[1 - side].over) {
+      // Competition: one player is out, the other plays on for the score.
+      const out = b.over ? side : 1 - side;
+      Shell.banner(NAMES[out] + ' is out - ' + NAMES[1 - out] + ' plays on');
+    }
     queue = queue.concat(events);
     installDisplayHolds(events);
     state = 'anim';
@@ -360,7 +375,7 @@
     if (!queue.length) {
       anim = null;
       verifyViews();
-      if (boards[0].over || boards[1].over) return roundOver();
+      if (roundIsOver(boards, mode)) return roundOver();
       state = 'play';
       updateHud();
       saveMatch();                         // settled, so this is a safe point
@@ -607,7 +622,9 @@
   /* ---------- loop ---------- */
 
   function update(dt) {
+    let lampsChanged = false;
     for (let s = 0; s < 2; s++) {
+      if (boards && state !== 'menu' && R.tickBonus(boards[s], nowSeconds())) lampsChanged = true;
       if (shake[s] > 0) shake[s] = Math.max(0, shake[s] - dt * 40);
       const v = views[s];
       for (let i = 0; i < v.tiltTarget.length; i++) {
@@ -626,6 +643,7 @@
         if (flash[s][i].t > 1.1) flash[s].splice(i, 1);
       }
     }
+    if (lampsChanged) updateHud();
     if (anim) {
       anim.t += dt / anim.dur;
       if (anim.t >= 1) { completeEvent(anim.ev); nextEvent(); }
@@ -927,12 +945,16 @@
 
   /* ---------- readouts ---------- */
 
+  const lamps = (b) => '\u25cf'.repeat(b.bonus) + '\u25cb'.repeat(b.cfg.bonusMax - b.bonus) + ' x' + b.bonus;
+
   function updateHud() {
     Shell.readouts([
       { label: 'P1 score', value: boards[0].score, accent: true },
+      { label: 'P1 bonus', value: lamps(boards[0]), accent: boards[0].bonus > 1 },
       { label: 'P1 joker in', value: R.jokerIn(boards[0]) },
       { label: 'Rounds', value: wins[0] + ' - ' + wins[1] },
       { label: 'P2 joker in', value: R.jokerIn(boards[1]) },
+      { label: 'P2 bonus', value: lamps(boards[1]), accent: boards[1].bonus > 1 },
       { label: 'P2 score', value: boards[1].score, accent: true }
     ]);
     Shell.status(MODES[mode].name, MODES[mode].goal);
@@ -1084,7 +1106,7 @@
       for (let s = 0; s < 2; s++) {
         for (let i = 0; i < views[s].tiltTarget.length; i++) views[s].tilt[i] = views[s].tiltTarget[i];
       }
-      if (boards[0].over || boards[1].over) { if (state !== 'over') roundOver(); }
+      if (roundIsOver(boards, mode)) { if (state !== 'over') roundOver(); }
       else { state = 'play'; updateHud(); saveMatch(); }
     }
   };

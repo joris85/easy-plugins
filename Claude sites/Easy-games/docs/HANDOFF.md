@@ -81,7 +81,11 @@ and each has a regression test:
   included.
 - **A marble thrown across can end the opponent's game the moment it lands.**
   Overflow used to be checked only on the dropping board.
-- **Score weighs the marbles** (manual: weight x count x level x bonus).
+- **Score weighs the marbles** (manual: weight x count x level x bonus), and the
+  bonus is the original's real-time lamps x1..x4, not the cascade depth. The
+  engine has no clock: the controller passes `now` (seconds) into
+  `dropFromDepot` and calls `tickBonus` each frame.
+- **A landing over capacity loses at once**, judged at the tilt it causes.
 - **Shapes stop at the walls**; nothing reaches round the edge of a field.
 - **The first press picks up** a marble from wherever the crane stands.
 
@@ -99,10 +103,11 @@ throw**.
   clearing**, and the parity decides whose it is: an **odd** clear pays you
   something helpful, an **even** clear pays you an **attack** extra which does
   nothing in your own field and must be catapulted into theirs. Last one
-  standing wins.
+  standing wins. The extra earned depends on the clear size (`REWARD_TABLE`).
 - **Competition**: a scoring race. Plays exactly like solo; a marble thrown
-  across arrives as a **Heart**. When someone overloads, the **higher score**
-  wins the round, whoever fell over.
+  across arrives as a **Heart**. An eliminated player drops out and the other
+  plays on alone; the round ends when both have fallen and the **higher score**
+  wins it, whoever fell first.
 
 `applyMode()` in versus.js is the single place these differences live.
 
@@ -125,9 +130,10 @@ A fresh-context Fable agent reviewed the whole thing against the manual text.
 Verdict then: solo solid, two-player not. Everything it found as a bug or a
 source contradiction is fixed and has a regression test under
 `== REVIEW: ... ==` in the suite. Left deliberately as documented departures:
-matching in visual rows, "throw towards the heavy side" (OBSERVED, not in any
-document), the Joker-every-15 counter (the manual only says "next extra"), and
-the time-decaying bonus lamps replaced by cascade depth.
+matching in visual rows, and "throw towards the heavy side" (OBSERVED from the
+original running, not in any document). The Joker-every-15 counter is the
+user's own observation from screenshots (the manual only says "next extra").
+Reward tables follow the manual's fragments ordered by clear size (INFERRED).
 
 ## Open items
 

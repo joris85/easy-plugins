@@ -126,6 +126,9 @@
     });
   })();
 
+  /* The bonus lamps run on real time, and the engine has no clock of its own. */
+  const nowSeconds = () => performance.now() / 1000;
+
   Input.init();
   Input.claim(['KeyA', 'KeyD', 'KeyR', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowDown']);
   const ctx = Shell.ctx;
@@ -269,7 +272,7 @@
       updateHud();
       return;
     }
-    const events = R.dropFromDepot(board, craneCol);
+    const events = R.dropFromDepot(board, craneCol, nowSeconds());
     if (!events.length || events[0].type === 'rejected') return;
     // The engine resolves the whole drop instantly, so the game can already be
     // lost while the death is still animating. Drop the save NOW rather than
@@ -540,6 +543,8 @@
 
   function update(dt) {
     pollTouch();
+    // The lamps go out on their own; the readout has to follow them down.
+    if (board && state !== 'menu' && R.tickBonus(board, nowSeconds())) updateHud();
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
 
     for (let s = 0; s < view.tiltTarget.length; s++) {
@@ -588,6 +593,11 @@
     });
   }
 
+  /** x1..x4 as the original shows them: a row of lamps, lit ones first. */
+  function lamps(b) {
+    return '\u25cf'.repeat(b.bonus) + '\u25cb'.repeat(b.cfg.bonusMax - b.bonus) + ' x' + b.bonus;
+  }
+
   function updateHud() {
     const left = board.cfg.marblesPerLevel - (board.dropped % board.cfg.marblesPerLevel);
     Shell.readouts([
@@ -595,6 +605,7 @@
       { label: 'Level', value: board.level },
       { label: 'To next', value: left },
       { label: 'Joker in', value: R.jokerIn(board) },
+      { label: 'Bonus', value: lamps(board), accent: board.bonus > 1 },
       { label: 'Best', value: Scores.label('tilt') }
     ]);
     Shell.status(board.score, 'level ' + board.level);

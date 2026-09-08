@@ -54,6 +54,8 @@ const TiltRules = (function () {
     maxCascade: 80,            // safety valve
     specialChance: 0.09,
     jokerEvery: 15,            // a guaranteed Joker enters the depot this often
+    bonusWindow: 6,            // seconds the bonus lamps stay lit after a clear
+    bonusMax: 4,               // x1 .. x4, as on the original's HUD
     wrapTransforms: true       // thrown off the edge, a marble comes back changed
   };
 
@@ -244,6 +246,8 @@ const TiltRules = (function () {
       score: 0,
       cleared: 0,
       chainBest: 0,
+      bonus: 1,                              // the lit lamp: multiplies the next clear
+      bonusUntil: null,                      // real time the lamps go out, or null
       over: false
     };
     for (let i = 0; i < cols; i++) fillDepot(board, i);
@@ -333,8 +337,12 @@ const TiltRules = (function () {
 
   /** How many marbles this pan may hold, which depends on where its end sits. */
   function capacityOf(board, col) {
+    return capacityAt(board, col, board.tilt[scaleOf(col)]);
+  }
+
+  /** Capacity of a pan under a given tilt, without touching the board. */
+  function capacityAt(board, col, t) {
     const c = board.cfg;
-    const t = board.tilt[scaleOf(col)];
     if (t === 0) return c.capLevel;
     const down = (t > 0 && isRightPan(col)) || (t < 0 && !isRightPan(col));
     return down ? c.capDown : c.capUp;
@@ -648,7 +656,7 @@ const TiltRules = (function () {
    *
    * Returns an ordered event list for the renderer to animate.
    */
-  function dropFromDepot(board, col) {
+  function dropFromDepot(board, col, now) {
     if (board.over) return [{ type: 'rejected', reason: 'over' }];
     if (col < 0 || col >= board.cols) return [{ type: 'rejected', reason: 'range' }];
     if (isBlocked(board, col)) return [{ type: 'rejected', reason: 'blocked' }];
@@ -656,7 +664,8 @@ const TiltRules = (function () {
     if (!marble) return [{ type: 'rejected', reason: 'empty' }];
     board.held = null;
     board.dropped++;
-    const events = dropMarble(board, col, marble);
+    tickBonus(board, now);
+    const events = dropMarble(board, col, marble, now);
     // Reload from where the marble was released, not from where it was taken.
     board.held = takeFromDepot(board, col);
     emit(events, board, { type: 'reload', col, marble: board.held });
@@ -677,11 +686,11 @@ const TiltRules = (function () {
   }
 
   /** Drop a specific marble, for tests and for marbles arriving from elsewhere. */
-  function dropMarble(board, col, marble) {
+  function dropMarble(board, col, marble, now) {
     if (board.over) return [{ type: 'rejected', reason: 'over' }];
     if (col < 0 || col >= board.cols) return [{ type: 'rejected', reason: 'range' }];
     const events = [];
-    const ctx = { flown: new Set(), depth: 1, guard: 0 };
+    const ctx = { flown: new Set(), depth: 1, guard: 0, now: now == null ? null : now };
     landMarble(board, col, marble, events, ctx);
     checkOverflow(board, events);
     return events;
@@ -702,6 +711,21 @@ const TiltRules = (function () {
     // to the top of the screen and replays the whole descent.
     emit(events, board, { type: 'land', col, row: board.stacks[col].length, marble, chain: ctx.depth, flown: !!flown });
     board.stacks[col].push(marble);
+
+    // The guide's losing rule is physical - a column that reaches the crane -
+    // and it is checked the moment it happens. Before this, a landing over
+    // capacity was only fatal if the rest of the cascade failed to clear it
+    // again, a leniency no source describes.
+    // Judged at the tilt this landing CAUSES, not the one before it: a raised
+    // pan that takes a heavy marble sinks under it, and a sunk pan holds eight.
+    // The tilt itself is applied later by tipScale, because changing it here
+    // would hide the flip from the throw.
+    const d = diffOf(board, scaleOf(col));
+    const capNow = capacityAt(board, col, d === 0 ? 0 : (d > 0 ? 1 : -1));
+    if (!board.over && board.stacks[col].length > capNow) {
+      board.over = true;
+      emit(events, board, { type: 'overflow', col, height: board.stacks[col].length, cap: capNow });
+    }
 
     // Anything arriving in this pan sets off a Bomb that was ALREADY lying
     // dormant in it. Snapshot before the extra acts: a Colour Bomb lays fresh
@@ -740,26 +764,28 @@ const TiltRules = (function () {
         for (let c = 0; c < board.cols; c++) {
           for (let r = 0; r < board.stacks[c].length; r++) all.push({ col: c, row: r, marble: board.stacks[c][r] });
         }
-        const gain = clear.star === KIND.GOLD ? scoreFor(all.length, weightOfCells(board, all), ctx.depth, board.level) * 2 : 0;
+        const gain = clear.star === KIND.GOLD ? scoreFor(all.length, weightOfCells(board, all), board.bonus, board.level) * 2 : 0;
         board.score += gain;
         board.cleared += all.length;
         board.chainBest = Math.max(board.chainBest, ctx.depth);
-        emit(events, board, { type: 'starclear', star: clear.star, cells: all, chain: ctx.depth, gain });
+        emit(events, board, { type: 'starclear', star: clear.star, cells: all, chain: ctx.depth, bonus: board.bonus, gain });
+        lightBonus(board, ctx);
         for (let c = 0; c < board.cols; c++) board.stacks[c].length = 0;
         relevel(board, events);
         ctx.depth++;
         continue;
       }
       if (clear) {
-        const gain = scoreFor(clear.cells.length, weightOfCells(board, clear.cells), ctx.depth, board.level);
+        const gain = scoreFor(clear.cells.length, weightOfCells(board, clear.cells), board.bonus, board.level);
         board.score += gain;
         board.cleared += clear.cells.length;
         board.chainBest = Math.max(board.chainBest, ctx.depth);
         emit(events, board, {
           type: 'clear',
           cells: clear.cells.map((c) => Object.assign({}, c, { marble: at(board, c.col, c.row) })),
-          colour: clear.colour, chain: ctx.depth, gain
+          colour: clear.colour, chain: ctx.depth, bonus: board.bonus, gain
         });
+        lightBonus(board, ctx);
         removeCells(board, clear.cells);
         relevel(board, events);
         // In a match, clearing is how extras are earned, and the PARITY of the
@@ -1422,10 +1448,43 @@ const TiltRules = (function () {
    * Pay out the extra a clear has earned, into the roomiest depot column so it
    * is visible and has to be walked to rather than simply appearing in hand.
    */
+  /* The manual maps the exact number of marbles cleared to the extra earned,
+     with a 75%/25% split where a count can pay either of two. The scan's OCR
+     destroys the table layout, but the pairs themselves are legible, and their
+     order in the text is the order of increasing clear size. This is that
+     reconstruction, graded INFERRED: the pairs are the manual's, the sizes they
+     sit at are the reading. Anything beyond the fragments is drawn uniformly
+     from what is left of the pool, so the rarest weapons stay rare. */
+  const REWARD_TABLE = {
+    odd: {
+      3: [[KIND.BOMB, 1]],
+      5: [[KIND.CRUSHER, 0.75], [KIND.STING, 0.25]],
+      7: [[KIND.ZAPPILE, 0.75], [KIND.BOMB, 0.25]]
+    },
+    even: {
+      4: [[KIND.STONEMAKER, 0.75], [KIND.COLSTONE, 0.25]],
+      6: [[KIND.TWISTER, 0.75], [KIND.TOWER, 0.25]]
+    }
+  };
+
+  function rewardFor(board, size) {
+    const attack = size % 2 === 0;
+    const table = attack ? REWARD_TABLE.even : REWARD_TABLE.odd;
+    const row = table[size];
+    if (row) {
+      let roll = board.rng();
+      for (const [kind, p] of row) { if ((roll -= p) < 0) return kind; }
+      return row[row.length - 1][0];
+    }
+    // Past the fragments: whatever the table never names, drawn evenly.
+    const named = new Set([].concat(...Object.values(table)).map((r) => r[0]));
+    const rest = (attack ? ATTACKS : HELPFUL).filter((k) => !named.has(k));
+    return rest[Math.floor(board.rng() * rest.length)];
+  }
+
   function awardExtra(board, size, events) {
     const attack = size % 2 === 0;
-    const pool = attack ? ATTACKS : HELPFUL;
-    const kind = pool[Math.floor(board.rng() * pool.length)];
+    const kind = rewardFor(board, size);
     let best = 0;
     for (let c = 1; c < board.cols; c++) if (headroom(board, c) > headroom(board, best)) best = c;
     board.depot[best].unshift(makeMarble(board, { kind, weight: 0 }));
@@ -1445,8 +1504,32 @@ const TiltRules = (function () {
      what makes the five-stack merge a scoring engine and not just tidying. The
      original's bonus is a bank of lamps that decays with time; this version
      pays the cascade depth instead, since a drop resolves instantly here. */
-  function scoreFor(count, weight, chain, level) {
-    return Math.round(Math.max(1, weight) * count * level * (1 + (chain - 1) * 0.6));
+  function scoreFor(count, weight, bonus, level) {
+    return Math.round(Math.max(1, weight) * count * level * bonus);
+  }
+
+  /**
+   * The bonus lamps. A clear lights the next lamp and the lit lamp multiplies
+   * the clear after it, x1 up to x4 - but the lamps go out after a few seconds
+   * of real time, so the bonus is a reward for clearing AGAIN before they do.
+   *
+   * The engine has no clock of its own; the controller passes the time in with
+   * each drop and ticks it between drops so the HUD can show the lamps dying.
+   * Headless callers that pass nothing keep the lamps lit indefinitely, which
+   * keeps every replay deterministic.
+   */
+  function tickBonus(board, now) {
+    if (now != null && board.bonusUntil != null && now > board.bonusUntil && board.bonus > 1) {
+      board.bonus = 1;
+      board.bonusUntil = null;
+      return true;
+    }
+    return false;
+  }
+
+  function lightBonus(board, ctx) {
+    board.bonus = Math.min(board.cfg.bonusMax, board.bonus + 1);
+    if (ctx.now != null) board.bonusUntil = ctx.now + board.cfg.bonusWindow;
   }
 
   const weightOfCells = (board, cells) =>
@@ -1455,6 +1538,7 @@ const TiltRules = (function () {
   /* ---------- end of game ---------- */
 
   function checkOverflow(board, events) {
+    if (board.over) return;                  // a landing may already have called it
     for (let col = 0; col < board.cols; col++) {
       if (board.stacks[col].length > capacityOf(board, col)) {
         board.over = true;
@@ -1488,6 +1572,7 @@ const TiltRules = (function () {
       rng: board.rng.state(),
       level: board.level, dropped: board.dropped, score: board.score,
       cleared: board.cleared, chainBest: board.chainBest,
+      bonus: board.bonus,
       since: board.since, over: !!board.over,
       darkUntil: board.darkUntil || 0
     };
@@ -1555,6 +1640,9 @@ const TiltRules = (function () {
     board.rng.seed(data.rng);
     board.level = data.level; board.dropped = data.dropped; board.score = data.score;
     board.cleared = data.cleared; board.chainBest = data.chainBest;
+    // The lamp survives a reload; the clock does not, so it goes out on resume.
+    board.bonus = int(data.bonus, 1, 1e3) ? Math.min(board.cfg.bonusMax, data.bonus) : 1;
+    board.bonusUntil = null;
     board.crane = int(data.crane, 0, cols - 1) ? data.crane : null;
     board.since = data.since; board.over = !!data.over;
     board.darkUntil = int(data.darkUntil, 0, 1e9) ? data.darkUntil : 0;
@@ -1707,7 +1795,7 @@ const TiltRules = (function () {
     takeFromDepot, pickUp, jokerIn,
     dropFromDepot, dropMarble, landMarble, tipScale, settle, applyExtra,
     findClear, findFive, floodFrom, removeCells, wrapColumn, transformOnWrap,
-    weightOf, diffOf, capacityOf, refreshTilt, scaleOf, partnerOf, isRightPan,
+    weightOf, diffOf, capacityOf, capacityAt, refreshTilt, scaleOf, partnerOf, isRightPan,
     sameColour, matchable, isExtra, isStar, isHeart, isColoured, uniqueCells, scoreFor, relevel, detonate,
     newRun, runAccepts, runAdd,
     rowOffset, toVisual, toIndex, atVisual,
@@ -1716,7 +1804,7 @@ const TiltRules = (function () {
     cloneBoard, cloneLinked, predictDrop, link, landingFor, emit,
     ATTACKS, HELPFUL, isAttack,
     blockAround, diagonalsFrom, diagonalsBelow, triangleBelow, paint, convertTo, darken, PASSIVE,
-    allOfColour, targetUnder, awardExtra, isBlocked, isDark,
+    allOfColour, targetUnder, awardExtra, rewardFor, REWARD_TABLE, tickBonus, isBlocked, isDark,
     serialize, restore
   };
 })();

@@ -1650,5 +1650,90 @@ console.log('\n== REVIEW: the first press picks up, from wherever the crane is =
   ok('the player picks from their own column', b.held === want);
 }
 
+
+console.log('\n== REVIEW: the reward tables follow the manual\'s fragments ==');
+{
+  const draws = (size, n) => {
+    const seen = {};
+    for (let i = 0; i < n; i++) { const b = B({}, i + 1); const k = R.rewardFor(b, size); seen[k] = (seen[k] || 0) + 1; }
+    return seen;
+  };
+  check('a clear of three always earns a Bomb', Object.keys(draws(3, 40)), [K.BOMB]);
+  const five = draws(5, 400);
+  check('a clear of five is a Cutter or a Sting, nothing else', Object.keys(five).sort(), [K.CRUSHER, K.STING].sort());
+  ok('about three to one in the Cutter\'s favour', five[K.CRUSHER] > 240 && five[K.STING] > 50, JSON.stringify(five));
+  const four = draws(4, 400);
+  check('a clear of four is a Stonemaker or a Colour Stone', Object.keys(four).sort(), [K.STONEMAKER, K.COLSTONE].sort());
+  const six = draws(6, 400);
+  check('a clear of six is a Twister or a Tower', Object.keys(six).sort(), [K.TWISTER, K.TOWER].sort());
+  const eight = draws(8, 400);
+  ok('past the fragments, the named weapons are not drawn again',
+     [K.STONEMAKER, K.COLSTONE, K.TWISTER, K.TOWER].every((k) => !eight[k]), JSON.stringify(eight));
+  ok('and every remaining weapon can still turn up', Object.keys(eight).length >= 3, JSON.stringify(eight));
+}
+
+console.log('\n== REVIEW: the bonus lamps ==');
+{
+  const trio = (b, w) => { b.stacks[0].push(M(b, 1, w)); b.stacks[1].push(M(b, 1, w)); return R.dropMarble(b, 2, M(b, 1, w)); };
+  const b = B({}, 3);
+  check('a fresh board shows x1', b.bonus, 1);
+  const first = trio(b, 2).find((e) => e.type === 'clear');
+  check('the first clear pays at x1', first.bonus, 1);
+  check('and lights the next lamp', b.bonus, 2);
+  const second = trio(b, 2).find((e) => e.type === 'clear');
+  check('the second clear pays at x2', second.bonus, 2);
+  check('and twice as much for the same trio', second.gain, first.gain * 2);
+  trio(b, 2); trio(b, 2); trio(b, 2);
+  check('the lamps stop at x4', b.bonus, 4);
+}
+{
+  // With a clock, the lamps go out.
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2));
+  R.pickUp(b, 2); b.held = M(b, 1, 2);
+  R.dropFromDepot(b, 2, 100);                 // t = 100s: clear, lamp lit until 106
+  check('lit, with the clock running', b.bonus, 2);
+  check('still lit inside the window', R.tickBonus(b, 105), false);
+  check('out once the window passes', R.tickBonus(b, 107), true);
+  check('back to x1', b.bonus, 1);
+  // and a drop after the window pays at x1 again
+  b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2));
+  b.held = M(b, 1, 2);
+  const ev = R.dropFromDepot(b, 2, 120);
+  check('a late clear pays at x1', ev.find((e) => e.type === 'clear').bonus, 1);
+}
+{
+  const b = B({}, 3);
+  b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2)); R.dropMarble(b, 2, M(b, 1, 2));
+  const r = R.restore(JSON.parse(JSON.stringify(R.serialize(b))));
+  check('the lit lamp survives a reload', r.bonus, 2);
+  check('but its clock does not', r.bonusUntil, null);
+}
+
+console.log('\n== REVIEW: a column that reaches the crane loses at once ==');
+{
+  const b = B({}, 3);
+  for (let i = 0; i < 7; i++) b.stacks[2].push(M(b, i % 3, 0));   // level pan, full at 7
+  b.stacks[3].push(M(b, 0, 0));
+  const ev = R.dropMarble(b, 2, M(b, 1, 0));
+  check('the eighth marble ends it', b.over, true);
+  const land = ev.findIndex((e) => e.type === 'land');
+  const over = ev.findIndex((e) => e.type === 'overflow');
+  ok('and the overflow is reported right after the landing, not at the end', over === land + 1, JSON.stringify(types(ev)));
+  check('only once', ev.filter((e) => e.type === 'overflow').length, 1);
+}
+{
+  // The one that fooled the first version of this rule: a raised pan sinks
+  // under a heavy landing and grows from six to eight, so the seventh is legal.
+  const b = B({}, 1);
+  b.stacks[0] = [M(b, 0, 10)];
+  for (let i = 0; i < 6; i++) b.stacks[1].push(M(b, i % 3, 0));
+  R.refreshTilt(b, 0);
+  check('the raised pan holds six', R.capacityOf(b, 1), 6);
+  R.dropMarble(b, 1, M(b, 1, 20));
+  check('a heavy seventh sinks it and is safe', b.over, false);
+  check('with the pan now down', R.capacityOf(b, 1), 8);
+}
+
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' CHECKS PASSED' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail ? 1 : 0);
