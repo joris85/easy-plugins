@@ -198,4 +198,11 @@ console.log('\n== board helpers the controller leans on ==');
 }
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' CHECKS PASSED' : pass + ' passed, ' + fail + ' FAILED'));
-process.exit(fail ? 1 : 0);
+/* Set the code and let node finish on its own, rather than process.exit().
+   These suites load a plain browser script with an indirect (0, eval), and on
+   node 24.7 that combination segfaults on roughly one run in ten - after the
+   summary has printed, so the tests all pass and the shell still sees 139.
+   Isolated: eval-load alone is clean, process.exit alone is clean, together
+   they crash. Exit codes are how every check here is judged, so they have to
+   be trustworthy. */
+process.exitCode = fail ? 1 : 0;
