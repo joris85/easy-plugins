@@ -571,7 +571,7 @@ const CATALOG = [
   {
     slug: 'muncher', name: 'Easy Muncher', cat: 'arcade',
     desc: 'Four ghosts, four different minds hunting you.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   },
   {
