@@ -621,7 +621,7 @@ const CATALOG = [
   {
     slug: 'sudoku', name: 'Easy Sudoku', cat: 'puzzle',
     desc: 'Graded by the logic it needs, not by how many blanks.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.grid(c, w, h, '#8f9cba'); }
   },
   {
