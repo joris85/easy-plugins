@@ -423,7 +423,7 @@ const CATALOG = [
   {
     slug: 'blocks', name: 'Easy Blocks', cat: 'arcade',
     desc: 'Falling shapes, full rows clear. Wall kicks and all.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   },
   {
