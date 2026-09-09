@@ -11,8 +11,9 @@ A static browser games site. No dependencies, no build step, no image or audio
 files - every graphic is canvas paths, every sound is synthesised WebAudio. Plain
 `<script>` tags rather than ES modules, so any game runs from `file://`.
 
-19 games playable. The recent work has all been on **Easy Tilt**, a rebuild of
-the 1997 Software 2000 puzzle game *Swing* / *Marble Master*.
+**27 games, all built.** Nothing is queued any more. The bulk of the deep work
+has been on **Easy Tilt**, a rebuild of the 1997 Software 2000 puzzle game
+*Swing* / *Marble Master*, in solo and two-player versions.
 
 ## Running it
 
@@ -25,7 +26,12 @@ Then `http://localhost:8899/`. There is a `.claude/launch.json` entry named
 (`autoPort`), since 8899 is often held by a `php -S` from another project.
 
 ```bash
-node games/tilt/test/rules.test.js      # 272 checks, exits non-zero on failure
+node games/tilt/test/rules.test.js      # 368 checks, exits non-zero on failure
+
+# every suite at once: 1610 checks across nine games
+for g in tilt missiles invaders words sudoku picture blocks solitaire muncher; do
+  printf '%-10s ' "$g"; node "games/$g/test/rules.test.js" | tail -1
+done
 ```
 
 ---
@@ -124,33 +130,65 @@ confirmation; leaving deliberately via the back links does not.
 
 ---
 
-## Review, 2026-09-08
+## Reviews, 2026-09-08 and 09
 
-A fresh-context Fable agent reviewed the whole thing against the manual text.
-Verdict then: solo solid, two-player not. Everything it found as a bug or a
-source contradiction is fixed and has a regression test under
-`== REVIEW: ... ==` in the suite. Left deliberately as documented departures:
-matching in visual rows, and "throw towards the heavy side" (OBSERVED from the
-original running, not in any document). The Joker-every-15 counter is the
-user's own observation from screenshots (the manual only says "next extra").
-Reward tables follow the manual's fragments ordered by clear size (INFERRED).
+Three fresh-context agents reviewed and played Easy Tilt: one read it against
+the German manual's own text, one played it solo to destruction (656k drops),
+one played it as both players (1.26M drops). Verdict of the first: solo solid,
+two-player not. Everything any of them found as a bug or a source contradiction
+is fixed and has a regression test under `== REVIEW: ... ==` or
+`== SOLO REVIEW: ... ==` in the suite.
+
+The three worth remembering, because they were all invisible in play:
+
+- A **Joker could only see left**. One left-to-right pass claimed it for the run
+  it had just closed, so "green Joker red red" never cleared while the mirror
+  image did: 710 incidents across 300 games. The fix carries trailing Jokers
+  into the next run - but only when a real marble broke it, never across a gap,
+  which is the bug the first fix introduced (scattered Jokers cleared as a trio).
+- **Competition mode collapsed into survivor-wins**, because the loser sat
+  watching for 200 to 750 drops. The survivor now plays on for 50 drops with a
+  countdown, then the higher score takes the round.
+- A **Blocker earned at home sealed its own see-saw's partner column**, so it
+  could never be launched. Brute force: 119,808 attempts, zero escapes.
+
+Left deliberately as documented departures: matching in visual rows, and "throw
+towards the heavy side" (OBSERVED from the original running, not in any
+document). The Joker-every-15 counter is Joris's own observation from
+screenshots (the manual only says "next extra"). Reward tables follow the
+manual's legible fragments ordered by clear size (INFERRED).
 
 ## Open items
 
-1. **Eight games still queued**: Words, Solitaire, Invaders, Missiles, Blocks,
-   Muncher, Sudoku, Picture. Specified in `docs/Easy Games Blueprint.md`.
-2. **Committed** as `0646be2` on `main` (2026-09-08). The git root is `~/Sites`,
-   a checkout shared with other projects and sessions, so always stage this
-   directory by path, never `git add -A`.
-3. **Arcade vs Competition default.** Currently Arcade. Competition is the more
-   interesting idea (attacking helps them, so you win by outlasting) but takes a
-   round to click. A play decision, not a code one.
-4. **The manual's reward tables are unrecoverable.** The original maps exact
-   clear size to a specific extra with 75%/25% splits; the scan's OCR destroys
-   the table. We draw from a helpful pool and an attack pool at random instead.
-   A clean scan of those two pages would close the last real gap.
-5. Not implemented: the Question Mark resolving into arcade extras during solo
+1. **Nobody has judged how Swing FEELS.** Everything is verified correct;
+   nothing is verified enjoyable. A browser play-test agent was running when the
+   session ended and was stopped mid-way, so there is no report. That is the one
+   real gap: animation pacing (launch 0.46s + landing 0.34s - too slow for a
+   fast player?), whether the first-press pick-up is discoverable, whether a
+   two-player match reads at a glance, and how it behaves on a phone. Relaunch a
+   browser agent for this, or just play it yourself for ten minutes.
+2. **Arcade vs Competition default.** Currently Arcade. A play decision, not a
+   code one, and now a fairer comparison since Competition was fixed.
+3. **The manual's reward tables are only half recovered.** The pairs and their
+   75/25 odds are legible; the clear sizes they sit at are my reading. A clean
+   scan of those two pages would settle it.
+4. Not implemented: the Question Mark resolving into arcade extras during solo
    (deliberate - they would do nothing there).
+5. **Easy Missiles, Invaders, Words, Sudoku, Picture, Blocks, Solitaire and
+   Muncher** were each built by their own agent, verified headlessly and smoke
+   tested in a browser by me, but none has had a human play it. Each has its own
+   `test/rules.test.js` and its own known-gaps note in the commit message.
+
+## Two traps this project has already sprung
+
+- **Exit codes lied.** Every suite ended with `process.exit()`, and on node 24.7
+  that segfaults about one run in ten when the file was loaded with an indirect
+  `(0, eval)` - which is how all of them load a plain browser script. The crash
+  lands after the summary prints, so the tests pass, the output looks perfect,
+  and the shell sees 139. All nine now set `process.exitCode` instead. If a
+  suite ever exits non-zero with a clean summary again, suspect this first.
+- **The git root is `~/Sites`**, a checkout shared with other projects and
+  sessions. Always stage this directory by path; never `git add -A`.
 
 ## Sources
 
