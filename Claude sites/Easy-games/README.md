@@ -32,8 +32,9 @@ and the whole site is static.
 | [Easy Invaders](games/invaders/index.html) | 1 | The rack speeds up as you thin it out. Shields erode pixel by pixel |
 | [Easy Words](games/words/index.html) | 1 | Five letters, six guesses. One word a day, or free play with hard mode |
 | [Easy Sudoku](games/sudoku/index.html) | 1 | Graded by the logic it needs. Pencil marks, and hints that name the technique |
+| [Easy Picture](games/picture/index.html) | 1 | Number clues hide a picture. Solvable by logic alone, never by guessing |
 
-Four more are specified and queued. See
+Three more are specified and queued. See
 [docs/Easy Games Blueprint.md](docs/Easy%20Games%20Blueprint.md) for the exact
 mechanics of every one of them plus the build plan.
 

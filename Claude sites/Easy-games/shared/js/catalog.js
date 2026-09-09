@@ -627,7 +627,7 @@ const CATALOG = [
   {
     slug: 'picture', name: 'Easy Picture', cat: 'puzzle',
     desc: 'Number clues hide a picture. Solvable by pure logic.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.grid(c, w, h, '#4ad46f'); }
   },
   {
