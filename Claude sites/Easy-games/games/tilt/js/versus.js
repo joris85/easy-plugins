@@ -71,8 +71,19 @@
      round only ends when both have fallen - and the survivor gets their chance
      at the higher score, which is what "highest score wins" needs to mean. */
   function roundIsOver(pair, m) {
-    return m === 'competition' ? (pair[0].over && pair[1].over) : (pair[0].over || pair[1].over);
+    if (m !== 'competition') return pair[0].over || pair[1].over;
+    if (pair[0].over && pair[1].over) return true;
+    // One is out and the other has used up the drops the round allows them.
+    return !!(playOn && playOn.left <= 0);
   }
+
+  /* How long the survivor plays on. The manual gives them "the option" to
+     continue alone; unlimited, a review measured the loser watching for a mean
+     of 200 to 750 drops with a foregone result, and the mode collapsing into
+     survivor-wins (59 of 60). One level's worth of drops to bank a score is the
+     option without the spectating. */
+  const PLAY_ON_DROPS = 50;
+  let playOn = null;               // { side, left } while one player is out
 
   const nowSeconds = () => performance.now() / 1000;
 
@@ -194,6 +205,7 @@
     shake = [0, 0];
     queue = []; anim = null;
     ghostCache = [null, null];
+    playOn = null;
     state = 'play';
     Shell.hide();
     updateHud();
@@ -224,7 +236,7 @@
     boards[1].crane = cranes[1];
     try {
       localStorage.setItem(MATCH_KEY, JSON.stringify({
-        v: 1, mode, wins: wins.slice(),
+        v: 1, mode, wins: wins.slice(), playOn,
         boards: [R.serialize(boards[0]), R.serialize(boards[1])]
       }));
     } catch (e) { /* private mode or quota: not worth interrupting play over */ }
@@ -244,7 +256,9 @@
       if (!a.dropped && !z.dropped) return null;
       R.link(a, z, MODES[d.mode].attack);
       applyMode([a, z], d.mode);
-      return { boards: [a, z], mode: d.mode,
+      const po = d.playOn && (d.playOn.side === 0 || d.playOn.side === 1) && Number.isInteger(d.playOn.left)
+        ? { side: d.playOn.side, left: Math.max(0, d.playOn.left) } : null;
+      return { boards: [a, z], mode: d.mode, playOn: po,
                wins: Array.isArray(d.wins) && d.wins.length === 2 ? d.wins.slice() : [0, 0] };
     } catch (e) { return null; }
   }
@@ -262,7 +276,8 @@
     views = boards.map(viewFrom);
     cranes = [boards[0].crane == null ? 3 : boards[0].crane,
               boards[1].crane == null ? 3 : boards[1].crane];
-    for (let s = 0; s < 2; s++) if (!boards[s].held) R.pickUp(boards[s], cranes[s]);
+    playOn = m.playOn || null;
+    // pickUp honours a sealed column itself; an empty crane then waits for a key.
     pending = [false, false];
     particles = [[], []];
     flash = [[], []];
@@ -309,12 +324,15 @@
     // The engine resolves instantly, so a round can already be decided while the
     // ending is still animating. Drop the save now, or refreshing during that
     // second would rewind to before the losing drop.
-    if (roundIsOver(boards, mode)) clearMatch();
-    else if (b.over || boards[1 - side].over) {
-      // Competition: one player is out, the other plays on for the score.
+    if (playOn && side === playOn.side) playOn.left--;
+    if (!playOn && (b.over || boards[1 - side].over) && mode === 'competition') {
+      // Competition: one player is out, the other plays on for the score, for
+      // one level's worth of drops.
       const out = b.over ? side : 1 - side;
-      Shell.banner(NAMES[out] + ' is out - ' + NAMES[1 - out] + ' plays on');
+      playOn = { side: 1 - out, left: PLAY_ON_DROPS };
+      Shell.banner(NAMES[out] + ' is out - ' + NAMES[1 - out] + ' plays on for ' + PLAY_ON_DROPS + ' drops');
     }
+    if (roundIsOver(boards, mode)) clearMatch();
     queue = queue.concat(events);
     installDisplayHolds(events);
     state = 'anim';
@@ -536,12 +554,19 @@
                         text: ev.attack ? 'weapon earned' : 'extra earned', t: 0, chain: ev.attack ? 3 : 1 });
         break;
       }
-      case 'tower':
-      case 'twister':
-        // Both rearrange the board wholesale, so the display copy is rebuilt
-        // rather than patched - there is no incremental version of "scattered".
-        resyncViews();
+      case 'tower': {
+        // The stones are appended in order, so the view can append them too.
+        for (const c of ev.cells) view.stacks[c.col].push(c.marble);
         break;
+      }
+      case 'twister': {
+        // What left, then where it landed, in the engine's own order. Rebuilding
+        // the view from the finished board here instead put every later event
+        // of the same cascade out of step with what it was animating.
+        removeFromView(s, ev.taken);
+        for (const c of ev.landed) view.stacks[c.col].push(c.marble);
+        break;
+      }
       case 'inert': {
         // A weapon dropped at home does nothing, on purpose. Without saying so
         // it reads as a marble that simply failed to work.
@@ -957,7 +982,8 @@
       { label: 'P2 bonus', value: lamps(boards[1]), accent: boards[1].bonus > 1 },
       { label: 'P2 score', value: boards[1].score, accent: true }
     ]);
-    Shell.status(MODES[mode].name, MODES[mode].goal);
+    Shell.status(MODES[mode].name,
+      playOn ? NAMES[playOn.side] + ' plays on: ' + Math.max(0, playOn.left) + ' drops left' : MODES[mode].goal);
   }
 
   /* ---------- round and match ---------- */

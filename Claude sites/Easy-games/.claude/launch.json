@@ -4,9 +4,9 @@
     {
       "name": "easy-games",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "exec python3 -m http.server \"${PORT:-8899}\""],
-      "port": 8899,
-      "autoPort": true
+      "runtimeArgs": ["-c", "exec python3 -m http.server \"${PORT:-49895}\""],
+      "port": 49895,
+      "autoPort": false
     }
   ]
 }

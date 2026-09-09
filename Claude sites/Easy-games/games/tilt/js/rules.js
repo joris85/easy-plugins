@@ -143,6 +143,7 @@ const TiltRules = (function () {
     { level: 1, kind: KIND.JOKER },        // 6 in the original
     { level: 2, kind: KIND.BOMB },         // 8
     { level: 2, kind: KIND.CRUSHER },      // 10
+    { level: 3, kind: KIND.STING },        // paired with the Cutter in the manual's table
     { level: 3, kind: KIND.COLZAP },       // 12
     { level: 3, kind: KIND.TINT },         // 14
     { level: 4, kind: KIND.FLASH },        // 16
@@ -456,6 +457,23 @@ const TiltRules = (function () {
   const at = (board, col, row) => board.stacks[col] ? board.stacks[col][row] : undefined;
 
   /**
+   * The Jokers at the tail of a run that has just been broken. A Joker is wild,
+   * so it can serve the run on its RIGHT as well as the one on its left - but
+   * a single left-to-right pass claimed it for the run it closed, and "green
+   * Joker red red" never cleared while "red red Joker green" did. A play soak
+   * found that standing on the board in 229 games out of 300.
+   */
+  function trailingJokers(run, look) {
+    const out = [];
+    for (let i = run.cols.length - 1; i >= 0; i--) {
+      const m = look(run.cols[i]);
+      if (!m || m.kind !== KIND.JOKER) break;
+      out.unshift(run.cols[i]);
+    }
+    return out;
+  }
+
+  /**
    * A trio is three or more of one colour ADJACENT IN A ROW - horizontally only,
    * measured in visual rows so it means "physically side by side".
    * Once found it spreads: every connected marble of that colour, up, down or
@@ -478,7 +496,14 @@ const TiltRules = (function () {
           runAdd(run, m, col);
         } else {
           if (run.cols.length >= board.cfg.matchLen) return floodFrom(board, run, vrow);
+          // Carry the trailing Jokers ONLY when a real marble broke the run, so
+          // they stay next to what they are joining. An empty cell ends the run
+          // outright: carrying across a gap built runs out of marbles that are
+          // nowhere near each other, and three Jokers scattered down the row
+          // cleared as a trio.
+          const carried = m ? trailingJokers(run, (c) => atVisual(board, c, vrow)) : [];
           run = newRun();
+          for (const c of carried) runAdd(run, atVisual(board, c, vrow), c);
           if (m && runAccepts(run, m)) runAdd(run, m, col);
         }
       }
@@ -545,7 +570,9 @@ const TiltRules = (function () {
         if (mergeable) {
           runAdd(run, m, row);
         } else {
+          const carried = trailingJokers(run, (r) => stack[r]);   // same flaw, vertically
           run = newRun();
+          for (const r of carried) runAdd(run, stack[r], r);
           if (runAccepts(run, m) && !isStar(m) && !isHeart(m)) runAdd(run, m, row);
         }
         // A run of nothing but Jokers has no colour to merge INTO. Falling back
@@ -641,6 +668,7 @@ const TiltRules = (function () {
 
   /** Load the crane at the start of a game, before anything has been dropped. */
   function pickUp(board, col) {
+    if (isBlocked(board, col)) return board.held;     // a sealed depot hands out nothing
     if (!board.held) board.held = takeFromDepot(board, col);
     return board.held;
   }
@@ -673,13 +701,7 @@ const TiltRules = (function () {
       board.level++;
       // Finishing a level pays a Silver Star. Stack two for a Gold, line up
       // three of either and the board is swept.
-      let best = 0;
-      for (let c = 1; c < board.cols; c++) if (headroom(board, c) > headroom(board, best)) best = c;
-      // Push the star in at the FRONT and drop the back of that queue, so the
-      // depot keeps its drawn depth without destroying the marble the player was
-      // already lining up.
-      board.depot[best].unshift(makeMarble(board, { kind: KIND.SILVER, weight: 0 }));
-      board.depot[best].length = board.cfg.depotDepth;
+      const best = stockDepot(board, makeMarble(board, { kind: KIND.SILVER, weight: 0 }));
       emit(events, board, { type: 'level', level: board.level, star: best });
     }
     return events;
@@ -712,21 +734,6 @@ const TiltRules = (function () {
     emit(events, board, { type: 'land', col, row: board.stacks[col].length, marble, chain: ctx.depth, flown: !!flown });
     board.stacks[col].push(marble);
 
-    // The guide's losing rule is physical - a column that reaches the crane -
-    // and it is checked the moment it happens. Before this, a landing over
-    // capacity was only fatal if the rest of the cascade failed to clear it
-    // again, a leniency no source describes.
-    // Judged at the tilt this landing CAUSES, not the one before it: a raised
-    // pan that takes a heavy marble sinks under it, and a sunk pan holds eight.
-    // The tilt itself is applied later by tipScale, because changing it here
-    // would hide the flip from the throw.
-    const d = diffOf(board, scaleOf(col));
-    const capNow = capacityAt(board, col, d === 0 ? 0 : (d > 0 ? 1 : -1));
-    if (!board.over && board.stacks[col].length > capNow) {
-      board.over = true;
-      emit(events, board, { type: 'overflow', col, height: board.stacks[col].length, cap: capNow });
-    }
-
     // Anything arriving in this pan sets off a Bomb that was ALREADY lying
     // dormant in it. Snapshot before the extra acts: a Colour Bomb lays fresh
     // mines in this same column, and firing one of those immediately turned
@@ -735,6 +742,21 @@ const TiltRules = (function () {
     for (const q of board.stacks[col]) if (q && q.armed && q !== marble) dormant.add(q.id);
 
     applyExtra(board, col, marble, events, ctx);
+
+    // The guide's losing rule is physical - a column that reaches the crane -
+    // and it is checked the moment it happens, AFTER the arriving marble has
+    // acted: a Crusher dropped into a full column empties it as it lands, and
+    // judging the column first killed the player and then showed them an empty
+    // column on the game-over card. Judged at the tilt this landing CAUSES, not
+    // the one before it: a raised pan that takes a heavy marble sinks under it,
+    // and a sunk pan holds eight. The tilt itself is applied later by tipScale,
+    // because changing it here would hide the flip from the throw.
+    const d = diffOf(board, scaleOf(col));
+    const capNow = capacityAt(board, col, d === 0 ? 0 : (d > 0 ? 1 : -1));
+    if (!board.over && board.stacks[col].length > capNow) {
+      board.over = true;
+      emit(events, board, { type: 'overflow', col, height: board.stacks[col].length, cap: capNow });
+    }
 
     for (let r = board.stacks[col].length - 1; r >= 0; r--) {
       const q = board.stacks[col][r];
@@ -1380,6 +1402,10 @@ const TiltRules = (function () {
           added.push({ col, row: stack.length - 1, marble: stone });
         }
         emit(events, board, { type: 'tower', col, cells: added });
+        // The Tower becomes part of its own wall. Left as a Tower it could be
+        // catapulted again later and fire on whoever it landed on, its owner
+        // included, since a delivered weapon stays armed for good.
+        convertTo(board, [{ col, row: stack.indexOf(m) }], KIND.STONE, events, null);
         break;
       }
       case KIND.LEVELLER: {
@@ -1394,20 +1420,27 @@ const TiltRules = (function () {
         break;
       }
       case KIND.TWISTER: {
-        // Scoops the pan and scatters it across the field at random.
-        const taken = stack.splice(0, stack.length).filter((q) => q !== m);
+        // Scoops the pan and scatters it across the field at random. The event
+        // says exactly what left and exactly where it landed, so a display copy
+        // can follow it step by step; the Twister itself stays at the foot of
+        // the emptied column and leaves by the ordinary route below, with a
+        // blast of its own - previously it vanished with no event at all.
+        const taken = stack.filter((q) => q !== m).map((q, r) => ({ col, row: stack.indexOf(q), marble: q }));
+        stack.length = 0;
+        stack.push(m);
         const landed = [];
-        for (const q of taken) {
+        for (const t of taken) {
           let best = Math.floor(board.rng() * board.cols);
           for (let n = 0; n < board.cols; n++) {
             const c = (best + n) % board.cols;
             if (board.stacks[c].length < capacityOf(board, c)) { best = c; break; }
           }
-          board.stacks[best].push(q);
-          landed.push({ col: best, row: board.stacks[best].length - 1, marble: q });
+          board.stacks[best].push(t.marble);
+          landed.push({ col: best, row: board.stacks[best].length - 1, marble: t.marble });
         }
-        emit(events, board, { type: 'twister', col, cells: landed });
+        emit(events, board, { type: 'twister', col, taken, landed });
         relevel(board, events);
+        push(col, stack.indexOf(m));
         break;
       }
       case KIND.BLOCKER: {
@@ -1482,13 +1515,32 @@ const TiltRules = (function () {
     return rest[Math.floor(board.rng() * rest.length)];
   }
 
+  /**
+   * Put an awarded marble at the front of a depot column without destroying
+   * anything special already waiting there. Blind truncation lost 3.8% of
+   * earned extras in a review soak: a third award into the same roomiest
+   * column pushed the first one off the back before it could be collected.
+   * The column with the fewest specials waiting wins; then the roomiest pan.
+   * Nothing makes way: the column simply holds one more until it drains, and
+   * fillDepot only tops up to the drawn depth, so it drains back on its own.
+   * Removing even a plain marble here destroyed something the player could see
+   * - 15% of level stars made a visible marble vanish.
+   */
+  function stockDepot(board, marble) {
+    const specials = (c) => board.depot[c].filter((m) => m.kind !== KIND.PLAIN).length;
+    let best = 0;
+    for (let c = 1; c < board.cols; c++) {
+      if (specials(c) < specials(best) ||
+          (specials(c) === specials(best) && headroom(board, c) > headroom(board, best))) best = c;
+    }
+    board.depot[best].unshift(marble);
+    return best;
+  }
+
   function awardExtra(board, size, events) {
     const attack = size % 2 === 0;
     const kind = rewardFor(board, size);
-    let best = 0;
-    for (let c = 1; c < board.cols; c++) if (headroom(board, c) > headroom(board, best)) best = c;
-    board.depot[best].unshift(makeMarble(board, { kind, weight: 0 }));
-    board.depot[best].length = board.cfg.depotDepth;
+    const best = stockDepot(board, makeMarble(board, { kind, weight: 0 }));
     emit(events, board, { type: 'earn', col: best, kind, size, attack });
   }
 
@@ -1509,9 +1561,13 @@ const TiltRules = (function () {
   }
 
   /**
-   * The bonus lamps. A clear lights the next lamp and the lit lamp multiplies
-   * the clear after it, x1 up to x4 - but the lamps go out after a few seconds
-   * of real time, so the bonus is a reward for clearing AGAIN before they do.
+   * The bonus lamps, as the manual describes them (CONFIRMED): forming a trio
+   * lights ALL the lamps, x1 to x4, and they go out one by one over a few
+   * seconds. The next clear pays whatever is still lit. So the reward is not
+   * for a long chain of clears but for the NEXT one coming quickly - four
+   * times the points inside the first moment, dwindling to nothing extra once
+   * the last lamp is dark. An earlier build lit one lamp per clear, which is
+   * the same mechanic inverted.
    *
    * The engine has no clock of its own; the controller passes the time in with
    * each drop and ticks it between drops so the HUD can show the lamps dying.
@@ -1519,16 +1575,17 @@ const TiltRules = (function () {
    * keeps every replay deterministic.
    */
   function tickBonus(board, now) {
-    if (now != null && board.bonusUntil != null && now > board.bonusUntil && board.bonus > 1) {
-      board.bonus = 1;
-      board.bonusUntil = null;
-      return true;
-    }
-    return false;
+    if (now == null || board.bonusUntil == null) return false;
+    const remaining = board.bonusUntil - now;
+    const lit = remaining <= 0 ? 1 : 1 + Math.ceil((board.cfg.bonusMax - 1) * remaining / board.cfg.bonusWindow);
+    if (remaining <= 0) board.bonusUntil = null;
+    if (lit === board.bonus) return false;
+    board.bonus = lit;
+    return true;
   }
 
   function lightBonus(board, ctx) {
-    board.bonus = Math.min(board.cfg.bonusMax, board.bonus + 1);
+    board.bonus = board.cfg.bonusMax;
     if (ctx.now != null) board.bonusUntil = ctx.now + board.cfg.bonusWindow;
   }
 
@@ -1640,8 +1697,9 @@ const TiltRules = (function () {
     board.rng.seed(data.rng);
     board.level = data.level; board.dropped = data.dropped; board.score = data.score;
     board.cleared = data.cleared; board.chainBest = data.chainBest;
-    // The lamp survives a reload; the clock does not, so it goes out on resume.
-    board.bonus = int(data.bonus, 1, 1e3) ? Math.min(board.cfg.bonusMax, data.bonus) : 1;
+    // The clock does not survive a reload, so neither can the lamp: kept lit
+    // with no clock it never went out, and a refresh banked x4 for ever.
+    board.bonus = 1;
     board.bonusUntil = null;
     board.crane = int(data.crane, 0, cols - 1) ? data.crane : null;
     board.since = data.since; board.over = !!data.over;
@@ -1750,6 +1808,10 @@ const TiltRules = (function () {
   function predictDrop(board, col, marble) {
     const m = marble || board.held;
     if (!m || col < 0 || col >= board.cols || board.over) return null;
+    if (isBlocked(board, col)) return null;            // nothing can be dropped there
+    // "Kills" means we END them. An opponent already out stays out; every
+    // crossing drop after that was being painted THIS ENDS THEM in red.
+    const foeAlive = !!(board.neighbour && !board.neighbour.over);
     const trial = cloneLinked(board);
     const events = dropMarble(trial, col, Object.assign({}, m));
     // Only OUR overflow ends our game. Filling the opponent up is a win, and it
@@ -1760,16 +1822,23 @@ const TiltRules = (function () {
       overflowCol: spill ? spill.col : -1,
       // Did this drop just send something across? Worth showing before committing.
       attacks: events.some((e) => e.type === 'cross'),
-      kills: !!(trial.neighbour && trial.neighbour.over),
+      kills: foeAlive && !!(trial.neighbour && trial.neighbour.over),
       events
     };
   }
 
-  /** Sealed while a Blocker sits in the column beside it. Derived, never stored. */
+  /**
+   * Sealed while a DELIVERED Blocker sits in the column beside it. Derived,
+   * never stored. A Blocker still at home has not been thrown yet and is inert
+   * like every other weapon; sealing on it turned your own reward into a wound,
+   * and because it sealed its own see-saw's partner column that see-saw could
+   * never be flipped to launch it - a review brute-forced 119,808 attempts and
+   * found no way out.
+   */
   function isBlocked(board, col) {
     for (const c of [col - 1, col + 1]) {
       if (c < 0 || c >= board.cols) continue;
-      if (board.stacks[c].some((m) => m.kind === KIND.BLOCKER)) return true;
+      if (board.stacks[c].some((m) => m.kind === KIND.BLOCKER && m.crossed)) return true;
     }
     return false;
   }
@@ -1804,7 +1873,7 @@ const TiltRules = (function () {
     cloneBoard, cloneLinked, predictDrop, link, landingFor, emit,
     ATTACKS, HELPFUL, isAttack,
     blockAround, diagonalsFrom, diagonalsBelow, triangleBelow, paint, convertTo, darken, PASSIVE,
-    allOfColour, targetUnder, awardExtra, rewardFor, REWARD_TABLE, tickBonus, isBlocked, isDark,
+    allOfColour, targetUnder, awardExtra, stockDepot, rewardFor, REWARD_TABLE, tickBonus, isBlocked, isDark,
     serialize, restore
   };
 })();

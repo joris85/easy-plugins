@@ -940,6 +940,10 @@ console.log('\n== a saved game comes back exactly ==');
   check('every field survives the round trip', shape(r), shape(b));
 
   // The future has to match too, or the player resumes into a different game.
+  // The lamps are the one thing a reload cannot carry (their clock is gone), so
+  // the original is put back to a dark lamp before the replay, exactly as
+  // restore leaves the copy.
+  b.bonus = 1; b.bonusUntil = null;
   const play = (board) => {
     const out = [];
     for (let i = 0; i < 40 && !board.over; i++) {
@@ -1369,7 +1373,11 @@ console.log('\n== clears earn extras, and the parity decides whose they are ==')
   const earn = ev.find((e) => e.type === 'earn');
   ok('it names the depot column it went to', earn && earn.col >= 0 && earn.col < b.cols);
   check('and that column really changed', b.depot[earn.col][0].kind, earn.kind);
-  check('while the depot keeps its drawn depth', b.depot[earn.col].length, b.cfg.depotDepth);
+  // It may stand one deeper than the drawn depth until it drains: nothing is
+  // ever evicted to make room, since that destroyed marbles the player could see.
+  ok('and nothing waiting there was destroyed',
+     depotBefore[earn.col].split(',').filter(Boolean)
+       .every((id) => b.depot[earn.col].some((m) => String(m.id) === id)));
 }
 
 console.log('\n== an attack extra is inert until it has crossed ==');
@@ -1679,12 +1687,10 @@ console.log('\n== REVIEW: the bonus lamps ==');
   check('a fresh board shows x1', b.bonus, 1);
   const first = trio(b, 2).find((e) => e.type === 'clear');
   check('the first clear pays at x1', first.bonus, 1);
-  check('and lights the next lamp', b.bonus, 2);
+  check('and lights every lamp', b.bonus, 4);
   const second = trio(b, 2).find((e) => e.type === 'clear');
-  check('the second clear pays at x2', second.bonus, 2);
-  check('and twice as much for the same trio', second.gain, first.gain * 2);
-  trio(b, 2); trio(b, 2); trio(b, 2);
-  check('the lamps stop at x4', b.bonus, 4);
+  check('a quick second clear pays at x4', second.bonus, 4);
+  check('four times as much for the same trio', second.gain, first.gain * 4);
 }
 {
   // With a clock, the lamps go out.
@@ -1692,10 +1698,11 @@ console.log('\n== REVIEW: the bonus lamps ==');
   b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2));
   R.pickUp(b, 2); b.held = M(b, 1, 2);
   R.dropFromDepot(b, 2, 100);                 // t = 100s: clear, lamp lit until 106
-  check('lit, with the clock running', b.bonus, 2);
-  check('still lit inside the window', R.tickBonus(b, 105), false);
-  check('out once the window passes', R.tickBonus(b, 107), true);
-  check('back to x1', b.bonus, 1);
+  check('all four lit, with the clock running', b.bonus, 4);
+  check('still all lit a second in', R.tickBonus(b, 101), false);
+  check('the lamps go out one by one', (R.tickBonus(b, 103), b.bonus), 3);
+  check('and one more', (R.tickBonus(b, 105), b.bonus), 2);
+  check('dark once the window passes', (R.tickBonus(b, 107), b.bonus), 1);
   // and a drop after the window pays at x1 again
   b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2));
   b.held = M(b, 1, 2);
@@ -1706,8 +1713,8 @@ console.log('\n== REVIEW: the bonus lamps ==');
   const b = B({}, 3);
   b.stacks[0].push(M(b, 1, 2)); b.stacks[1].push(M(b, 1, 2)); R.dropMarble(b, 2, M(b, 1, 2));
   const r = R.restore(JSON.parse(JSON.stringify(R.serialize(b))));
-  check('the lit lamp survives a reload', r.bonus, 2);
-  check('but its clock does not', r.bonusUntil, null);
+  check('the lamps go out on a reload, since their clock cannot follow', r.bonus, 1);
+  check('and there is no clock to bring them back', r.bonusUntil, null);
 }
 
 console.log('\n== REVIEW: a column that reaches the crane loses at once ==');
@@ -1733,6 +1740,133 @@ console.log('\n== REVIEW: a column that reaches the crane loses at once ==');
   R.dropMarble(b, 1, M(b, 1, 20));
   check('a heavy seventh sinks it and is safe', b.over, false);
   check('with the pan now down', R.capacityOf(b, 1), 8);
+}
+
+
+console.log('\n== SOLO REVIEW: a Joker serves the run on its right too ==');
+{
+  const P = (b, c) => M(b, c, 0);
+  const cases = [
+    ['green Joker red red',     (b) => { b.stacks[0].push(P(b, 1)); b.stacks[1].push(M(b, 9, 0, K.JOKER)); b.stacks[2].push(P(b, 0)); b.stacks[3].push(P(b, 0)); }],
+    ['Heart Joker red red',     (b) => { b.stacks[0].push(M(b, 1, 0, K.HEART)); b.stacks[1].push(M(b, 9, 0, K.JOKER)); b.stacks[2].push(P(b, 0)); b.stacks[3].push(P(b, 0)); }],
+    ['red Joker Heart Heart',   (b) => { b.stacks[0].push(P(b, 0)); b.stacks[1].push(M(b, 9, 0, K.JOKER)); b.stacks[2].push(M(b, 1, 0, K.HEART)); b.stacks[3].push(M(b, 2, 0, K.HEART)); }],
+    ['blue Joker green Joker',  (b) => { b.stacks[0].push(P(b, 2)); b.stacks[1].push(M(b, 9, 0, K.JOKER)); b.stacks[2].push(P(b, 1)); b.stacks[3].push(M(b, 9, 0, K.JOKER)); }]
+  ];
+  for (const [name, build] of cases) {
+    const b = B({}, 1); build(b);
+    const clear = R.findClear(b);
+    ok(name + ' clears', !!clear && clear.cells.length >= 3, name + ' -> ' + JSON.stringify(clear && clear.cells));
+  }
+  // and the mirror image still does
+  const b = B({}, 1); b.stacks[0].push(P(b, 0)); b.stacks[1].push(P(b, 0)); b.stacks[2].push(M(b, 9, 0, K.JOKER)); b.stacks[3].push(P(b, 1));
+  ok('red red Joker green still clears', !!R.findClear(b));
+  // vertically too
+  const v = B({}, 1);
+  v.stacks[2].push(P(v, 1), M(v, 9, 0, K.JOKER), P(v, 0), P(v, 0), P(v, 0), P(v, 0));
+  const five = R.findFive(v);
+  ok('green Joker red red red red stacked merges the five', !!five && five.rows.length === 5, JSON.stringify(five));
+}
+
+console.log('\n== SOLO REVIEW: stocking the depot never destroys anything ==');
+{
+  const b = R.makeBoard({}, 3);
+  const before = b.depot.map((q) => q.map((m) => m.id));
+  for (let i = 0; i < 3; i++) R.awardExtra(b, 4, []);
+  const after = new Set(b.depot.flat().map((m) => m.id));
+  ok('every marble that was waiting is still waiting', before.flat().every((id) => after.has(id)));
+  check('and all three awards are there', b.depot.flat().filter((m) => R.ATTACKS.indexOf(m.kind) >= 0).length, 3);
+  ok('spread across columns rather than piled into one', b.depot.filter((q) => q.some((m) => R.ATTACKS.indexOf(m.kind) >= 0)).length >= 2);
+  // the level star, same rule
+  const s = B({}, 1); R.pickUp(s, 0); s.dropped = s.cfg.marblesPerLevel - 1;
+  const seen = new Set(s.depot.flat().map((m) => m.id)); seen.add(s.held.id);
+  R.dropFromDepot(s, 0);
+  const now = new Set(s.depot.flat().map((m) => m.id)); if (s.held) now.add(s.held.id);
+  const lost = Array.from(seen).filter((id) => !now.has(id) && !s.stacks.flat().some((m) => m.id === id));
+  check('a level star evicts nothing', lost.length, 0);
+  ok('and it is in a depot', s.depot.flat().some((m) => m.kind === K.SILVER));
+}
+
+console.log('\n== SOLO REVIEW: a rescue extra acts before the column is judged ==');
+{
+  const b = B({}, 3);
+  for (let i = 0; i < 7; i++) b.stacks[2].push(M(b, i % 3, 0));      // level, full
+  const ev = R.dropMarble(b, 2, M(b, 0, 0, K.CRUSHER));
+  check('a Crusher into a full column is not a death', b.over, false);
+  check('the column is empty', b.stacks[2].length, 0);
+  const c = B({}, 3);
+  for (let i = 0; i < 7; i++) c.stacks[2].push(M(c, i % 3, 0));
+  R.dropMarble(c, 2, M(c, 0, 0));
+  check('a plain eighth marble still is', c.over, true);
+}
+
+console.log('\n== SOLO REVIEW: Sting can actually turn up ==');
+{
+  ok('Sting has an unlock level', R.UNLOCK.some((u) => u.kind === K.STING));
+  const b = R.makeBoard({ specialChance: 1 }, 5); b.level = 9;
+  let seen = 0;
+  for (let i = 0; i < 400; i++) if (R.randomMarble(b).kind === K.STING) seen++;
+  ok('and is dealt once unlocked', seen > 0, seen + ' in 400');
+}
+
+console.log('\n== VERSUS REVIEW: the arsenal, fixed ==');
+{
+  // A Blocker at home seals nothing and can be launched like any weapon.
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  a.stacks[4].push(M(a, 1, 1));
+  R.dropMarble(a, 4, M(a, 0, 0, K.BLOCKER));
+  check('a Blocker at home seals nothing', [R.isBlocked(a, 3), R.isBlocked(a, 5)], [false, false]);
+  a.stacks[4] = [M(a, 1, 1), a.stacks[4].find((m) => m.kind === K.BLOCKER)];
+  a.stacks[6] = []; a.stacks[7] = [];
+  // put it on the light pan of the last see-saw and flip it
+  const blocker = a.stacks[4].pop(); a.stacks[6].push(blocker);
+  R.refreshTilt(a, 3);
+  const l = R.dropMarble(a, 7, M(a, 1, 5)).find((e) => e.type === 'launch');
+  ok('and it can be catapulted across', l && l.crossed && l.original === blocker, JSON.stringify(l && [l.from, l.to, l.crossed]));
+  check('where it seals THEIR columns', [R.isBlocked(z, l.to - 1), R.isBlocked(z, l.to + 1)].filter(Boolean).length > 0, true);
+}
+{
+  // kills is only true when we END them
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  z.over = true;
+  a.stacks[6].push(M(a, 0, 2));
+  R.refreshTilt(a, 3);
+  const p = R.predictDrop(a, 7, M(a, 1, 6));
+  check('a throw at a dead opponent attacks', p.attacks, true);
+  check('but does not "kill" them again', p.kills, false);
+}
+{
+  // the Twister leaves by the front door
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  z.stacks[2].push(M(z, 1, 1), M(z, 2, 1), M(z, 0, 1));
+  const tw = M(a, 0, 0, K.TWISTER); tw.crossed = true;
+  const ev = [];
+  R.landMarble(z, 2, tw, ev, { flown: new Set(), depth: 1, guard: 0 }, true);
+  const t = ev.find((e) => e.type === 'twister');
+  ok('the twister event says what left', t && t.taken.length === 3, JSON.stringify(t && t.taken.map((c) => c.row)));
+  ok('and where each landed', t && t.landed.length === 3);
+  ok('and the Twister itself leaves with a blast', ev.some((e) => e.type === 'blast' && e.kind === K.TWISTER));
+  check('so it is on neither board', z.stacks.flat().concat(a.stacks.flat()).filter((m) => m.kind === K.TWISTER).length, 0);
+  check('and nothing was lost', z.stacks.flat().length, 3);
+}
+{
+  // a Tower becomes part of its own wall
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  z.stacks[0].push(M(z, 1, 1));
+  R.refreshTilt(z, 0);                       // settle the tilt before the delivery
+  const capWas = R.capacityOf(z, 0);         // reading it after would see the tip
+  const tw = M(a, 0, 0, K.TOWER); tw.crossed = true;
+  R.landMarble(z, 0, tw, [], { flown: new Set(), depth: 1, guard: 0 }, true);
+  check('no Tower marble is left to be catapulted back', z.stacks[0].filter((m) => m.kind === K.TOWER).length, 0);
+  check('the column is filled to the brim', z.stacks[0].length, capWas);
+  check('and everything it added is stone', z.stacks[0].filter((m) => m.kind === K.STONE).length, capWas - 1);
+}
+{
+  // seals are honoured by pick-up and preview
+  const [a, z] = R.link(B({}, 3), B({}, 4), K.STONE);
+  const bl = M(a, 0, 0, K.BLOCKER); bl.crossed = true;
+  z.stacks[5].push(M(z, 1, 1)); z.stacks[5].push(bl);
+  check('a sealed column cannot be picked from', R.pickUp(z, 4), null);
+  check('nor previewed', R.predictDrop(z, 4, M(z, 1, 1)), null);
 }
 
 console.log('\n' + (fail === 0 ? 'ALL ' + pass + ' CHECKS PASSED' : pass + ' passed, ' + fail + ' FAILED'));

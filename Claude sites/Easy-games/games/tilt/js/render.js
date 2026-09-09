@@ -526,9 +526,12 @@ const TiltRender = (function () {
    * watch happen when the marble above drops into the vacated slot.
    */
   function drawDepot(ctx, depot, K, craneCol, depth) {
-    const slots = depth || 2;
     for (let c = 0; c < G.cols; c++) {
       const x = colX(c);
+      // A column can hold one more than the drawn depth when every marble in
+      // it is special and nothing plain could make way; the queue simply
+      // stacks one higher rather than losing an earned extra.
+      const slots = Math.max(depth || 2, depot[c].length);
       for (let d = depot[c].length - 1; d >= 0; d--) {
         const y = G.depotY + (slots - 1 - d) * G.depotGap;
         const s = d === 0 ? 0.7 : 0.58;
