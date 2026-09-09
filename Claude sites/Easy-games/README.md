@@ -34,8 +34,9 @@ and the whole site is static.
 | [Easy Sudoku](games/sudoku/index.html) | 1 | Graded by the logic it needs. Pencil marks, and hints that name the technique |
 | [Easy Picture](games/picture/index.html) | 1 | Number clues hide a picture. Solvable by logic alone, never by guessing |
 | [Easy Blocks](games/blocks/index.html) | 1 | Falling shapes, full rows clear. Wall kicks, hold, ghost and T-spins |
+| [Easy Solitaire](games/solitaire/index.html) | 1 | Klondike, draw one or draw three. Unlimited undo, and winnable deals |
 
-Two more are specified and queued. See
+One more is specified and queued. See
 [docs/Easy Games Blueprint.md](docs/Easy%20Games%20Blueprint.md) for the exact
 mechanics of every one of them plus the build plan.
 

@@ -633,7 +633,7 @@ const CATALOG = [
   {
     slug: 'solitaire', name: 'Easy Solitaire', cat: 'puzzle',
     desc: 'Klondike, draw one or draw three, unlimited undo.',
-    tags: ['Solo', 'Touch'], soon: true,
+    tags: ['Solo', 'Touch'],
     thumb(c, w, h) { Thumb.field(c, w, h); }
   }
 ];
