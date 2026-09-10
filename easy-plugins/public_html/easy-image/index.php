@@ -1037,7 +1037,7 @@ include '../shared/header.php';
     <script src="toss-toy/toss-toy.js?v=11"></script>
     <script src="toss-toy/toss-toy-bridge.js?v=3"></script>
 <?php endif; ?>
-    <script src="js/app.js?v=2.36.0"></script>
+    <script src="js/app.js?v=2.37.0"></script>
     <!-- Bootstrap for shared components -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 </body>

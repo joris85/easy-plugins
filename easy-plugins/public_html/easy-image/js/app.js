@@ -1293,6 +1293,14 @@ function getMaxBatchBytes() {
 }
 
 function validateFileAgainstServerLimits(file) {
+    // If the real server limits could not be read, never block on the
+    // conservative built-in defaults: they are far smaller than a typical
+    // configured limit, so we would reject files the server accepts fine.
+    // Let the upload through and let the server be the judge.
+    if (!serverLimits.loaded) {
+        return null;
+    }
+
     const maxSingle = getMaxSingleFileBytes();
     if (file.size <= maxSingle) {
         return null;
@@ -1368,6 +1376,7 @@ async function loadServerLimits() {
     try {
         const response = await fetch('check_limits.php', { cache: 'no-store' });
         if (!response.ok) {
+            console.warn('Easy Image: server upload limits unavailable (HTTP ' + response.status + ').');
             return;
         }
 
@@ -1383,7 +1392,9 @@ async function loadServerLimits() {
         };
         updateServerLimitsNotice();
     } catch (error) {
-        // Server limits are optional; UI works without them.
+        // Server limits are optional; the UI still works without them, but
+        // make the failure visible so a broken endpoint is not silent.
+        console.warn('Easy Image: could not read server upload limits.', error);
     }
 }
 
