@@ -1,16 +1,18 @@
 /**
- * Easy Color — pick a color, read HEX/RGB/HSL, build shades/tints and matching
- * palettes, generate a CSS gradient, and check WCAG contrast. Pure client-side.
+ * Easy Color - pick a colour, read it as HEX/RGB/HSL, build shades, matching
+ * palettes and multi-stop CSS gradients, and check WCAG contrast.
+ * Everything runs in the browser; nothing is uploaded.
  */
 (function () {
     'use strict';
 
     const isNl = document.documentElement.lang === 'nl';
     const t = (en, nl) => (isNl ? nl : en);
+    const $ = (id) => document.getElementById(id);
 
-    // ---- Color math ----
+    // ---- Colour math ----
     function hexToRgb(hex) {
-        hex = hex.replace('#', '');
+        hex = String(hex).replace('#', '').trim();
         if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
         const n = parseInt(hex, 16);
         return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
@@ -65,64 +67,182 @@
         const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
         return (hi + 0.05) / (lo + 0.05);
     }
+    const isHex = (v) => /^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(v).trim());
+    // Readable ink on any background, so swatch labels stay legible.
+    const inkOn = (hex) => {
+        const c = hexToRgb(hex);
+        return luminance(c.r, c.g, c.b) > 0.4 ? '#111' : '#fff';
+    };
 
-    // ---- Main picker ----
-    const picker = document.getElementById('colorPicker');
-    const hexIn = document.getElementById('colorHex');
-    const rgbIn = document.getElementById('colorRgb');
-    const hslIn = document.getElementById('colorHsl');
-    const bigSwatch = document.getElementById('colorBigSwatch');
-
-    let current = { r: 76, g: 175, b: 80 };
-
-    function setColor(rgb, from) {
-        current = rgb;
-        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-        const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-        if (from !== 'picker') picker.value = hex;
-        if (from !== 'hex') hexIn.value = hex;
-        if (from !== 'rgb') rgbIn.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        if (from !== 'hsl') hslIn.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
-        bigSwatch.style.background = hex;
-        bigSwatch.style.color = luminance(rgb.r, rgb.g, rgb.b) > 0.4 ? '#000' : '#fff';
-        bigSwatch.textContent = hex.toUpperCase();
-        renderShades();
-        renderPalette();
-        renderGradient();
-        renderContrast();
+    // ---- Output formats ----
+    // One setting drives both what the swatches read and what gets copied,
+    // so what you see on a chip is exactly what lands on the clipboard.
+    let format = 'hex';
+    function fmt(hex) {
+        const c = hexToRgb(hex);
+        if (format === 'rgb') return `rgb(${c.r}, ${c.g}, ${c.b})`;
+        if (format === 'hsl') {
+            const h = rgbToHsl(c.r, c.g, c.b);
+            return `hsl(${h.h}, ${h.s}%, ${h.l}%)`;
+        }
+        return hex.toUpperCase();
     }
 
-    picker.addEventListener('input', () => setColor(hexToRgb(picker.value), 'picker'));
-    hexIn.addEventListener('change', () => {
-        if (/^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hexIn.value.trim())) setColor(hexToRgb(hexIn.value.trim()), 'hex');
-    });
+    // ---- Toast ----
+    const toast = $('ccToast');
+    let toastTimer = null;
+    function say(msg) {
+        toast.textContent = msg;
+        toast.classList.add('on');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('on'), 1600);
+    }
+    function copy(text) {
+        const done = () => say(t('Copied: ', 'Gekopieerd: ') + text);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        } else {
+            fallbackCopy(text, done);
+        }
+    }
+    function fallbackCopy(text, done) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { say(t('Could not copy', 'Kopiëren mislukt')); }
+        document.body.removeChild(ta);
+    }
+
+    // ---- Current colour ----
+    const picker = $('ccPicker');
+    const bigHex = $('ccBigHex');
+    const hexIn = $('ccHex');
+    const rgbIn = $('ccRgb');
+    const hslIn = $('ccHsl');
+    let current = '#4caf50';
+
+    function setColor(hex, from) {
+        if (!isHex(hex)) return;
+        hex = hex.trim();
+        if (hex[0] !== '#') hex = '#' + hex;
+        const c = hexToRgb(hex);
+        current = rgbToHex(c.r, c.g, c.b);
+        const hsl = rgbToHsl(c.r, c.g, c.b);
+
+        if (from !== 'picker') picker.value = current;
+        if (from !== 'hex') hexIn.value = current.toUpperCase();
+        if (from !== 'rgb') rgbIn.value = `${c.r}, ${c.g}, ${c.b}`;
+        if (from !== 'hsl') hslIn.value = `${hsl.h}, ${hsl.s}%, ${hsl.l}%`;
+
+        $('ccBig').style.background = current;
+        bigHex.style.color = inkOn(current);
+        bigHex.textContent = fmt(current);
+        document.querySelector('.cc-big-hint').style.color = inkOn(current);
+
+        renderShades();
+        renderPalette();
+        // The first gradient stop tracks the picked colour, which is what
+        // people expect after choosing a brand colour.
+        if (from !== 'stop') { stops[0] = current; renderStops(); }
+        renderGradient();
+        rememberColor(current);
+    }
+
+    picker.addEventListener('input', () => setColor(picker.value, 'picker'));
+    hexIn.addEventListener('input', () => { if (isHex(hexIn.value)) setColor(hexIn.value, 'hex'); });
     rgbIn.addEventListener('change', () => {
         const m = rgbIn.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
-        if (m) setColor({ r: +m[1], g: +m[2], b: +m[3] }, 'rgb');
+        if (m) setColor(rgbToHex(+m[1], +m[2], +m[3]), 'rgb');
     });
     hslIn.addEventListener('change', () => {
         const m = hslIn.value.match(/(\d+)\D+(\d+)\D+(\d+)/);
-        if (m) setColor(hslToRgb(+m[1], +m[2], +m[3]), 'hsl');
+        if (m) { const c = hslToRgb(+m[1], +m[2], +m[3]); setColor(rgbToHex(c.r, c.g, c.b), 'hsl'); }
+    });
+
+    // Format toggle
+    $('ccFormats').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-format]');
+        if (!btn) return;
+        format = btn.dataset.format;
+        $('ccFormats').querySelectorAll('button').forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle('on', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        bigHex.textContent = fmt(current);
+        renderShades();
+        renderPalette();
+        renderRecent();
+    });
+
+    // Copy buttons next to the three readouts
+    document.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', () => {
+        const val = $(btn.dataset.copy).value;
+        const wrap = btn.dataset.wrap;
+        copy(wrap ? `${wrap}(${val})` : val);
+    }));
+
+    // EyeDropper: only offered where the browser actually has it.
+    if (window.EyeDropper) {
+        const eye = $('ccEyedropper');
+        eye.style.display = '';
+        eye.addEventListener('click', () => {
+            new window.EyeDropper().open()
+                .then((res) => setColor(res.sRGBHex, 'eyedropper'))
+                .catch(() => {});
+        });
+    }
+
+    // ---- Recent colours ----
+    let recent = [];
+    try {
+        const saved = localStorage.getItem('easyColorRecent');
+        if (saved) recent = JSON.parse(saved).filter(isHex).slice(0, 12);
+    } catch (e) { recent = []; }
+
+    let rememberTimer = null;
+    function rememberColor(hex) {
+        // Debounced: dragging the picker would otherwise fill the list with
+        // every colour the cursor passed through.
+        clearTimeout(rememberTimer);
+        rememberTimer = setTimeout(() => {
+            recent = [hex].concat(recent.filter((c) => c.toLowerCase() !== hex.toLowerCase())).slice(0, 12);
+            try { localStorage.setItem('easyColorRecent', JSON.stringify(recent)); } catch (e) {}
+            renderRecent();
+        }, 700);
+    }
+    function renderRecent() {
+        const box = $('ccRecent');
+        if (!recent.length) { $('ccRecentWrap').style.display = 'none'; return; }
+        $('ccRecentWrap').style.display = '';
+        box.innerHTML = recent.map((hex) =>
+            `<button type="button" class="cc-recent-dot" data-hex="${hex}" style="background:${hex}" title="${fmt(hex)}"></button>`
+        ).join('');
+    }
+    $('ccRecent').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-hex]');
+        if (b) setColor(b.dataset.hex, 'recent');
     });
 
     // ---- Shades & tints ----
     function renderShades() {
-        const box = document.getElementById('colorShades');
-        const hsl = rgbToHsl(current.r, current.g, current.b);
+        const c = hexToRgb(current);
+        const hsl = rgbToHsl(c.r, c.g, c.b);
         let html = '';
-        for (let i = 90; i >= 10; i -= 10) {
-            const rgb = hslToRgb(hsl.h, hsl.s, i);
-            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-            html += swatch(hex, i + '%');
+        for (let l = 95; l >= 5; l -= 10) {
+            const c = hslToRgb(hsl.h, hsl.s, l);
+            html += chip(rgbToHex(c.r, c.g, c.b), l + '%');
         }
-        box.innerHTML = html;
-        wireCopy(box);
+        $('ccShades').innerHTML = html;
     }
 
     // ---- Matching palette ----
     function renderPalette() {
-        const box = document.getElementById('colorPalette');
-        const hsl = rgbToHsl(current.r, current.g, current.b);
+        const c = hexToRgb(current);
+        const hsl = rgbToHsl(c.r, c.g, c.b);
         const rel = [
             [t('Base', 'Basis'), hsl.h],
             [t('Complement', 'Complement'), (hsl.h + 180) % 360],
@@ -131,86 +251,196 @@
             [t('Triadic', 'Triadisch'), (hsl.h + 120) % 360],
             [t('Triadic', 'Triadisch'), (hsl.h + 240) % 360]
         ];
-        box.innerHTML = rel.map(([label, h]) => {
+        $('ccPalette').innerHTML = rel.map(([label, h]) => {
             const rgb = hslToRgb(h, hsl.s, hsl.l);
-            return swatch(rgbToHex(rgb.r, rgb.g, rgb.b), label);
+            return chip(rgbToHex(rgb.r, rgb.g, rgb.b), label);
         }).join('');
-        wireCopy(box);
     }
+
+    function chip(hex, label) {
+        return `<button type="button" class="cc-chip" data-hex="${hex}" style="background:${hex};color:${inkOn(hex)}" `
+            + `title="${t('Click to copy', 'Klik om te kopiëren')}">`
+            + `<span class="cc-chip-val">${fmt(hex)}</span><span class="cc-chip-label">${label}</span></button>`;
+    }
+
+    // One listener per container instead of one per chip, since the chips are
+    // re-rendered on every colour change.
+    ['ccShades', 'ccPalette'].forEach((id) => $(id).addEventListener('click', (e) => {
+        const b = e.target.closest('.cc-chip');
+        if (b) copy(fmt(b.dataset.hex));
+    }));
 
     // ---- Gradient ----
-    const gradEnd = document.getElementById('gradEnd');
-    const gradAngle = document.getElementById('gradAngle');
-    [gradEnd, gradAngle].forEach((el) => el && el.addEventListener('input', renderGradient));
+    let stops = ['#4caf50', '#1e88e5'];
+    let gradType = 'linear';
+    let gradPos = 'center';
 
-    function renderGradient() {
-        const from = rgbToHex(current.r, current.g, current.b);
-        const to = gradEnd.value;
-        const angle = gradAngle.value;
-        const css = `linear-gradient(${angle}deg, ${from}, ${to})`;
-        document.getElementById('gradPreview').style.background = css;
-        const code = `background: ${css};`;
-        document.getElementById('gradCode').textContent = code;
+    function renderStops() {
+        $('ccStops').innerHTML = stops.map((hex, i) =>
+            `<div class="cc-stop">`
+            + `<input type="color" value="${hex}" data-stop="${i}" aria-label="${t('Colour', 'Kleur')} ${i + 1}">`
+            + `<span class="cc-stop-hex">${hex.toUpperCase()}</span>`
+            + (stops.length > 2
+                ? `<button type="button" class="cc-stop-x" data-remove="${i}" title="${t('Remove', 'Verwijderen')}" aria-label="${t('Remove colour', 'Kleur verwijderen')} ${i + 1}"><i class="fas fa-xmark"></i></button>`
+                : '')
+            + `</div>`
+        ).join('');
+        $('ccAddStop').disabled = stops.length >= 6;
     }
-    document.getElementById('gradCopy').addEventListener('click', (e) => {
-        navigator.clipboard.writeText(document.getElementById('gradCode').textContent);
-        flash(e.currentTarget);
+
+    $('ccStops').addEventListener('input', (e) => {
+        const idx = e.target.dataset.stop;
+        if (idx === undefined) return;
+        stops[+idx] = e.target.value;
+        e.target.parentElement.querySelector('.cc-stop-hex').textContent = e.target.value.toUpperCase();
+        // Stop 1 is the picked colour, so editing it moves the whole tool.
+        if (+idx === 0) setColor(e.target.value, 'stop');
+        renderGradient();
+    });
+    $('ccStops').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-remove]');
+        if (!b) return;
+        stops.splice(+b.dataset.remove, 1);
+        renderStops();
+        renderGradient();
+    });
+    $('ccAddStop').addEventListener('click', () => {
+        if (stops.length >= 6) return;
+        // Sit the new stop halfway between the last two, so adding one reads
+        // as an extension of the ramp rather than a random colour.
+        const a = hexToRgb(stops[stops.length - 2]);
+        const b = hexToRgb(stops[stops.length - 1]);
+        stops.push(rgbToHex((a.r + b.r) / 2, (a.g + b.g) / 2, (a.b + b.b) / 2));
+        renderStops();
+        renderGradient();
     });
 
+    $('ccGradType').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-gtype]');
+        if (!btn) return;
+        gradType = btn.dataset.gtype;
+        $('ccGradType').querySelectorAll('button').forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle('on', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        $('ccGradLinear').hidden = gradType !== 'linear';
+        $('ccGradRadial').hidden = gradType !== 'radial';
+        // A radial gradient in a wide letterbox reads as an ellipse and looks
+        // wrong, so the preview goes square for radial.
+        $('ccGradPreview').classList.toggle('square', gradType === 'radial');
+        renderGradient();
+    });
+
+    $('ccGradLinear').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-dir]');
+        if (!btn) return;
+        $('ccAngle').value = btn.dataset.dir;
+        markActive(btn);
+        renderGradient();
+    });
+    $('ccGradRadial').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-pos]');
+        if (!btn) return;
+        gradPos = btn.dataset.pos;
+        markActive(btn);
+        renderGradient();
+    });
+    function markActive(btn) {
+        btn.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === btn));
+    }
+
+    $('ccAngle').addEventListener('input', () => {
+        // Moving the slider means the preset buttons no longer describe it.
+        $('ccGradLinear').querySelectorAll('button[data-dir]').forEach((b) => {
+            b.classList.toggle('on', b.dataset.dir === $('ccAngle').value);
+        });
+        renderGradient();
+    });
+    $('ccRadius').addEventListener('input', renderGradient);
+
+    const POS = {
+        'center': 'circle at center',
+        'top-left': 'circle at top left',
+        'top-right': 'circle at top right',
+        'bottom-left': 'circle at bottom left',
+        'bottom-right': 'circle at bottom right'
+    };
+
+    function gradientCss() {
+        const list = stops.join(', ');
+        if (gradType === 'radial') {
+            const r = $('ccRadius').value;
+            $('ccRadiusOut').textContent = r + '%';
+            return `radial-gradient(${POS[gradPos]}, ${list} ${r}%)`;
+        }
+        const a = $('ccAngle').value;
+        $('ccAngleOut').textContent = a + '°';
+        return `linear-gradient(${a}deg, ${list})`;
+    }
+
+    function renderGradient() {
+        const css = gradientCss();
+        $('ccGradPreview').style.background = css;
+        $('ccGradCode').textContent = `background: ${css};`;
+    }
+    $('ccGradCopy').addEventListener('click', () => copy($('ccGradCode').textContent));
+
     // ---- Contrast ----
-    const cText = document.getElementById('contrastText');
-    const cBg = document.getElementById('contrastBg');
-    [cText, cBg].forEach((el) => el.addEventListener('input', renderContrast));
+    const ctText = $('ccCtText'), ctBg = $('ccCtBg');
+    const ctTextHex = $('ccCtTextHex'), ctBgHex = $('ccCtBgHex');
+
+    function syncPair(colorEl, hexEl) {
+        colorEl.addEventListener('input', () => { hexEl.value = colorEl.value.toUpperCase(); renderContrast(); });
+        hexEl.addEventListener('input', () => {
+            if (!isHex(hexEl.value)) return;
+            let v = hexEl.value.trim();
+            if (v[0] !== '#') v = '#' + v;
+            const c = hexToRgb(v);
+            colorEl.value = rgbToHex(c.r, c.g, c.b);
+            renderContrast();
+        });
+    }
+    syncPair(ctText, ctTextHex);
+    syncPair(ctBg, ctBgHex);
 
     function renderContrast() {
-        const text = hexToRgb(cText.value);
-        const bg = hexToRgb(cBg.value);
-        const ratio = contrastRatio(text, bg);
-        document.getElementById('contrastPreview').style.background = cBg.value;
-        document.getElementById('contrastPreview').style.color = cText.value;
-        document.getElementById('contrastRatio').textContent = ratio.toFixed(2) + ' : 1';
-        const grade = (pass) => pass
-            ? '<span class="badge bg-success">' + t('Pass', 'Voldoet') + '</span>'
-            : '<span class="badge bg-danger">' + t('Fail', 'Onvoldoende') + '</span>';
-        document.getElementById('contrastGrades').innerHTML =
-            '<div>' + t('Normal text', 'Normale tekst') + ' AA (4.5): ' + grade(ratio >= 4.5) + '</div>'
-            + '<div>' + t('Normal text', 'Normale tekst') + ' AAA (7): ' + grade(ratio >= 7) + '</div>'
-            + '<div>' + t('Large text', 'Grote tekst') + ' AA (3): ' + grade(ratio >= 3) + '</div>';
+        const ratio = contrastRatio(hexToRgb(ctText.value), hexToRgb(ctBg.value));
+        const box = $('ccCtPreview');
+        box.style.background = ctBg.value;
+        box.style.color = ctText.value;
+        $('ccCtRatio').textContent = ratio.toFixed(2) + ' : 1';
+        $('ccCtRatio').className = 'cc-ratio ' + (ratio >= 4.5 ? 'good' : ratio >= 3 ? 'ok' : 'bad');
+        const grade = (label, need) => {
+            const pass = ratio >= need;
+            return `<span class="cc-grade ${pass ? 'pass' : 'fail'}">`
+                + `<i class="fas fa-${pass ? 'check' : 'xmark'}"></i> ${label} (${need})</span>`;
+        };
+        $('ccCtGrades').innerHTML =
+            grade(t('Normal AA', 'Normaal AA'), 4.5)
+            + grade(t('Normal AAA', 'Normaal AAA'), 7)
+            + grade(t('Large AA', 'Groot AA'), 3)
+            + grade(t('Large AAA', 'Groot AAA'), 4.5);
     }
-    document.getElementById('contrastUseCurrent').addEventListener('click', () => {
-        cText.value = rgbToHex(current.r, current.g, current.b);
+    $('ccCtUse').addEventListener('click', () => {
+        ctText.value = current;
+        ctTextHex.value = current.toUpperCase();
+        renderContrast();
+    });
+    $('ccCtSwap').addEventListener('click', () => {
+        const a = ctText.value;
+        ctText.value = ctBg.value;
+        ctBg.value = a;
+        ctTextHex.value = ctText.value.toUpperCase();
+        ctBgHex.value = ctBg.value.toUpperCase();
         renderContrast();
     });
 
-    // ---- Helpers ----
-    function swatch(hex, label) {
-        const rgb = hexToRgb(hex);
-        const textCol = luminance(rgb.r, rgb.g, rgb.b) > 0.4 ? '#000' : '#fff';
-        return `<button class="color-swatch" data-hex="${hex}" style="background:${hex};color:${textCol}" title="${t('Click to copy', 'Klik om te kopiëren')}">`
-            + `<span class="color-swatch__hex">${hex.toUpperCase()}</span><span class="color-swatch__label">${label}</span></button>`;
-    }
-    function wireCopy(box) {
-        box.querySelectorAll('.color-swatch').forEach((b) => b.addEventListener('click', () => {
-            navigator.clipboard.writeText(b.dataset.hex);
-            const lbl = b.querySelector('.color-swatch__hex');
-            const old = lbl.textContent;
-            lbl.textContent = t('Copied!', 'Gekopieerd!');
-            setTimeout(() => { lbl.textContent = old; }, 1000);
-        }));
-    }
-    function flash(btn) {
-        const old = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check me-1"></i>' + t('Copied', 'Gekopieerd');
-        setTimeout(() => { btn.innerHTML = old; }, 1400);
-    }
-
-    // Copy buttons for the format fields
-    document.querySelectorAll('[data-copy-field]').forEach((btn) => btn.addEventListener('click', () => {
-        const field = document.getElementById(btn.dataset.copyField);
-        const prefix = btn.dataset.copyPrefix || '';
-        navigator.clipboard.writeText(prefix + field.value + (btn.dataset.copySuffix || ''));
-        flash(btn);
-    }));
-
+    // ---- Start ----
+    ctTextHex.value = ctText.value.toUpperCase();
+    ctBgHex.value = ctBg.value.toUpperCase();
+    renderStops();
+    renderRecent();
     setColor(current, 'init');
+    renderContrast();
 })();

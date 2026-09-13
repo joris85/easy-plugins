@@ -217,9 +217,11 @@ if (!function_exists('easyPluginsSeoMeta')) {
                 'category' => 'DeveloperApplication',
                 'features' => [
                     'Pick a color and get HEX, RGB and HSL instantly',
+                    'Switch the output format once and copy in HEX, RGB or HSL',
                     'Generate shades, tints and matching palettes',
-                    'CSS gradient generator with copyable code',
+                    'Linear and radial CSS gradients with up to six colors',
                     'WCAG contrast checker for accessible text',
+                    'Eyedropper to grab any color on your screen',
                 ],
             ],
             'easy-ip-check' => [
@@ -391,10 +393,10 @@ if (!function_exists('easyPluginsSeoNlOverlay')) {
             ],
             'easy-color' => [
                 'title_nl' => 'Easy Color - Kleurenkiezer, paletten en contrast',
-                'desc_nl' => 'Kies een kleur en krijg direct HEX, RGB en HSL. Genereer tinten, paletten en CSS-gradiënten, en controleer het contrast volgens WCAG. Gratis, in je browser.',
+                'desc_nl' => 'Kies een kleur en krijg direct HEX, RGB en HSL. Genereer tinten, paletten en lineaire of radiale CSS-gradiënten, en controleer het contrast volgens WCAG. Gratis, in je browser.',
                 'tagline_nl' => 'Kleurenkiezer, paletten & contrast',
-                'blurb' => 'Pick a color and read it as HEX, RGB and HSL, build shades and matching palettes, generate CSS gradients and check text contrast against WCAG.',
-                'blurb_nl' => 'Kies een kleur en lees hem als HEX, RGB en HSL, maak tinten en bijpassende paletten, genereer CSS-gradiënten en controleer tekstcontrast volgens WCAG.',
+                'blurb' => 'Pick a color and read it as HEX, RGB and HSL, build shades and matching palettes, generate linear and radial CSS gradients with as many colors as you need, and check text contrast against WCAG.',
+                'blurb_nl' => 'Kies een kleur en lees hem als HEX, RGB en HSL, maak tinten en bijpassende paletten, genereer lineaire en radiale CSS-gradiënten met zoveel kleuren als je wilt, en controleer tekstcontrast volgens WCAG.',
             ],
             'easy-ip-check' => [
                 'title_nl' => 'Easy IP Check - IP en DNS opzoeken',
@@ -552,7 +554,8 @@ if (!function_exists('easyPluginsToolFaq')) {
                 ['Is Easy Color free?', 'Yes, completely free with no account.'],
                 ['What formats does it show?', 'For any color you pick it shows HEX, RGB and HSL, and you can type any of those to convert between them.'],
                 ['Does it check accessibility?', 'Yes. The contrast checker compares a text and background color and tells you whether it passes WCAG AA and AAA for normal and large text.'],
-                ['Can it make a matching palette?', 'Yes. From one color it generates shades and tints plus complementary and analogous colors, and it has a CSS gradient generator with copyable code.'],
+                ['Can it make a matching palette?', 'Yes. From one color it generates shades and tints plus complementary, analogous and triadic colors. Click any swatch to copy it.'],
+                ['What gradients can it build?', 'Linear and radial, with up to six colors. Set the direction with the preset arrows or the angle slider, or place a radial gradient in the centre or any corner, then copy the CSS.'],
                 ['Does my data get uploaded?', 'No. Everything runs in your browser.'],
             ],
             'easy-ip-check' => [
