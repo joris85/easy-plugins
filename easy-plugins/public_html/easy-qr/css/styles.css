@@ -1,12 +1,36 @@
 /* Easy QR */
 
-.qr-tabs {
+.qr-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.qr-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #4CAF50;
+    color: #fff;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.qr-tabs,
+.qr-presets {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
 }
 
-.qr-tab {
+.qr-tab,
+.qr-preset {
     border: 1px solid rgba(0, 0, 0, 0.15);
     background: transparent;
     border-radius: 999px;
@@ -17,31 +41,108 @@
     cursor: pointer;
 }
 
-.qr-tab.active {
+.qr-tab.active,
+.qr-preset.active {
     background: #4CAF50;
     border-color: #4CAF50;
     color: #fff;
 }
 
+.qr-preset:hover,
+.qr-tab:hover {
+    border-color: #4CAF50;
+}
+
+/* Preview */
+.qr-sticky {
+    position: sticky;
+    top: 1rem;
+}
+
 .qr-output {
-    min-height: 260px;
+    min-height: 240px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-#qrCanvas {
-    border-radius: 8px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+.qr-preview {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
 }
 
-body.dark .qr-tab {
+/* The generated SVG scales to the preview box; the px size only drives export */
+.qr-preview svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    /* Checkerboard shows through a transparent background */
+    background-image:
+        linear-gradient(45deg, #eee 25%, transparent 25%),
+        linear-gradient(-45deg, #eee 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #eee 75%),
+        linear-gradient(-45deg, transparent 75%, #eee 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.qr-downloads {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: 1rem;
+}
+
+.qr-warn {
+    margin-top: 0.9rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    background: rgba(240, 173, 78, 0.12);
+    border: 1px solid rgba(240, 173, 78, 0.35);
+    color: #8a6d3b;
+    font-size: 0.82rem;
+    text-align: left;
+    line-height: 1.45;
+}
+
+input[type="color"].form-control-color {
+    width: 44px;
+    height: 34px;
+    padding: 0.15rem;
+}
+
+input[type="color"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+body.dark .qr-tab,
+body.dark .qr-preset {
     border-color: #3a3f45;
     color: #b9c0c7;
 }
 
-body.dark .qr-tab.active {
+body.dark .qr-tab.active,
+body.dark .qr-preset.active {
     background: #4CAF50;
     border-color: #4CAF50;
     color: #fff;
+}
+
+body.dark .qr-preview svg {
+    background-image:
+        linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+        linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+        linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
+}
+
+body.dark .qr-warn {
+    background: rgba(240, 173, 78, 0.1);
+    border-color: rgba(240, 173, 78, 0.28);
+    color: #d9b781;
 }

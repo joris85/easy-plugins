@@ -204,9 +204,11 @@ if (!function_exists('easyPluginsSeoMeta')) {
                 'category' => 'UtilitiesApplication',
                 'features' => [
                     'QR codes for a link, plain text, WiFi login or contact card',
-                    'Custom colors and an optional logo in the center',
-                    'Download as sharp PNG or scalable SVG',
-                    'Runs entirely in your browser, nothing is uploaded',
+                    'Dot and corner shapes: square, rounded, smooth or dots',
+                    'Custom colours, gradients and a logo in the centre',
+                    'Choose the output size, margin and transparent background',
+                    'Download as PNG, SVG, JPG or WebP, or copy to the clipboard',
+                    'Live scannability check; runs entirely in your browser',
                 ],
             ],
             'easy-color' => [
@@ -382,10 +384,10 @@ if (!function_exists('easyPluginsSeoNlOverlay')) {
             ],
             'easy-qr' => [
                 'title_nl' => 'Easy QR - Gratis QR-code generator',
-                'desc_nl' => 'Maak gratis een QR-code voor een link, tekst, wifi of contactkaart. Eigen kleuren en een logo in het midden. Download als scherpe PNG of schaalbare SVG.',
+                'desc_nl' => 'Maak gratis een QR-code voor een link, tekst, wifi of contactkaart. Eigen vormen, kleuren, kleurverloop en een logo. Download als PNG, SVG, JPG of WebP.',
                 'tagline_nl' => 'Gratis QR-code generator',
-                'blurb' => 'Make a QR code for a link, text, WiFi login or contact card, with your own colors and an optional logo. Download it as a sharp PNG or a scalable SVG.',
-                'blurb_nl' => 'Maak een QR-code voor een link, tekst, wifi-login of contactkaart, met eigen kleuren en een optioneel logo. Download als scherpe PNG of schaalbare SVG.',
+                'blurb' => 'Make a QR code for a link, text, WiFi login or contact card. Choose the dot and corner shapes, colours or a gradient, add your logo, then download it as PNG, SVG, JPG or WebP.',
+                'blurb_nl' => 'Maak een QR-code voor een link, tekst, wifi-login of contactkaart. Kies de vorm van de stippen en hoeken, kleuren of een kleurverloop, voeg je logo toe en download als PNG, SVG, JPG of WebP.',
             ],
             'easy-color' => [
                 'title_nl' => 'Easy Color - Kleurenkiezer, paletten en contrast',
@@ -544,7 +546,7 @@ if (!function_exists('easyPluginsToolFaq')) {
                 ['Do the QR codes expire or get tracked?', 'No. The code is generated in your browser and encodes your data directly, so there is no redirect, no tracking and nothing that can stop working later.'],
                 ['What can I put in a QR code?', 'A website link, plain text, WiFi login details (so guests can connect by scanning), or a contact card (vCard) that adds you to someone\'s phone.'],
                 ['Can I add my logo and colors?', 'Yes. You can set the foreground and background colors and drop a logo into the center. QR codes stay scannable with a logo thanks to their built-in error correction.'],
-                ['PNG or SVG?', 'Use PNG for websites, social media and documents. Use SVG when it needs to scale to any size without blur, such as for print or large signage.'],
+                ['Which format should I download?', 'PNG for websites, social media and documents. SVG when it has to scale to any size without blur, such as print or large signage. JPG when a tool insists on it, and WebP for the smallest file on the web. You can also set the exact pixel size before downloading.'],
             ],
             'easy-color' => [
                 ['Is Easy Color free?', 'Yes, completely free with no account.'],
