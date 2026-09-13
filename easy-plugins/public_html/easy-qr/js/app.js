@@ -88,6 +88,7 @@
             },
             dotStyle: $('qrDotStyle').value,
             eyeStyle: $('qrEyeStyle').value,
+            eyeStyleDot: $('qrEyeDotStyle').value,
             eyeColor: $('qrEyeSame').checked ? null : $('qrEyeColor').value,
             ecl: $('qrEcl').value,
             logoPct: parseInt($('qrLogoSize').value, 10),
@@ -145,15 +146,73 @@
             + 'v' + n(-(h - 2 * r)) + 'a' + n(r) + ' ' + n(r) + ' 0 0 1 ' + n(r) + ' ' + n(-r) + 'z';
     }
 
+    /** Rounded rectangle with an independent radius per corner [tl,tr,br,bl]. */
+    function rrCorners(x, y, w, h, rad) {
+        const max = Math.min(w, h) / 2;
+        const r = rad.map(function (v) { return Math.max(0, Math.min(v, max)); });
+        let d = 'M' + n(x + r[0]) + ' ' + n(y);
+        d += 'H' + n(x + w - r[1]);
+        if (r[1]) d += 'A' + n(r[1]) + ' ' + n(r[1]) + ' 0 0 1 ' + n(x + w) + ' ' + n(y + r[1]);
+        d += 'V' + n(y + h - r[2]);
+        if (r[2]) d += 'A' + n(r[2]) + ' ' + n(r[2]) + ' 0 0 1 ' + n(x + w - r[2]) + ' ' + n(y + h);
+        d += 'H' + n(x + r[3]);
+        if (r[3]) d += 'A' + n(r[3]) + ' ' + n(r[3]) + ' 0 0 1 ' + n(x) + ' ' + n(y + h - r[3]);
+        d += 'V' + n(y + r[0]);
+        if (r[0]) d += 'A' + n(r[0]) + ' ' + n(r[0]) + ' 0 0 1 ' + n(x + r[0]) + ' ' + n(y);
+        return d + 'Z';
+    }
+
+    /** Octagon: corners cut off at 45 degrees. */
+    function chamfer(x, y, w, h, c) {
+        return 'M' + n(x + c) + ' ' + n(y)
+            + 'L' + n(x + w - c) + ' ' + n(y) + 'L' + n(x + w) + ' ' + n(y + c)
+            + 'L' + n(x + w) + ' ' + n(y + h - c) + 'L' + n(x + w - c) + ' ' + n(y + h)
+            + 'L' + n(x + c) + ' ' + n(y + h) + 'L' + n(x) + ' ' + n(y + h - c)
+            + 'L' + n(x) + ' ' + n(y + c) + 'Z';
+    }
+
+    function diamond(cx, cy, r) {
+        return 'M' + n(cx) + ' ' + n(cy - r) + 'L' + n(cx + r) + ' ' + n(cy)
+            + 'L' + n(cx) + ' ' + n(cy + r) + 'L' + n(cx - r) + ' ' + n(cy) + 'Z';
+    }
+
+    // Corner frame shapes. The finder must keep its ring-and-centre structure
+    // or scanners stop recognising it, so these restyle the corners only.
+    const EYE_FRAMES = {
+        square: { outer: [0, 0, 0, 0], inner: [0, 0, 0, 0] },
+        rounded: { outer: [2, 2, 2, 2], inner: [1.2, 1.2, 1.2, 1.2] },
+        extra: { outer: [3, 3, 3, 3], inner: [2, 2, 2, 2] },
+        circle: { outer: [3.5, 3.5, 3.5, 3.5], inner: [2.5, 2.5, 2.5, 2.5] },
+        leaf: { outer: [3.5, 0, 3.5, 0], inner: [2.5, 0, 2.5, 0] },
+        leafalt: { outer: [0, 3.5, 0, 3.5], inner: [0, 2.5, 0, 2.5] },
+        shield: { outer: [3.5, 3.5, 0, 0], inner: [2.5, 2.5, 0, 0] },
+        cut: { chamferOuter: 1.9, chamferInner: 1.3 }
+    };
+
+    const EYE_DOTS = {
+        square: [0, 0, 0, 0],
+        rounded: [0.9, 0.9, 0.9, 0.9],
+        circle: [1.5, 1.5, 1.5, 1.5],
+        leaf: [1.5, 0, 1.5, 0],
+        leafalt: [0, 1.5, 0, 1.5],
+        diamond: 'diamond',
+        cut: 'cut'
+    };
+
     /** Ring: outer shape with an inner shape cut out (fill-rule evenodd). */
     function eyeOuterPath(x, y, style) {
-        const r = style === 'circle' ? 3.5 : style === 'rounded' ? 2 : 0;
-        const ri = style === 'circle' ? 2.5 : style === 'rounded' ? 1.2 : 0;
-        return roundRectPath(x, y, 7, 7, r) + roundRectPath(x + 1, y + 1, 5, 5, ri);
+        const f = EYE_FRAMES[style] || EYE_FRAMES.square;
+        if (f.chamferOuter) {
+            return chamfer(x, y, 7, 7, f.chamferOuter) + chamfer(x + 1, y + 1, 5, 5, f.chamferInner);
+        }
+        return rrCorners(x, y, 7, 7, f.outer) + rrCorners(x + 1, y + 1, 5, 5, f.inner);
     }
+
     function eyeInnerPath(x, y, style) {
-        const r = style === 'circle' ? 1.5 : style === 'rounded' ? 0.9 : 0;
-        return roundRectPath(x + 2, y + 2, 3, 3, r);
+        const d = EYE_DOTS[style] || EYE_DOTS.square;
+        if (d === 'diamond') return diamond(x + 3.5, y + 3.5, 1.7);
+        if (d === 'cut') return chamfer(x + 2, y + 2, 3, 3, 0.9);
+        return rrCorners(x + 2, y + 2, 3, 3, d);
     }
 
     // ---- Build the SVG ------------------------------------------------
@@ -194,7 +253,7 @@
         let eyeSvg = '';
         eyes.forEach(function (p) {
             eyeSvg += '<path fill-rule="evenodd" d="' + eyeOuterPath(p[0], p[1], o.eyeStyle) + '"/>';
-            eyeSvg += '<path d="' + eyeInnerPath(p[0], p[1], o.eyeStyle) + '"/>';
+            eyeSvg += '<path d="' + eyeInnerPath(p[0], p[1], o.eyeStyleDot) + '"/>';
         });
 
         // Paint: solid colour or gradient
@@ -467,10 +526,11 @@
 
     // ---- Presets ------------------------------------------------------
     const PRESETS = {
-        classic: { dotStyle: 'square', eyeStyle: 'square', fg: '#1e1e1e', bg: '#ffffff', grad: 'none' },
-        rounded: { dotStyle: 'rounded', eyeStyle: 'rounded', fg: '#1e1e1e', bg: '#ffffff', grad: 'none' },
-        dots: { dotStyle: 'dots', eyeStyle: 'circle', fg: '#2f855a', bg: '#ffffff', grad: 'none' },
-        brand: { dotStyle: 'smooth', eyeStyle: 'rounded', fg: '#2f855a', bg: '#ffffff', grad: 'linear', to: '#1b4f9c' }
+        classic: { dotStyle: 'square', eyeStyle: 'square', eyeDot: 'square', fg: '#1e1e1e', bg: '#ffffff', grad: 'none' },
+        rounded: { dotStyle: 'rounded', eyeStyle: 'rounded', eyeDot: 'rounded', fg: '#1e1e1e', bg: '#ffffff', grad: 'none' },
+        dots: { dotStyle: 'dots', eyeStyle: 'circle', eyeDot: 'circle', fg: '#2f855a', bg: '#ffffff', grad: 'none' },
+        leaf: { dotStyle: 'smooth', eyeStyle: 'leaf', eyeDot: 'leaf', fg: '#1e1e1e', bg: '#ffffff', grad: 'none' },
+        brand: { dotStyle: 'smooth', eyeStyle: 'extra', eyeDot: 'circle', fg: '#2f855a', bg: '#ffffff', grad: 'linear', to: '#1b4f9c' }
     };
     document.querySelectorAll('.qr-preset').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -478,6 +538,7 @@
             if (!p) return;
             $('qrDotStyle').value = p.dotStyle;
             $('qrEyeStyle').value = p.eyeStyle;
+            $('qrEyeDotStyle').value = p.eyeDot || 'square';
             $('qrFg').value = p.fg;
             $('qrBg').value = p.bg;
             $('qrTransparent').checked = false;
@@ -494,7 +555,7 @@
         $('qrFg').value = '#1e1e1e'; $('qrBg').value = '#ffffff';
         $('qrTransparent').checked = false;
         $('qrGradType').value = 'none'; $('qrGradTo').value = '#1e88e5'; $('qrGradAngle').value = 45;
-        $('qrDotStyle').value = 'square'; $('qrEyeStyle').value = 'square';
+        $('qrDotStyle').value = 'square'; $('qrEyeStyle').value = 'square'; $('qrEyeDotStyle').value = 'square';
         $('qrEyeSame').checked = true; $('qrEyeColor').value = '#1e1e1e';
         $('qrEcl').value = 'M'; $('qrLogoSize').value = 20; $('qrLogoPad').checked = true;
         document.querySelectorAll('.qr-preset').forEach(function (b) { b.classList.remove('active'); });

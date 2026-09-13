@@ -8,7 +8,7 @@ $themePath = '../shared/theme.js';
 include '../shared/header.php';
 ?>
 
-    <link rel="stylesheet" href="css/styles.css?v=2.0">
+    <link rel="stylesheet" href="css/styles.css?v=2.1">
 
     <div class="container-fluid">
         <div class="container tool-page-inner">
@@ -82,6 +82,7 @@ include '../shared/header.php';
                                 <button type="button" class="qr-preset" data-preset="classic"><?= easyPluginsText('Classic', 'Klassiek') ?></button>
                                 <button type="button" class="qr-preset" data-preset="rounded"><?= easyPluginsText('Rounded', 'Afgerond') ?></button>
                                 <button type="button" class="qr-preset" data-preset="dots"><?= easyPluginsText('Dots', 'Stippen') ?></button>
+                                <button type="button" class="qr-preset" data-preset="leaf"><?= easyPluginsText('Leaf', 'Blad') ?></button>
                                 <button type="button" class="qr-preset" data-preset="brand"><?= easyPluginsText('Gradient', 'Kleurverloop') ?></button>
                             </div>
 
@@ -95,12 +96,29 @@ include '../shared/header.php';
                                         <option value="dots"><?= easyPluginsText('Dots', 'Stippen') ?></option>
                                     </select>
                                 </div>
-                                <div class="col-sm-6">
-                                    <label class="form-label" for="qrEyeStyle"><?= easyPluginsText('Corner shape', 'Vorm van de hoeken') ?></label>
+                                <div class="col-sm-3">
+                                    <label class="form-label" for="qrEyeStyle"><?= easyPluginsText('Corner frame', 'Hoekkader') ?></label>
                                     <select id="qrEyeStyle" class="form-select qr-opt">
                                         <option value="square"><?= easyPluginsText('Square', 'Vierkant') ?></option>
                                         <option value="rounded"><?= easyPluginsText('Rounded', 'Afgerond') ?></option>
+                                        <option value="extra"><?= easyPluginsText('Extra rounded', 'Extra afgerond') ?></option>
                                         <option value="circle"><?= easyPluginsText('Circle', 'Rond') ?></option>
+                                        <option value="leaf"><?= easyPluginsText('Leaf', 'Blad') ?></option>
+                                        <option value="leafalt"><?= easyPluginsText('Leaf flipped', 'Blad gespiegeld') ?></option>
+                                        <option value="shield"><?= easyPluginsText('Shield', 'Schild') ?></option>
+                                        <option value="cut"><?= easyPluginsText('Cut corner', 'Afgesneden hoek') ?></option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="form-label" for="qrEyeDotStyle"><?= easyPluginsText('Corner dot', 'Hoekstip') ?></label>
+                                    <select id="qrEyeDotStyle" class="form-select qr-opt">
+                                        <option value="square"><?= easyPluginsText('Square', 'Vierkant') ?></option>
+                                        <option value="rounded"><?= easyPluginsText('Rounded', 'Afgerond') ?></option>
+                                        <option value="circle"><?= easyPluginsText('Circle', 'Rond') ?></option>
+                                        <option value="leaf"><?= easyPluginsText('Leaf', 'Blad') ?></option>
+                                        <option value="leafalt"><?= easyPluginsText('Leaf flipped', 'Blad gespiegeld') ?></option>
+                                        <option value="diamond"><?= easyPluginsText('Diamond', 'Ruit') ?></option>
+                                        <option value="cut"><?= easyPluginsText('Cut corner', 'Afgesneden hoek') ?></option>
                                     </select>
                                 </div>
                             </div>
@@ -243,4 +261,4 @@ include '../shared/header.php';
     </div>
 
     <script src="/libraries/qr/qrcode.js?v=2.0"></script>
-    <script src="js/app.js?v=2.0"></script>
+    <script src="js/app.js?v=2.1"></script>
