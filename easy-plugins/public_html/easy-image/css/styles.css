@@ -4649,3 +4649,96 @@ body.dark .app-promo__title {
 body.dark .app-promo__text {
     color: #9ab8a2;
 }
+
+/* Before/after preview: what the current settings really produce */
+.compare-settings {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin: -0.25rem 0 0.6rem;
+}
+
+.compare-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.compare-stat {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+}
+
+.compare-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+}
+
+.compare-stat strong {
+    font-size: 1rem;
+}
+
+.compare-stat-dims {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+/* Called out only when the output dimensions actually differ */
+.compare-stat-dims.changed {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.compare-stat-arrow {
+    color: #adb5bd;
+    align-self: center;
+}
+
+.compare-stat-verdict {
+    align-self: center;
+    margin-left: auto;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+}
+
+.compare-stat-verdict.good {
+    background: rgba(46, 125, 50, 0.13);
+    color: #2e7d32;
+}
+
+.compare-stat-verdict.warn {
+    background: rgba(240, 173, 78, 0.16);
+    color: #8a6d3b;
+}
+
+/* A crop changes the shape, so the "before" side fills the box instead of
+   stretching to match the cropped output. */
+.compare-before {
+    object-fit: cover;
+}
+
+body.dark .compare-settings,
+body.dark .compare-stat-label,
+body.dark .compare-stat-dims {
+    color: #9aa3ab;
+}
+
+body.dark .compare-stat-dims.changed {
+    color: #81c784;
+}
+
+body.dark .compare-stat-verdict.good {
+    background: rgba(129, 199, 132, 0.15);
+    color: #a5d6a7;
+}
+
+body.dark .compare-stat-verdict.warn {
+    background: rgba(240, 173, 78, 0.12);
+    color: #d9b781;
+}

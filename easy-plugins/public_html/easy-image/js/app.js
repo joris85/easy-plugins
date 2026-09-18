@@ -522,9 +522,11 @@ function updateEnhanceUi() {
         strengthGroup.style.display = enhanceMode === 'auto' ? '' : 'none';
     }
 
-    const hasWork = enhanceMode !== 'none' || countActiveEffects() > 0;
+    // "What will I actually get" is a fair question for any setting, not only
+    // for enhancement: quality, format, resize and target size change the
+    // result too. So the preview is offered as soon as there is an image.
     document.querySelectorAll('.enhance-preview-trigger').forEach((btn) => {
-        btn.style.display = hasWork && uploadedFiles.length ? '' : 'none';
+        btn.style.display = uploadedFiles.length ? '' : 'none';
     });
 }
 
@@ -624,11 +626,20 @@ function syncCompareImageWidth() {
     }
 }
 
-function openComparePreview(beforeUrl, afterUrl, filename) {
+// The blob URL behind the last "before" image, released when the next
+// preview replaces it so repeated previews do not pile up in memory.
+let comparePreviewObjectUrl = null;
+
+function openComparePreview(beforeUrl, afterUrl, filename, revokeBefore = false) {
     const modal = document.getElementById('comparePreviewModal');
     const beforeImg = document.getElementById('compareBeforeImg');
     const afterImg = document.getElementById('compareAfterImg');
     const nameEl = document.getElementById('compareFilename');
+
+    if (comparePreviewObjectUrl && comparePreviewObjectUrl !== beforeUrl) {
+        URL.revokeObjectURL(comparePreviewObjectUrl);
+    }
+    comparePreviewObjectUrl = revokeBefore ? beforeUrl : null;
 
     if (nameEl) nameEl.textContent = filename;
     afterImg.onload = () => {
@@ -670,6 +681,104 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', syncCompareImageWidth);
 });
 
+// Load a URL into an <img> and report back what actually arrived, so the
+// "before" side can show its true pixel dimensions.
+function loadImageMeta(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => reject(new Error('Could not display this image'));
+        img.src = url;
+    });
+}
+
+// The browser cannot display every format we accept (HEIC in particular), so
+// fall back to a decoded copy when the raw file will not render.
+async function buildBeforeImageUrl(file) {
+    const directUrl = URL.createObjectURL(file);
+    try {
+        const meta = await loadImageMeta(directUrl);
+        return { url: directUrl, width: meta.width, height: meta.height, revoke: true };
+    } catch (error) {
+        URL.revokeObjectURL(directUrl);
+        const thumb = await createPreviewThumbnail(file, 1600);
+        return {
+            url: thumb.url,
+            width: thumb.width,
+            height: thumb.height,
+            revoke: thumb.url.startsWith('blob:')
+        };
+    }
+}
+
+// One line describing the settings the preview was made with, so what is on
+// screen can be traced back to the controls that produced it.
+function describePreviewSettings(settings) {
+    const parts = [];
+    const format = (settings.format || 'webp').toUpperCase();
+    if (settings.targetKB) {
+        const kb = settings.targetKB;
+        parts.push(format + ' at most ' + (kb >= 1024 ? (kb / 1024).toFixed(kb % 1024 === 0 ? 0 : 1) + 'MB' : kb + 'KB'));
+    } else if (settings.qualityTier === 'near-lossless') {
+        parts.push(format + ' near-lossless');
+    } else {
+        parts.push(format + ' at quality ' + settings.quality + '%');
+    }
+
+    if (settings.mode === 'resize') {
+        if (settings.width) parts.push('resized to ' + settings.width + 'px wide');
+        else if (settings.height) parts.push('resized to ' + settings.height + 'px high');
+    } else if (settings.mode === 'crop') {
+        parts.push('cropped');
+    }
+
+    if (enhanceMode === 'auto') {
+        parts.push('auto enhance ' + autoEnhanceStrength + '%');
+    } else if (enhanceMode === 'custom') {
+        const n = countActiveEffects();
+        parts.push(n === 1 ? '1 custom effect' : n + ' custom effects');
+    } else {
+        parts.push('no enhancement');
+    }
+    return parts.join(' · ');
+}
+
+function renderPreviewStats(beforeBytes, beforeDims, afterBytes, afterDims, settingsLine) {
+    const box = document.getElementById('compareStats');
+    if (!box) {
+        return;
+    }
+    const diff = beforeBytes > 0 ? ((afterBytes - beforeBytes) / beforeBytes) * 100 : 0;
+    const smaller = afterBytes < beforeBytes;
+    // Floor the saving so a 99.6% reduction never rounds up to a flat "100%
+    // smaller", which would claim the file had vanished.
+    const magnitude = smaller ? Math.floor(Math.abs(diff)) : Math.round(Math.abs(diff));
+    const pct = Math.abs(diff) < 0.5 ? 'about the same' : magnitude + '% ' + (smaller ? 'smaller' : 'larger');
+    const dimsChanged = afterDims.width !== beforeDims.width || afterDims.height !== beforeDims.height;
+
+    box.innerHTML =
+        '<div class="compare-stat">'
+        + '<span class="compare-stat-label">Before</span>'
+        + '<strong>' + formatCompactFileSize(beforeBytes) + '</strong>'
+        + '<span class="compare-stat-dims">' + beforeDims.width + ' \u00d7 ' + beforeDims.height + ' px</span>'
+        + '</div>'
+        + '<div class="compare-stat compare-stat-arrow"><i class="fas fa-arrow-right"></i></div>'
+        + '<div class="compare-stat">'
+        + '<span class="compare-stat-label">After</span>'
+        + '<strong>' + formatCompactFileSize(afterBytes) + '</strong>'
+        + '<span class="compare-stat-dims' + (dimsChanged ? ' changed' : '') + '">' + afterDims.width + ' \u00d7 ' + afterDims.height + ' px</span>'
+        + '</div>'
+        + '<div class="compare-stat compare-stat-verdict ' + (smaller ? 'good' : 'warn') + '">' + pct + '</div>';
+
+    const line = document.getElementById('compareSettings');
+    if (line) {
+        line.textContent = settingsLine;
+    }
+}
+
+// Preview the real result of the current settings on one image. It sends the
+// original file, not a downscaled copy: compression artifacts only look
+// honest when the image is squeezed at the size it will really be saved at.
 window.previewEnhancement = async function(triggerBtn, fileIndex = 0) {
     const file = uploadedFiles[fileIndex];
     if (!file) {
@@ -682,35 +791,41 @@ window.previewEnhancement = async function(triggerBtn, fileIndex = 0) {
         ? '<i class="fas fa-cog spinning"></i>'
         : '<i class="fas fa-cog spinning"></i> Making preview...';
 
+    let before = null;
     try {
-        // Small client-side copy for a fast round-trip
-        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-        const scale = Math.min(1, 700 / Math.max(bitmap.width, bitmap.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        bitmap.close();
-        const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
-        const beforeUrl = URL.createObjectURL(blob);
+        before = await buildBeforeImageUrl(file);
 
+        // The same settings the Optimize button would send, so the preview and
+        // the real run cannot drift apart.
+        const settings = buildSettings();
         const formData = new FormData();
-        formData.append('settings', JSON.stringify({
-            mode: 'optimize', quality: 92, qualityTier: 'lossy', format: 'jpg',
-            effects: buildEffectsSettings()
-        }));
-        formData.append('images[]', new File([blob], 'enhance-preview.jpg', { type: 'image/jpeg' }));
+        const crop = pendingCropData[fileIndex];
+        if (settings.mode === 'crop' && crop) {
+            settings.cropData = { 0: crop };
+            formData.append('cropData[0]', JSON.stringify(crop));
+        }
+        formData.append('settings', JSON.stringify(settings));
+        formData.append('images[]', file, file.name);
+
         const response = await fetch('process.php', { method: 'POST', body: formData });
         const result = await response.json();
         if (!result.success || !result.images || !result.images.length) {
-            throw new Error(result.error || 'Preview failed');
+            throw new Error(result.error || (result.errors && result.errors[0]) || 'Preview failed');
         }
 
-        openComparePreview(beforeUrl, result.images[0].url, file.name);
+        const out = result.images[0];
+        renderPreviewStats(
+            file.size,
+            { width: before.width, height: before.height },
+            out.bytes,
+            { width: out.width, height: out.height },
+            describePreviewSettings(settings)
+        );
+        openComparePreview(before.url, out.url, file.name, before.revoke);
     } catch (error) {
+        if (before && before.revoke) {
+            URL.revokeObjectURL(before.url);
+        }
         alert('Could not create the preview: ' + error.message);
     } finally {
         btn.disabled = false;
@@ -2485,7 +2600,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="remove-btn" onclick="removeFile(${index})" type="button" aria-label="Remove ${escapeHtml(file.name)}">
                     <i class="fas fa-times"></i>
                 </button>
-                <button class="preview-eye-btn enhance-preview-trigger" onclick="previewEnhancement(this, ${index})" type="button" style="display: none;" title="Show enhance preview" aria-label="Show enhance preview of ${escapeHtml(file.name)}">
+                <button class="preview-eye-btn enhance-preview-trigger" onclick="previewEnhancement(this, ${index})" type="button" style="display: none;" title="Preview the result of the current settings" aria-label="Preview the result for ${escapeHtml(file.name)}">
                     <i class="fas fa-eye"></i>
                 </button>
             `;

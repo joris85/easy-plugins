@@ -13,7 +13,7 @@ include '../shared/header.php';
     <!-- Cropper.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" integrity="sha384-1arqhTHsGLPVJdhZo8SAycbI+y5k+G7khi5bTZ4BxHJIpCfvWoeSDgXEXXRxB/9G" crossorigin="anonymous">
     <!-- Easy Image Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=2.28">
+    <link rel="stylesheet" href="css/styles.css?v=2.29">
 <?php if (!empty($easyImageTossToyEnabled)): ?>
     <link rel="stylesheet" href="toss-toy/toss-toy.css?v=9">
     <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=4">
@@ -347,9 +347,9 @@ include '../shared/header.php';
                         </div>
                         </div>
 
-                        <!-- Preview (Auto enhance and Custom) -->
+                        <!-- Preview of the real result for the current settings -->
                         <button type="button" id="enhancePreviewBtn" class="btn btn-outline-secondary btn-sm enhance-preview-trigger" style="display: none; margin-top: 0.75rem;" onclick="previewEnhancement(this)">
-                            <i class="fas fa-eye"></i> Check preview on first image
+                            <i class="fas fa-eye"></i> Preview result on first image
                         </button>
                     </div>
 
@@ -779,6 +779,8 @@ include '../shared/header.php';
             <span class="close">&times;</span>
             <h2><i class="fas fa-eye"></i> Before / after</h2>
             <p class="form-help" id="compareFilename"></p>
+            <p class="compare-settings" id="compareSettings"></p>
+            <div class="compare-stats" id="compareStats"></div>
             <div class="compare-wrap" id="compareWrap">
                 <img class="compare-after" id="compareAfterImg" alt="After" draggable="false">
                 <div class="compare-before-clip" id="compareBeforeClip">
@@ -788,7 +790,7 @@ include '../shared/header.php';
                 <span class="compare-label compare-label-before">Before</span>
                 <span class="compare-label compare-label-after">After</span>
             </div>
-            <p class="form-help">Drag the line over the image to compare before and after.</p>
+            <p class="form-help">Drag the line over the image to compare before and after. This is the real result of your current settings on this image.</p>
         </div>
     </div>
 
@@ -1037,7 +1039,7 @@ include '../shared/header.php';
     <script src="toss-toy/toss-toy.js?v=11"></script>
     <script src="toss-toy/toss-toy-bridge.js?v=3"></script>
 <?php endif; ?>
-    <script src="js/app.js?v=2.37.0"></script>
+    <script src="js/app.js?v=2.38.0"></script>
     <!-- Bootstrap for shared components -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 </body>
