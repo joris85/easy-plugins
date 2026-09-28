@@ -186,10 +186,29 @@ shared causes were worth more than any single game:
   hand (`Loop.time += 1/60` per step), or a CPU thinks once and never again.
   The Pong levels were re-tuned against three model players that way.
 
-Still deferred, all phone layout: the d-pad sits over the playfield in Pong,
-Merge and the arcade games (Blocks got a band of its own); Volley has no
-second set of touch controls; game-over cards cover the board they report on.
-Joris judges Easy Games on the desktop, so these wait for a phone pass.
+### Phone layout, same day
+
+- **The controls are a strip under the stage, never on it.** `Touch.mount`
+  still takes the same options, but on a touch device it adds `hasDeck` to
+  the body and the `#touchpad` element sits after the stage, not inside it.
+  The stage's height budget subtracts `--deck-h` (168px for a full d-pad,
+  96px for a left-right pad or buttons only), so board and controls fit one
+  screen. Swept on a 375x812 phone: 15 games, no overlap, nothing off screen,
+  every button at least 45px. Blocks' in-canvas band is gone.
+- **On a phone held sideways** the strip splits into the two margins beside
+  the stage; the stage takes the full height and the score boxes follow a
+  scroll below, in the stage's column so the buttons never cover them.
+- **Two players on one phone**: `Touch.mount({players: 2})` builds a split
+  strip, player two's input in `Touch.p2.dir` / `Touch.p2.held`. Volley uses
+  it for a duel and a single set against the CPU.
+- **Bomber has touch controls** for the first human player (it had none).
+- **Every game-over card** has "Hide this card to see the game": the card
+  steps aside, one "Show the result" button brings it back.
+- Tool buttons wrap to a second row instead of squeezing labels.
+
+Not done: Tilt Versus on a phone (two 8-column boards side by side for two
+players on one keyboard; there is no sensible phone form of it yet).
+Solitaire's phone layout was called roomy but it works.
 
 ## Open items
 

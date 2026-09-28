@@ -11,47 +11,85 @@ const Touch = {
   _pads: {},
   root: null,
 
-  /** Build controls inside a .touchpad overlay. */
+  /** Second player's controls, used only by a split deck (opts.players: 2). */
+  p2: { dir: { dx: 0, dy: 0 }, held: { a: false, b: false } },
+
+  /**
+   * Build the controls. On a phone they form a strip of their own under the
+   * stage (the "deck"), never on top of the game: drawn over the playfield
+   * they hid the bottom third of Pong, Merge, Tilt and every arcade game.
+   * opts: dpad, axis ('both' | 'x' | 'y'), action, action2, and players: 2
+   * for a split deck, player one on the left and player two on the right.
+   */
   mount(root, opts) {
-    const o = Object.assign({ dpad: true, axis: 'both', action: null, action2: null }, opts || {});
+    const o = Object.assign({ dpad: true, axis: 'both', action: null, action2: null, players: 1 }, opts || {});
     this.root = root;
     root.innerHTML = '';
+    this.dir = { dx: 0, dy: 0 };
+    this.held.a = false; this.held.b = false;
+    this.p2 = { dir: { dx: 0, dy: 0 }, held: { a: false, b: false } };
     if (!this.available) return this;
     root.classList.add('on');
+    root.classList.toggle('split', o.players === 2);
+    document.body.classList.add('hasDeck');
 
-    if (o.dpad) {
-      const pad = document.createElement('div');
-      pad.className = 'tdpad';
-      const dirs = o.axis === 'x' ? [['left', '◀', -1, 0], ['right', '▶', 1, 0]]
-                 : o.axis === 'y' ? [['up', '▲', 0, -1], ['down', '▼', 0, 1]]
-                 : [['up', '▲', 0, -1], ['left', '◀', -1, 0], ['right', '▶', 1, 0], ['down', '▼', 0, 1]];
-      for (const [cls, glyph, dx, dy] of dirs) {
-        const b = document.createElement('div');
-        b.className = 'tbtn ' + cls;
-        b.textContent = glyph;
-        this._bindHold(b, () => { this.dir = { dx, dy }; }, () => {
-          if (this.dir.dx === dx && this.dir.dy === dy) this.dir = { dx: 0, dy: 0 };
-        });
-        pad.appendChild(b);
-      }
-      root.appendChild(pad);
+    if (o.players === 2) {
+      // Each side is a player: left and right, then their action.
+      root.appendChild(this._side(this, 'a', o, false));
+      root.appendChild(this._side(this.p2, 'p2a', o, true));
+      return this;
     }
 
-    if (o.action) {
-      const b = document.createElement('button');
-      b.className = 'taction';
-      b.textContent = o.action;
-      this._bindHold(b, () => { this.held.a = true; this._tapped.add('a'); }, () => { this.held.a = false; });
-      root.appendChild(b);
-    }
-    if (o.action2) {
-      const b = document.createElement('button');
-      b.className = 'taction second';
-      b.textContent = o.action2;
-      this._bindHold(b, () => { this.held.b = true; this._tapped.add('b'); }, () => { this.held.b = false; });
-      root.appendChild(b);
-    }
+    if (o.dpad) root.appendChild(this._dpad(this, o.axis));
+    const acts = document.createElement('div');
+    acts.className = 'tacts';
+    if (o.action2) acts.appendChild(this._action(this, 'b', o.action2, 'second'));
+    if (o.action) acts.appendChild(this._action(this, 'a', o.action, ''));
+    if (acts.children.length) root.appendChild(acts);
     return this;
+  },
+
+  /** Hide the deck, for a game screen that needs no controls (a menu). */
+  show(on) {
+    if (!this.root || !this.available) return this;
+    this.root.classList.toggle('idle', !on);
+    return this;
+  },
+
+  _dpad(target, axis) {
+    const pad = document.createElement('div');
+    pad.className = 'tdpad ' + (axis === 'x' ? 'x' : axis === 'y' ? 'y' : 'both');
+    const dirs = axis === 'x' ? [['left', '\u25c0', -1, 0], ['right', '\u25b6', 1, 0]]
+               : axis === 'y' ? [['up', '\u25b2', 0, -1], ['down', '\u25bc', 0, 1]]
+               : [['up', '\u25b2', 0, -1], ['left', '\u25c0', -1, 0], ['right', '\u25b6', 1, 0], ['down', '\u25bc', 0, 1]];
+    for (const [cls, glyph, dx, dy] of dirs) {
+      const b = document.createElement('div');
+      b.className = 'tbtn ' + cls;
+      b.textContent = glyph;
+      this._bindHold(b, () => { target.dir = { dx, dy }; }, () => {
+        if (target.dir.dx === dx && target.dir.dy === dy) target.dir = { dx: 0, dy: 0 };
+      });
+      pad.appendChild(b);
+    }
+    return pad;
+  },
+
+  _action(target, name, label, cls) {
+    const key = name === 'p2a' ? 'a' : name;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'taction' + (cls ? ' ' + cls : '');
+    b.textContent = label;
+    this._bindHold(b, () => { target.held[key] = true; this._tapped.add(name); }, () => { target.held[key] = false; });
+    return b;
+  },
+
+  _side(target, name, o, mirror) {
+    const side = document.createElement('div');
+    side.className = 'tside' + (mirror ? ' mirror' : '');
+    side.appendChild(this._dpad(target, o.axis));
+    if (o.action) side.appendChild(this._action(target, name, o.action, ''));
+    return side;
   },
 
   _bindHold(el, on, off) {

@@ -47,7 +47,9 @@
     name: 'Volley',
     width: W, height: H, max: 800, pad: 250,
     tools: ['sound', 'pause', 'help'],
-    foot: 'Left player <b>A</b> <b>D</b> and <b>W</b> &middot; right player <b>arrows</b> &middot; first to ' + 11,
+    foot: Touch.available
+      ? 'Against the CPU the buttons are yours &middot; for two players each takes one side of the buttons &middot; first to 11'
+      : 'Left player <b>A</b> <b>D</b> and <b>W</b> &middot; right player <b>arrows</b> &middot; first to ' + 11,
     rules: `
       <ul>
         <li>Do not let the ball land on your side. First to ${CFG.target} wins.</li>
@@ -146,6 +148,9 @@
       if (Input.held('ArrowLeft')) d -= 1;
       if (Input.held('ArrowRight')) d += 1;
       jump = Input.held('ArrowUp');
+      // Two players on one phone: the right-hand controls are theirs.
+      if (Touch.p2.dir.dx) d = Touch.p2.dir.dx;
+      if (Touch.p2.held.a) jump = true;
     }
 
     p.vx = d * CFG.speed;
@@ -454,6 +459,7 @@
   /* ---------- menu ---------- */
 
   function showMenu() {
+    mountTouch();                      // one set of controls against the CPU, two for a duel
     state = 'menu';
     players = [makePlayer(0), makePlayer(1)];
     ball = { x: W / 2, y: 120, vx: 0, vy: 0, held: true };
@@ -466,8 +472,8 @@
           <button data-act="mode" data-m="duel" class="${mode === 'duel' ? 'on' : ''}">Two players</button>
           <button data-act="mode" data-m="cpu" class="${mode === 'cpu' ? 'on' : ''}">CPU</button>
         </div></div>
-        <div class="rowBetween"><span>Left player</span><b style="color:var(--text)">A D and W</b></div>
-        <div class="rowBetween"><span>Right player</span><b style="color:var(--text)">${mode === 'cpu' ? 'CPU' : 'Arrow keys'}</b></div>`,
+        <div class="rowBetween"><span>Left player</span><b style="color:var(--text)">${Touch.available ? 'buttons on the left' : 'A D and W'}</b></div>
+        <div class="rowBetween"><span>Right player</span><b style="color:var(--text)">${mode === 'cpu' ? 'CPU' : (Touch.available ? 'buttons on the right' : 'Arrow keys')}</b></div>`,
       buttons: [{ label: 'Play', act: 'again', primary: true }]
     });
   }
@@ -478,7 +484,10 @@
     mode: (el) => { mode = el.dataset.m; showMenu(); }
   });
 
-  Touch.mount(Shell.els.touchpad, { dpad: true, axis: 'x', action: 'JUMP' });
+  function mountTouch() {
+    Touch.mount(Shell.els.touchpad, { dpad: true, axis: 'x', action: 'JUMP', players: mode === 'duel' ? 2 : 1 });
+  }
+  mountTouch();
 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyR' && state !== 'menu') start();

@@ -22,12 +22,9 @@
   const WELL_X = 190, WELL_Y = 24;
   const WELL_W = COLS * CELL;
   const WELL_H = (ROWS + PEEK) * CELL;
-  /* On a touch device the shared d-pad sits bottom-left of the stage, which
-     on a phone is the bottom of the well: the rows you watch hardest. So the
-     canvas gets a blank band beneath the well, deep enough for the d-pad and
-     its margin at every stage width, and the controls live there instead. */
-  const BAND = Touch.available ? 304 : 0;      // room for the d-pad plus a clear gap
-  const W = 660, H = WELL_Y + WELL_H + 24 + BAND;
+  /* The phone controls live in the shared strip under the stage now, so the
+     well no longer needs a blank band of its own inside the canvas. */
+  const W = 660, H = WELL_Y + WELL_H + 24;
   const PANEL_L = { x: 24, w: 142 };
   const PANEL_R = { x: 494, w: 142 };
 
@@ -101,7 +98,7 @@
 
   Shell.mount({
     name: 'Blocks',
-    width: W, height: H, max: 660, pad: BAND ? 160 : 240,
+    width: W, height: H, max: 660, pad: 240,
     tools: ['sound', 'pause', 'help'],
     foot: '<b>Left</b> and <b>right</b> move &middot; <b>up</b> or <b>X</b> rotates, <b>Z</b> the other way &middot; ' +
           '<b>down</b> soft drops, <b>space</b> hard drops &middot; <b>C</b> or <b>shift</b> holds &middot; ' +
@@ -481,12 +478,6 @@
 
     drawWell();
     drawSidePanels();
-    if (BAND) {
-      ctx.fillStyle = '#0b0f1a';
-      ctx.fillRect(0, H - BAND, W, BAND);
-      ctx.fillStyle = '#1a2233';
-      ctx.fillRect(0, H - BAND, W, 1);
-    }
 
     for (const s of sparks) {
       ctx.globalAlpha = clamp(s.life / s.max, 0, 1);

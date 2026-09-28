@@ -166,6 +166,12 @@ class Game {
         p.intent.dy = d.dy;
         p.intent.bomb = Input.tapped(b.bomb);
         p.intent.boom = Input.tapped(b.boom);
+        // On a phone the on-screen controls drive the first human player.
+        if (typeof Touch !== 'undefined' && p === this.players.find((q) => !q.isBot)) {
+          if (Touch.dir.dx || Touch.dir.dy) { p.intent.dx = Touch.dir.dx; p.intent.dy = Touch.dir.dy; }
+          if (Touch.tapped('a')) p.intent.bomb = true;
+          if (Touch.tapped('b')) p.intent.boom = true;
+        }
       }
     }
 

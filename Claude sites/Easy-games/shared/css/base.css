@@ -19,6 +19,7 @@
   --stage-max: 720px;
   --stage-ratio: 1.1538;
   --stage-pad: 250px;
+  --deck-h: 0px;            /* height of the phone control strip under the stage */
 }
 
 * { box-sizing: border-box; }
@@ -89,14 +90,16 @@ button.off { color: var(--dim); }
 .statusSub { font-size: 12px; color: var(--dim); }
 @keyframes pulse { 50% { opacity: .55; } }
 
-.tools { display: flex; gap: 6px; }
-.tools button { font-size: 13px; padding: 6px 10px; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; }
+/* On a phone five tools squeezed each label onto three lines; they wrap to a
+   second row instead and every label stays on one line. */
+.tools button { font-size: 13px; padding: 6px 10px; white-space: nowrap; }
 
 /* ---------- stage ---------- */
 
 .stageWrap {
   position: relative;
-  width: min(var(--stage-max), 100%, calc((100svh - var(--stage-pad)) * var(--stage-ratio)));
+  width: min(var(--stage-max), 100%, calc((100svh - var(--stage-pad) - var(--deck-h)) * var(--stage-ratio)));
   margin: 0 auto;
   border-radius: var(--radius);
   overflow: hidden;
@@ -259,23 +262,41 @@ button.off { color: var(--dim); }
 .readout b { font-size: 19px; font-variant-numeric: tabular-nums; }
 .readout.accent b { color: var(--accent); }
 
-/* ---------- touch controls ---------- */
+/* ---------- touch controls ----------
+   On a phone the controls are a strip of their own under the stage, the
+   "deck". They used to be drawn over the playfield and hid the bottom of it.
+   The stage shrinks by the deck's height when it is height-bound, so the
+   whole game and its controls fit on one screen. */
 
-.touchpad { position: absolute; inset: 0; pointer-events: none; display: none; }
-.touchpad.on { display: block; }
+.touchpad { display: none; }
+.touchpad.on {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  width: min(100%, 520px); height: var(--deck-h);
+  margin: 14px auto 0; padding: 0 2px;
+  user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.touchpad.on.idle { visibility: hidden; }
+body.hasDeck { --deck-h: 168px; }
+/* A left-right pad and round buttons need only one row. */
+body.hasDeck:not(:has(.touchpad .tdpad.both, .touchpad .tdpad.y)) { --deck-h: 96px; }
+/* Buttons only, no pad (Curve steers with two): one at each edge, same size. */
+.touchpad.on > .tacts:only-child { width: 100%; justify-content: space-between; }
+.touchpad.on > .tacts:only-child .taction.second { width: 86px; height: 86px; font-size: 13px; align-self: auto; }
 
 .tdpad {
-  position: absolute; left: 3%; bottom: 3%;
-  width: 40%; max-width: 190px; aspect-ratio: 1;
-  pointer-events: auto;
+  height: 100%; aspect-ratio: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 4px;
+  gap: 5px;
 }
+/* A two-way pad is one row (or column) of big buttons, not a mostly empty grid. */
+.tdpad.x { aspect-ratio: auto; width: 176px; height: 84px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; gap: 10px; }
+.tdpad.y { aspect-ratio: auto; width: 84px; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 10px; }
+.tdpad.x .left, .tdpad.x .right, .tdpad.y .up, .tdpad.y .down { grid-area: auto; }
 .tbtn {
   border: 1px solid rgba(255, 255, 255, .18);
-  background: rgba(30, 40, 62, .55);
+  background: #1e2840;
   border-radius: 10px;
   color: rgba(255, 255, 255, .75);
   font-size: 20px;
@@ -285,20 +306,74 @@ button.off { color: var(--dim); }
   -webkit-user-select: none;
 }
 .tbtn.press { background: rgba(255, 176, 46, .55); color: #241a03; }
-.tdpad .up { grid-area: 1 / 2; }
-.tdpad .left { grid-area: 2 / 1; }
-.tdpad .right { grid-area: 2 / 3; }
-.tdpad .down { grid-area: 3 / 2; }
+.taction.press { background: rgba(255, 176, 46, .75); color: #241a03; }
+.tdpad.both .up { grid-area: 1 / 2; }
+.tdpad.both .left { grid-area: 2 / 1; }
+.tdpad.both .right { grid-area: 2 / 3; }
+.tdpad.both .down { grid-area: 3 / 2; }
 
+.tacts { display: flex; align-items: center; gap: 14px; }
 .taction {
-  position: absolute; right: 4%; bottom: 6%;
-  width: 82px; height: 82px; border-radius: 50%;
+  width: 86px; height: 86px; border-radius: 50%; padding: 0;
   font-size: 13px; font-weight: 700; letter-spacing: .5px;
   background: rgba(255, 176, 46, .35);
   border: 1px solid rgba(255, 200, 100, .5);
   color: var(--text);
+  touch-action: none;
 }
-.taction.second { right: 4%; bottom: calc(6% + 96px); width: 62px; height: 62px; font-size: 11px; }
+.taction.second { width: 66px; height: 66px; font-size: 11px; align-self: flex-start; }
+
+/* Two players on one phone: each gets a half, left and right then jump, and
+   the widest gap on the strip is the one between the two players. */
+.touchpad.split { gap: 22px; }
+.tside { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.tside.mirror { flex-direction: row-reverse; }
+.tside .tdpad.x { flex: 1 1 auto; width: auto; max-width: 124px; height: 60px; gap: 6px; }
+.tside .taction { flex: none; width: 58px; height: 58px; font-size: 11px; }
+@media (max-width: 359px) {
+  .touchpad.split { gap: 14px; }
+  .tside { gap: 5px; }
+  .tside .taction { width: 48px; height: 48px; font-size: 10px; }
+}
+body.hasDeck:has(.touchpad.split) { --deck-h: 96px; }
+
+/* A phone on its side has no height to spare under the stage. The deck
+   splits to the two free margins beside the stage instead. */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.hasDeck { --deck-h: 0px !important; }     /* beats the deck-height rules above, whatever their selector */
+  /* The score boxes and the footer share the stage's column, clear of the
+     buttons in the margins. */
+  body.hasDeck .hud, body.hasDeck .foot { max-width: calc(100% - 2 * 164px); margin-left: auto; margin-right: auto; }
+  /* The game gets the full height under the top bar; the score boxes follow
+     below it, a scroll away, rather than squeezing the game to a stamp. */
+  body.hasDeck .stageWrap { max-width: calc(100% - 2 * 164px); --stage-pad: 76px !important; }
+  .touchpad.on {
+    position: fixed; left: 0; right: 0; bottom: 10px; z-index: 5;
+    width: auto; height: 150px; margin: 0; padding: 0 12px;
+    pointer-events: none;
+  }
+  .touchpad.on > * { pointer-events: auto; }
+  .touchpad.on .tdpad.both { width: 138px; height: 138px; }
+  .touchpad.on .tdpad.x { width: 138px; height: 72px; }
+  .touchpad.on .tdpad.y { width: 72px; height: 138px; }
+  .touchpad.on .tacts { flex-direction: column-reverse; align-items: flex-end; gap: 10px; }
+  .touchpad.on .taction { width: 70px; height: 70px; }
+  .touchpad.on .taction.second { width: 56px; height: 56px; align-self: auto; }
+}
+
+/* ---------- game-over peek ---------- */
+
+.linkBtn {
+  display: block; margin: 12px auto 0; padding: 4px 8px;
+  background: none; border: 0; color: var(--dim); font-size: 12.5px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.linkBtn:hover { color: var(--text); }
+.overlay.peek {
+  background: transparent; backdrop-filter: none; pointer-events: none;
+  place-items: end center; padding-bottom: 14px;
+}
+.overlay.peek .peekBack { pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
 
 .foot { text-align: center; color: #667496; font-size: 12px; margin: 16px 0 0; line-height: 1.6; }
 .foot b { color: var(--dim); font-weight: 600; }

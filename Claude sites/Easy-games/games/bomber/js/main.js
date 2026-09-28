@@ -8,6 +8,7 @@
   const game = new Game(canvas, ui);
   ui.attach(game);
   Input.init();
+  Touch.mount(document.getElementById('touchpad'), { dpad: true, action: 'BOMB', action2: 'BLAST' });
 
   // A generated level makes a decent backdrop behind the menu.
   game.arena.generate(SPAWNS);
@@ -69,6 +70,7 @@
       if (faults++ < 5) console.error('Easy Bomber frame error:', err);
     }
     Input.endFrame();
+    Touch.endFrame();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

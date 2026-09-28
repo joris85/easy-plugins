@@ -45,9 +45,9 @@ const Shell = {
         <div class="stageWrap" id="stageWrap">
           <canvas id="stage" width="${c.width}" height="${c.height}"></canvas>
           <div class="banner" id="banner"></div>
-          <div class="touchpad" id="touchpad"></div>
           <div class="overlay hidden" id="overlay"><div id="overlayInner"></div></div>
         </div>
+        <div class="touchpad" id="touchpad"></div>
         <div class="hud" id="hud"></div>
         <p class="foot" id="foot">${c.foot}</p>
       </div>`;
@@ -219,6 +219,8 @@ const Shell = {
       const act = el.dataset.act;
       if (act === 'resume') { this.hide(); this._pauseOpen = false; Loop.resume(); return; }
       if (act === 'closeRules') { this.closeRules(); return; }
+      if (act === '_peek') { this._peek(); return; }
+      if (act === '_unpeek') { this._unpeek(); return; }
       if (this._acts[act]) this._acts[act](el);
     });
   },
@@ -239,6 +241,8 @@ const Shell = {
 
   overlay(html, opts) {
     this._rulesOpen = false;
+    this._peekHtml = null;
+    this.els.overlay.classList.remove('peek');
     this.els.overlayInner.innerHTML = html;
     this.els.overlay.classList.remove('hidden');
     this.els.overlay.classList.toggle('transparent', !!(opts && opts.transparent));
@@ -250,6 +254,8 @@ const Shell = {
     this.els.overlayInner.innerHTML = '';
     this._countKey = null;
     this._rulesOpen = false;
+    this._peekHtml = null;
+    this.els.overlay.classList.remove('peek');
     // If the card being hidden was the shell's own pause card or the rules card,
     // the loop was paused on its behalf and nothing else will resume it. A game
     // that restarts with R while such a card is open calls hide() and then
@@ -307,7 +313,24 @@ const Shell = {
       ${opts.extra || ''}
       ${bestLine}
       <div class="btnRow">${btns}</div>
+      <button type="button" class="linkBtn" data-act="_peek">Hide this card to see the game</button>
     </div>`);
+  },
+
+  /* The game-over card covers the board it is reporting on: the finished
+     picture, the last tower, the crash site. "Hide this card" steps it aside
+     and leaves one small button to bring it back. */
+  _peek() {
+    this._peekHtml = this.els.overlayInner.innerHTML;
+    this.els.overlay.classList.add('peek');
+    this.els.overlayInner.innerHTML =
+      '<button type="button" class="peekBack primary" data-act="_unpeek">Show the result</button>';
+  },
+  _unpeek() {
+    const html = this._peekHtml;
+    this._peekHtml = null;
+    this.els.overlay.classList.remove('peek');
+    if (html) this.els.overlayInner.innerHTML = html;
   },
 
   /** Countdown that only rebuilds when the number changes, so the CSS pop animation runs. */
