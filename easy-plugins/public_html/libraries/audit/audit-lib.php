@@ -1,7 +1,7 @@
 <?php
 /**
  * Free audit library for easy-plugins.com — ported from the Easy Studio
- * (easy-image.app) audit services and stripped to a synchronous, capped,
+ * (easy-studio.app) audit services and stripped to a synchronous, capped,
  * no-database free tier. See FREE-AUDIT-TOOLS.md for the porting notes.
  *
  * Free-tier caps live in EpAudit::* constants. The paid product does the

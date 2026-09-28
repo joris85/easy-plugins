@@ -5,7 +5,7 @@
  */
 require_once __DIR__ . '/site-lang.php';
 $auditUpsellCampaign = $auditUpsellCampaign ?? 'audit';
-$auditUpsellUrl = 'https://easy-image.app/?utm_source=easy-plugins&utm_medium=audit&utm_campaign=' . rawurlencode($auditUpsellCampaign);
+$auditUpsellUrl = 'https://easy-studio.app/?utm_source=easy-plugins&utm_medium=audit&utm_campaign=' . rawurlencode($auditUpsellCampaign);
 ?>
 <section class="audit-upsell">
     <div class="audit-upsell__inner">
