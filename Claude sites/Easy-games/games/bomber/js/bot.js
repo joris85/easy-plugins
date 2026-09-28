@@ -6,8 +6,8 @@
 
 const Bot = {
   LEVELS: {
-    easy:   { interval: 330, aggression: 0.30, panic: 0.72, greed: 0.55 },
-    normal: { interval: 165, aggression: 0.62, panic: 0.96, greed: 0.85 },
+    easy:   { interval: 330, aggression: 0.30, panic: 0.80, greed: 0.55 },
+    normal: { interval: 165, aggression: 0.62, panic: 1.00, greed: 0.85 },
     hard:   { interval: 85,  aggression: 0.92, panic: 1.00, greed: 1.00 }
   },
 
@@ -151,8 +151,22 @@ const Bot = {
     }
 
     // 3. Go somewhere useful: items first, then blocks to farm, then opponents.
+    // Once a bot is armed (longer flame) or the round is well under way, the
+    // opponents come first, so a player standing still in a corner gets hunted
+    // instead of watched.
     const walk = this.bfs(a, sx, sy, cautious);
     let goal = -1, bestScore = -Infinity;
+    const elapsed = CFG.ROUND_TIME - game.timeLeft;
+    const hunting = p.fire >= 2 || elapsed > 30;
+    if (hunting) {
+      for (const q of game.players) {
+        if (!q.alive || q.id === p.id) continue;
+        const qi = a.idx(q.tx, q.ty);
+        if (walk.dist[qi] < 0) continue;
+        const score = 260 - walk.dist[qi] * 8;
+        if (score > bestScore) { bestScore = score; goal = qi; }
+      }
+    }
 
     for (const [i, it] of a.items) {
       if (!it.revealed || it.type === ITEM.SKULL) continue;

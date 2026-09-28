@@ -27,6 +27,10 @@
   btnMute.addEventListener('click', () => setMute(!Sfx.muted));
   btnPause.addEventListener('click', () => game.togglePause());
   btnMenu.addEventListener('click', () => game.toMenu());
+  document.getElementById('btnHelp').addEventListener('click', () => {
+    if (game.state === STATE.PLAYING) game.togglePause();
+    ui.showHelp(game);
+  });
 
   function boundToAnyPlayer(code) {
     for (let p = 0; p < 4; p++) {

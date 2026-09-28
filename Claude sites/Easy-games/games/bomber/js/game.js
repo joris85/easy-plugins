@@ -61,6 +61,9 @@ class Game {
   startRound() {
     this.roundNo++;
     this.arena.generate(this.players.map((p) => SPAWNS[p.id]));
+    // The closing wall starts in a different corner every round, so no one
+    // player is always the first to be chased out of home.
+    this.arena.orientSpiral((this.roundNo - 1) % 4);
     for (const p of this.players) p.resetForRound(SPAWNS[p.id]);
     this.timeLeft = CFG.ROUND_TIME;
     this.lastTick = -1;
@@ -74,6 +77,13 @@ class Game {
 
   toMenu() {
     this.state = STATE.MENU;
+    // Leaving a match ends it: the round counter and the cards go back to zero
+    // so the next Start is not labelled as round seven.
+    this.roundNo = 0;
+    this.matchWinner = null;
+    this.roundWinner = null;
+    for (const p of this.players) p.wins = 0;
+    this.ui.updateHud(this);
     this.ui.showMenu(this);
   }
 

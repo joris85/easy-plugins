@@ -45,9 +45,9 @@
   ];
 
   const LEVELS = {
-    easy:   { think: 320, aimErr: 0.20, fireChance: 0.35, dodge: 0.5,  label: 'Easy' },
-    normal: { think: 180, aimErr: 0.09, fireChance: 0.7,  dodge: 0.85, label: 'Normal' },
-    hard:   { think: 100, aimErr: 0.03, fireChance: 0.95, dodge: 1.0,  label: 'Hard' }
+    easy:   { think: 320, aimErr: 0.20, fireChance: 0.35, dodge: 0.5,  mineChance: 0.10, label: 'Easy' },
+    normal: { think: 180, aimErr: 0.09, fireChance: 0.7,  dodge: 0.85, mineChance: 0.20, label: 'Normal' },
+    hard:   { think: 100, aimErr: 0.03, fireChance: 0.95, dodge: 1.0,  mineChance: 0.30, label: 'Hard' }
   };
 
   const SPAWN = [
@@ -73,7 +73,7 @@
     name: 'Tanks',
     width: W, height: H, max: 800, pad: 250,
     tools: ['sound', 'pause', 'help'],
-    foot: 'Turn with <b>left</b> and <b>right</b>, drive with <b>up</b> and <b>down</b>, <b>bomb key</b> fires, <b>detonate key</b> drops a mine',
+    foot: 'Turn with <b>left</b> and <b>right</b>, drive with <b>up</b> and <b>down</b>; each player has a <b>fire</b> key and a <b>mine</b> key, shown on the start card',
     rules: `
       <ul>
         <li>Shells <b>bounce once</b> off steel. After that they burn out. A bounced
@@ -162,10 +162,17 @@
 
   /* ---------- movement ---------- */
 
-  function tankFits(x, y) {
+  function tankFits(x, y, self) {
     const r = CFG.tankR;
     for (const [ox, oy] of [[-r, -r], [r, -r], [-r, r], [r, r], [0, -r], [0, r], [-r, 0], [r, 0]]) {
       if (solidAt(Math.floor((x + ox) / TILE), Math.floor((y + oy) / TILE))) return false;
+    }
+    // Tanks are solid to each other too; nobody drives through a hull.
+    if (self) {
+      for (const o of tanks) {
+        if (o === self || !o.alive) continue;
+        if (Math.hypot(o.x - x, o.y - y) < CFG.tankR * 2 - 2) return false;
+      }
     }
     return true;
   }
@@ -182,9 +189,9 @@
       const nx = t.x + Math.cos(t.ang) * step * sgn;
       const ny = t.y + Math.sin(t.ang) * step * sgn;
       // Slide along walls instead of sticking to them.
-      if (tankFits(nx, ny)) { t.x = nx; t.y = ny; }
-      else if (tankFits(nx, t.y)) t.x = nx;
-      else if (tankFits(t.x, ny)) t.y = ny;
+      if (tankFits(nx, ny, t)) { t.x = nx; t.y = ny; }
+      else if (tankFits(nx, t.y, t)) t.x = nx;
+      else if (tankFits(t.x, ny, t)) t.y = ny;
       else break;
       t.tread += step;
     }
@@ -204,7 +211,7 @@
     shells.push({
       owner: t.i, x: sx, y: sy,
       vx: Math.cos(t.ang) * CFG.shellSpeed, vy: Math.sin(t.ang) * CFG.shellSpeed,
-      life: CFG.shellLife, bounces: CFG.shellBounces, born: now
+      life: CFG.shellLife, bounces: CFG.shellBounces, born: now, armed: false
     });
     Sfx.place();
     return true;
@@ -330,7 +337,7 @@
       timer -= dt * 1000;
       stepWorld(dt);
       if (timer <= 0) {
-        const champ = tanks.find((t) => t.score >= CFG.target);
+        const champ = champion(tanks, CFG.target);
         if (champ) matchOver(champ); else startRound();
       }
       return;
@@ -355,14 +362,20 @@
       s.life -= dt;
       if (s.life > 0) stepShell(s, dt, true);
       if (s.life <= 0) { shells.splice(i, 1); continue; }
+      let hit = null;
       for (const t of tanks) {
         if (!t.alive) continue;
-        if (Math.hypot(t.x - s.x, t.y - s.y) < CFG.tankR + CFG.shellR) {
-          shells.splice(i, 1);
-          kill(t, s.owner);
-          break;
-        }
+        const d = Math.hypot(t.x - s.x, t.y - s.y);
+        if (d >= CFG.tankR + CFG.shellR) continue;
+        // A fresh shell is still inside its own tank; it only becomes dangerous
+        // to the firer once it has been clear of the hull (a bounce back counts).
+        if (t.i === s.owner && !s.armed) continue;
+        hit = t;
+        break;
       }
+      if (hit) { shells.splice(i, 1); kill(hit, s.owner); continue; }
+      const own = tanks.find((t) => t.i === s.owner);
+      if (!s.armed && (!own || Math.hypot(own.x - s.x, own.y - s.y) > CFG.tankR + CFG.shellR + 2)) s.armed = true;
     }
 
     for (let i = mines.length - 1; i >= 0; i--) {
@@ -404,6 +417,14 @@
     Sfx.die();
     for (const q of tanks) if (q.alive && q !== t) q.score++;
     updateHud();
+  }
+
+  /* Top scorer once anyone reaches the target; a tie at the top plays on. */
+  function champion(list, goal) {
+    const top = Math.max(...list.map((t) => t.score));
+    if (top < goal) return null;
+    const leaders = list.filter((t) => t.score === top);
+    return leaders.length === 1 ? leaders[0] : null;
   }
 
   function endRound(survivor) {
@@ -523,16 +544,35 @@
       }
       drive = 0;
     } else {
-      // Nothing to shoot: roam, so it does not sit in a corner.
+      // Nothing to shoot: roam, but lean towards the nearest opponent so a
+      // player hiding in a corner still gets visitors.
+      const foe = nearestFoe(t);
+      if (foe && Math.random() < 0.02) {
+        t.bot.wander = Math.atan2(foe.y - t.y, foe.x - t.x) + (Math.random() - 0.5) * 1.4;
+      }
       t.bot.wander += (Math.random() - 0.5) * 0.4;
       turn = angleTurn(t.ang, t.bot.wander);
       drive = 1;
-      if (!tankFits(t.x + Math.cos(t.ang) * 22, t.y + Math.sin(t.ang) * 22)) {
+      if (!tankFits(t.x + Math.cos(t.ang) * 22, t.y + Math.sin(t.ang) * 22, t)) {
         t.bot.wander = Math.random() * 6.283;
+      }
+      // Leave a mine now and then in a corridor an opponent is close to.
+      if (foe && Math.hypot(foe.x - t.x, foe.y - t.y) < TILE * 6 && Math.random() < LEVELS[t.level].mineChance * dt) {
+        dropMine(t);
       }
     }
 
     driveTank(t, turn, drive, dt);
+  }
+
+  function nearestFoe(t) {
+    let best = null, bd = Infinity;
+    for (const o of tanks) {
+      if (o === t || !o.alive) continue;
+      const d = Math.hypot(o.x - t.x, o.y - t.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
   }
 
   function angleDiff(a, b) {

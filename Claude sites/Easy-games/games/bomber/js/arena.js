@@ -106,6 +106,16 @@ class Arena {
     }
   }
 
+  /** Mirror the spiral so it starts from corner `k` (0 top-left, 1 top-right,
+      2 bottom-left, 3 bottom-right). The path still winds inward. */
+  orientSpiral(k) {
+    this.buildSpiral();
+    if (!k) return;
+    const fx = k === 1 || k === 3, fy = k === 2 || k === 3;
+    this.spiral = this.spiral.map(([x, y]) => [fx ? this.cols - 1 - x : x, fy ? this.rows - 1 - y : y]);
+    this.spiralIndex = 0;
+  }
+
   /* ---------- queries ---------- */
 
   bombAt(x, y) {

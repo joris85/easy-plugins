@@ -23,7 +23,7 @@
     grace: 14,           // px of own trail behind the head that is not yet solid
     gapMin: 1800, gapMax: 3400,
     gapLenMin: 100, gapLenMax: 140,
-    freeze: 900,         // ms before a round starts moving
+    freeze: 1350,        // ms before a round starts moving (three beats of 450)
     minSpawnDist: 120,
     roundGap: 1900
   };
@@ -136,10 +136,10 @@
     const spots = [];
     for (const p of players) {
       p.alive = true;
+      p.dyingNow = false;
       p.pending.length = 0;
       p.gapTimer = CFG.gapMin + Math.random() * (CFG.gapMax - CFG.gapMin);
       p.gapLeft = 0;
-      p.ang = Math.random() * 6.283;
       // Rejection sample a spawn that is not on top of anybody else.
       let tries = 0;
       do {
@@ -148,6 +148,8 @@
         tries++;
       } while (tries < 200 && spots.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < CFG.minSpawnDist));
       spots.push({ x: p.x, y: p.y });
+      // Face roughly towards the middle, so nobody starts pointed at a wall.
+      p.ang = Math.atan2(H / 2 - p.y, W / 2 - p.x) + (Math.random() - 0.5) * 1.2;
     }
     state = 'freeze';
     timer = CFG.freeze;
@@ -161,14 +163,14 @@
   function update(dt) {
     if (state === 'freeze') {
       timer -= dt * 1000;
-      Shell.countdown(Math.ceil(timer / 300), 'Get ready');
+      Shell.countdown(Math.ceil(timer / 450), 'Get ready');
       if (timer <= 0) { state = 'play'; Shell.hide(); }
       return;
     }
     if (state === 'roundover') {
       timer -= dt * 1000;
       if (timer <= 0) {
-        const champ = players.find((p) => p.score >= target);
+        const champ = champion(players, target);
         if (champ) matchOver(champ); else startRound();
       }
       return;
@@ -210,12 +212,12 @@
 
       // Move in small increments so a fast frame cannot jump over a trail.
       let remaining = step;
-      while (remaining > 0.0001 && p.alive) {
+      while (remaining > 0.0001 && !p.dyingNow) {
         const s = Math.min(1.5, remaining);
         remaining -= s;
         const nx = p.x + Math.cos(p.ang) * s;
         const ny = p.y + Math.sin(p.ang) * s;
-        if (blocked(nx, ny)) { kill(p); break; }
+        if (blocked(nx, ny)) { p.dyingNow = true; break; }
         p.x = nx; p.y = ny;
         if (drawing) {
           p.pending.push({ x: nx, y: ny, brk: !!p.newStroke });
@@ -236,6 +238,12 @@
       }
     }
 
+    // Crashes are settled after everybody has moved, so two players hitting
+    // something in the same frame are a tie and neither scores off the other.
+    const dying = players.filter((p) => p.alive && p.dyingNow);
+    for (const p of dying) kill(p);
+    for (const p of dying) p.dyingNow = false;
+
     const alive = players.filter((p) => p.alive);
     if (alive.length <= 1 && players.length > 1) endRound(alive[0] || null);
   }
@@ -244,10 +252,21 @@
     if (!p.alive) return;
     p.alive = false;
     p.deathAt = performance.now();
-    // Everyone still alive gets a point for outliving this player.
-    for (const q of players) if (q.alive && q !== p) q.score++;
+    // Everyone still alive gets a point for outliving this player. Players
+    // crashing in the same frame are one batch: none of them outlived the others.
+    for (const q of players) if (q.alive && q !== p && !q.dyingNow) q.score++;
     Sfx.die();
     updateHud();
+  }
+
+  /* The match goes to the top scorer once somebody reaches the target. Two
+     players tied at the top play another round rather than the first slot
+     winning by list order. */
+  function champion(list, goal) {
+    const top = Math.max(...list.map((p) => p.score));
+    if (top < goal) return null;
+    const leaders = list.filter((p) => p.score === top);
+    return leaders.length === 1 ? leaders[0] : null;
   }
 
   function endRound(survivor) {

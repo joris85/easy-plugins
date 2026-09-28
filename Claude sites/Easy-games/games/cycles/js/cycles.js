@@ -133,7 +133,7 @@
     if (state === 'roundover') {
       timer -= dt * 1000;
       if (timer <= 0) {
-        const champ = players.find((p) => p.score >= CFG.target);
+        const champ = champion(players, CFG.target);
         if (champ) matchOver(champ); else startRound();
       }
       return;
@@ -141,7 +141,9 @@
     if (state !== 'play') return;
 
     readInput();
+    const tierBefore = Math.floor(roundMs / CFG.speedEvery);
     roundMs += dt * 1000;
+    if (Math.floor(roundMs / CFG.speedEvery) !== tierBefore) updateHud();
     stepAcc += dt;
     const iv = stepInterval();
     while (stepAcc >= iv) {
@@ -180,10 +182,12 @@
       p.cells.push({ x: t.x, y: t.y });
     });
 
+    // Everyone in this step's crash is one batch: the survivors score once per
+    // fallen rider, and nobody scores off a rider who fell beside them.
     for (const p of dying) {
       p.alive = false;
       p.deathAt = performance.now();
-      for (const q of players) if (q.alive && q !== p) q.score++;
+      for (const q of players) if (q.alive && q !== p && dying.indexOf(q) === -1) q.score++;
       Sfx.die();
     }
 
@@ -202,6 +206,14 @@
       ? `<span style="color:${survivor.col.body}">${survivor.col.name}</span> survives`
       : 'Everybody crashed';
     Shell.overlay(`<div class="card slim"><h2>${title}</h2>${scoreStrip()}</div>`, { transparent: true });
+  }
+
+  /* Top scorer once anyone reaches the target; a tie at the top plays on. */
+  function champion(list, goal) {
+    const top = Math.max(...list.map((p) => p.score));
+    if (top < goal) return null;
+    const leaders = list.filter((p) => p.score === top);
+    return leaders.length === 1 ? leaders[0] : null;
   }
 
   function matchOver(champ) {

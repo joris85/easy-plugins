@@ -112,6 +112,7 @@ class UI {
       return;
     }
     if (act === 'resume') { g.togglePause(); return; }
+    if (act === 'pauseback') { this.showPause(); return; }
     if (act === 'resetkeys') { Input.resetBindings(); this.showControls(g); return; }
     if (act === 'rebind') {
       const p = +el.dataset.player, action = el.dataset.action;
@@ -186,6 +187,7 @@ class UI {
       <div class="card wide">
         <h2>Controls</h2>
         <p class="tag">Click a key, then press the key you want. Escape cancels.</p>
+        ${Input.refused ? `<p class="tag" style="color:var(--warn, #ffb02e)">${Input.label(Input.refused.code)} is already ${PALETTE[Input.refused.player].name}'s ${ACTION_LABELS[Input.refused.action] || Input.refused.action} key. Pick another, or change theirs first.</p>` : ''}
         ${rows}
         <div class="btnRow">
           <button class="primary" data-act="menu">Back</button>
@@ -194,7 +196,10 @@ class UI {
       </div>`);
   }
 
-  showHelp() {
+  showHelp(game) {
+    // Opened mid-match the card goes back to the pause screen, not the menu,
+    // so reading the rules never throws a match away.
+    this.helpBack = game && game.state === STATE.PAUSED ? 'pauseback' : 'menu';
     this.show(`
       <div class="card wide">
         <h2>How to play</h2>
@@ -223,7 +228,7 @@ class UI {
             </ul>
           </div>
         </div>
-        <div class="btnRow"><button class="primary" data-act="menu">Back</button></div>
+        <div class="btnRow"><button class="primary" data-act="${this.helpBack || 'menu'}">Back</button></div>
       </div>`);
   }
 
