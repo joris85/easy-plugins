@@ -243,7 +243,12 @@
     if (now >= right.nextThink) {
       right.nextThink = now + lv.react;
       if (ball.vx > 0) {
-        right.aim = predictY(ball.x, ball.y, ball.vx, ball.vy, right.x) + (Math.random() - 0.5) * 2 * lv.error;
+        // The aim error grows with the ball's speed, as a person's would, so a
+        // long rally ends because somebody misses and not because the clock
+        // ran out: measured with a fixed error, a decent player and the Normal
+        // CPU went five minutes at 0-0.
+        const err = lv.error * Math.pow(ball.speed / CFG.ballStart, 1.5);
+        right.aim = predictY(ball.x, ball.y, ball.vx, ball.vy, right.x) + (Math.random() - 0.5) * 2 * err;
       } else {
         right.aim = H / 2 + (Math.random() - 0.5) * 60;    // drift home while the ball is away
       }
