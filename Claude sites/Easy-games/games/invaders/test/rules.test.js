@@ -46,11 +46,16 @@ console.log('\n== formation ==');
 console.log('\n== the speed-up curve ==');
 {
   check('full rack steps at the base interval', R.stepInterval(55), C.baseStep);
-  check('one invader steps at a fifty-fifth of it', +R.stepInterval(1).toFixed(6), +(C.baseStep / 55).toFixed(6));
+  check('one invader steps at the floor, not a fifty-fifth', +R.stepInterval(1).toFixed(6), +Math.max(C.minStep, C.baseStep / 55).toFixed(6));
+  ok('the floor is what stops the last invader flickering', C.minStep > C.baseStep / 55);
   check('half the rack is twice as fast', +(R.stepInterval(55) / R.stepInterval(27.5)).toFixed(6), 2);
-  let mono = true;
-  for (let n = 55; n > 1; n--) if (R.stepInterval(n) <= R.stepInterval(n - 1)) mono = false;
-  ok('every death makes it faster', mono);
+  let mono = true, never = true;
+  for (let n = 55; n > 1; n--) {
+    if (R.stepInterval(n) < R.stepInterval(n - 1)) never = false;
+    if (R.stepInterval(n - 1) > C.minStep && R.stepInterval(n) <= R.stepInterval(n - 1)) mono = false;
+  }
+  ok('every death above the floor makes it faster', mono);
+  ok('a death never makes it slower', never);
   ok('zero alive never divides to zero', R.stepInterval(0) > 0);
 
   // Count steps in ten seconds with 55 alive and with 5 alive.

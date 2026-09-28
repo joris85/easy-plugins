@@ -43,6 +43,7 @@ const InvadersRules = (function () {
     colW: 48, rowH: 42,            // formation cell size in pixels
     stepX: 6, dropY: 24,           // two units sideways, eight units down, as the original
     baseStep: 0.9,                 // seconds per step with all 55 alive (55 frames at 60 Hz)
+    minStep: 0.045,                // never faster than this, roughly three frames
     edge: 12,                      // the wall, measured in from the canvas edge
     topY: 84,                      // formation top on wave 1
     startDrops: [0, 2, 3, 4, 5],   // extra drops per wave; the last entry repeats
@@ -324,7 +325,9 @@ const InvadersRules = (function () {
 
   function stepInterval(alive) {
     const total = CFG.cols * CFG.rows;
-    return CFG.baseStep * Math.max(1, alive) / total;
+    // The last few invaders would otherwise step every frame; a floor keeps
+    // them fast but followable.
+    return Math.max(CFG.minStep, CFG.baseStep * Math.max(1, alive) / total);
   }
 
   function reloadFor(score) {

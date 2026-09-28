@@ -120,8 +120,13 @@
   function start() {
     score = 0;
     flightNo = 1;
+    // The run total grows with every landing, so "new best" is judged against
+    // the best before this run started, and said once.
+    runStartBest = Scores.best('lander');
+    bestAnnounced = false;
     nextFlight();
   }
+  let runStartBest = null, bestAnnounced = false;
 
   function nextFlight() {
     makeTerrain();
@@ -129,7 +134,7 @@
     ship = {
       x: 80 + Math.random() * (W - 160),
       y: 70,
-      vx: (Math.random() - 0.5) * 40,
+      vx: (Math.random() - 0.5) * 24,          // at most 1.2 m/s, inside the safe drift
       vy: 8,
       ang: 0,
       thrust: 0
@@ -192,7 +197,9 @@
   function touchdown(ground) {
     ship.y = ground - CFG.shipR;
     const pad = padAt(ship.x);
-    const tilt = Math.abs(((ship.ang + Math.PI) % (Math.PI * 2)) - Math.PI);
+    // Angle folded into -pi..pi, so a ship that has rolled right round still
+    // reads as "tilted a lot" rather than "level".
+    const tilt = Math.abs(Math.atan2(Math.sin(ship.ang), Math.cos(ship.ang)));
     const softV = ship.vy <= CFG.maxVy;
     const softH = Math.abs(ship.vx) <= CFG.maxVx;
     const upright = tilt <= CFG.maxTilt;
@@ -227,7 +234,9 @@
     if (tilt > CFG.maxTilt) why.push('tilted ' + (tilt * 180 / Math.PI).toFixed(0) + ' degrees');
 
     if (ok) {
-      const res = Scores.submit('lander', score);
+      Scores.submit('lander', score);
+      const isNew = runStartBest !== null && score > runStartBest && !bestAnnounced;
+      if (isNew) bestAnnounced = true;
       Shell.gameOverCard({
         title: 'Touchdown on the x' + pad.mult + ' pad',
         scoreLabel: 'This landing',
@@ -235,12 +244,12 @@
         extra: `<div class="rowBetween"><span>Descent</span><b style="color:var(--text)">${(ship.vy / SCALE).toFixed(2)} m/s</b></div>
                 <div class="rowBetween"><span>Fuel left</span><b style="color:var(--text)">${Math.round(fuel)}</b></div>
                 <div class="rowBetween"><span>Total score</span><b style="color:var(--accent)">${score}</b></div>`,
-        isNew: res.isNew && res.previous !== null,
+        isNew,
         best: Scores.label('lander'),
         buttons: [{ label: 'Next flight', act: 'next', primary: true }, { label: 'End run', act: 'end' }]
       });
     } else {
-      Scores.submit('lander', score);
+      if (score > 0) Scores.submit('lander', score);     // a crash on flight one is not a record
       Shell.gameOverCard({
         title: 'Crashed',
         scoreLabel: 'Run total',

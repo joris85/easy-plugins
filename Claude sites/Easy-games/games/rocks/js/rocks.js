@@ -123,9 +123,9 @@
   function resetShip(full) {
     ship = {
       x: W / 2, y: H / 2, vx: 0, vy: 0, ang: -Math.PI / 2,
-      thrusting: false, invuln: performance.now() + CFG.invulnMs, lastFire: 0
+      thrusting: false, invuln: Loop.time * 1000 + CFG.invulnMs, lastFire: 0
     };
-    if (full) ship.invuln = performance.now() + CFG.invulnMs;
+    if (full) ship.invuln = Loop.time * 1000 + CFG.invulnMs;
   }
 
   function nextWave() {
@@ -141,7 +141,8 @@
       } while (guard < 60 && Math.hypot(x - W / 2, y - H / 2) < 190);
       rocks.push(makeRock('large', x, y));
     }
-    if (wave > 1) Shell.banner('Wave ' + wave);
+    if (wave > 1) { Shell.banner('Wave ' + wave); Sfx.roundStart(); }
+    updateHud();
   }
 
   /* ---------- simulation ---------- */
@@ -152,7 +153,9 @@
       stepWorld(dt);
       if (deadTimer <= 0) {
         if (lives <= 0) gameOver();
-        else { resetShip(true); state = 'play'; }
+        // Wait for the middle to clear before putting the new ship there, up to
+        // a few seconds; after that the blink of invulnerability has to do.
+        else if (centreClear() || deadTimer < -4000) { resetShip(true); state = 'play'; }
       }
       return;
     }
@@ -190,7 +193,7 @@
   }
 
   function fire() {
-    const now = performance.now();
+    const now = Loop.time * 1000;
     if (now - ship.lastFire < CFG.fireDelay) return;
     if (bullets.length >= CFG.bullets) return;
     ship.lastFire = now;
@@ -317,7 +320,7 @@
       }
     }
 
-    if (state !== 'play' || performance.now() < ship.invuln) return;
+    if (state !== 'play' || Loop.time * 1000 < ship.invuln) return;
 
     for (let j = rocks.length - 1; j >= 0; j--) {
       if (dist(ship, rocks[j]) < rocks[j].r + CFG.shipR * 0.7) { splitRock(j); explodeShip(); return; }
@@ -343,6 +346,11 @@
     if (def.next) {
       for (let k = 0; k < 2; k++) rocks.push(makeRock(def.next, r.x, r.y));
     }
+  }
+
+  function centreClear() {
+    for (const r of rocks) if (Math.hypot(r.x - W / 2, r.y - H / 2) < r.r + 70) return false;
+    return true;
   }
 
   function explodeShip() {
@@ -372,6 +380,7 @@
   function gameOver() {
     state = 'over';
     const res = Scores.submit('rocks', score);
+    updateHud();
     Shell.gameOverCard({
       title: 'Ship lost',
       scoreLabel: 'Score',
@@ -464,7 +473,7 @@
   }
 
   function drawShip() {
-    const blink = performance.now() < ship.invuln && Math.floor(performance.now() / 90) % 2 === 0;
+    const blink = Loop.time * 1000 < ship.invuln && Math.floor(Loop.time * 1000 / 90) % 2 === 0;
     if (blink) return;
     ctx.save();
     ctx.translate(ship.x, ship.y);

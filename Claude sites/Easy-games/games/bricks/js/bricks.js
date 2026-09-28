@@ -132,7 +132,7 @@
     if (state !== 'play' && state !== 'serve') return;
 
     movePaddle(dt);
-    if (widenUntil && performance.now() > widenUntil) { paddle.w = baseWidth(); widenUntil = 0; }
+    if (widenUntil && Loop.time * 1000 > widenUntil) { paddle.w = baseWidth(); widenUntil = 0; }
 
     for (const b of balls) {
       if (b.stuck) { b.x = paddle.x; b.y = CFG.paddleY - 18; continue; }
@@ -202,7 +202,10 @@
     if (b.vy > 0 &&
         b.y + CFG.ballR >= CFG.paddleY && b.y - CFG.ballR <= CFG.paddleY + CFG.paddleH &&
         Math.abs(b.x - paddle.x) <= paddle.w / 2 + CFG.ballR) {
-      const offset = clamp((b.x - paddle.x) / (paddle.w / 2), -1, 1);
+      let offset = clamp((b.x - paddle.x) / (paddle.w / 2), -1, 1);
+      // A dead-centre hit would send the ball straight up and down for ever;
+      // give it a little sideways lean so the rally keeps moving.
+      if (Math.abs(offset) < 0.1) offset = (offset < 0 ? -1 : 1) * (0.1 + Math.random() * 0.1);
       const ang = -Math.PI / 2 + offset * CFG.maxBounce;
       b.vx = Math.cos(ang) * b.speed;
       b.vy = Math.sin(ang) * b.speed;
@@ -265,7 +268,7 @@
 
   function applyDrop(kind) {
     Sfx.pickup();
-    if (kind === 'wide') { paddle.w = baseWidth() * 1.6; widenUntil = performance.now() + 12000; }
+    if (kind === 'wide') { paddle.w = baseWidth() * 1.6; widenUntil = Loop.time * 1000 + 12000; }
     if (kind === 'life') { lives++; }
     if (kind === 'slow') {
       for (const b of balls) {
@@ -304,6 +307,8 @@
     if (lives <= 0) { finish(false); return; }
     paddle.w = baseWidth();
     widenUntil = 0;
+    // A fresh ball starts slow again, so its speed-ups have to be earned again too.
+    hits = 0; sped4 = false; sped12 = false; spedOrange = false; spedRed = false;
     serve();
     updateHud();
   }
@@ -311,6 +316,7 @@
   function finish(won) {
     state = won ? 'won' : 'over';
     const res = Scores.submit('bricks', score, { variant: mode });
+    updateHud();
     Shell.gameOverCard({
       title: won ? 'Both screens cleared' : 'Out of lives',
       scoreLabel: 'Score',

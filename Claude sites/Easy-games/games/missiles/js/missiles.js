@@ -41,7 +41,7 @@
 
   let state = 'menu';           // menu | play | tally | over
   let g = null;                 // the rules engine's game
-  let aim = { x: W / 2, y: H * 0.4, shown: false };
+  let aim = { x: W / 2, y: H * 0.4, shown: false, pulse: -1 };
   let particles = [], popups = [], scorches = [];
   let shake = 0;
   let tally = null;             // the animated end-of-wave count
@@ -352,6 +352,7 @@
     aim.x = clamp(p.x, 4, W - 4);
     aim.y = clamp(p.y, 4, GROUND - CFG.minAim);
     aim.shown = true;
+    aim.pulse = Loop.time;                     // a ring spreads from the tap
     fireAt(aim.x, aim.y);
   });
 
@@ -599,6 +600,13 @@
     ctx.moveTo(aim.x, aim.y - 12); ctx.lineTo(aim.x, aim.y - 4);
     ctx.moveTo(aim.x, aim.y + 4); ctx.lineTo(aim.x, aim.y + 12);
     ctx.stroke();
+    const age = Loop.time - aim.pulse;
+    if (aim.pulse >= 0 && age < 0.3) {
+      ctx.strokeStyle = 'rgba(232,237,250,' + (0.8 * (1 - age / 0.3)).toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(aim.x, aim.y, 10 + age * 90, 0, 6.283);
+      ctx.stroke();
+    }
   }
 
   function drawTally() {

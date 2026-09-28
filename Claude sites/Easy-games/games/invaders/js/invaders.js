@@ -196,6 +196,7 @@
   function gameOver() {
     state = 'over';
     const res = Scores.submit('invaders', g.score);
+    updateHud();
     Shell.gameOverCard({
       title: g.reason === 'landed' ? 'They landed' : 'Out of lives',
       scoreLabel: 'Score',
