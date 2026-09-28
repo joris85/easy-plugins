@@ -28,7 +28,7 @@ Then `http://localhost:8899/`. There is a `.claude/launch.json` entry named
 ```bash
 node games/tilt/test/rules.test.js      # 368 checks, exits non-zero on failure
 
-# every suite at once: 1610 checks across nine games
+# every suite at once: 1612 checks across nine games
 for g in tilt missiles invaders words sudoku picture blocks solitaire muncher; do
   printf '%-10s ' "$g"; node "games/$g/test/rules.test.js" | tail -1
 done
@@ -158,6 +158,39 @@ document). The Joker-every-15 counter is Joris's own observation from
 screenshots (the manual only says "next extra"). Reward tables follow the
 manual's legible fragments ordered by clear size (INFERRED).
 
+## Play-test round, 2026-09-28
+
+Five browser agents played every game with every option for a few minutes
+each (ball and block games; puzzles in two halves; arcade; the grid
+multiplayer games; Tilt). Everything they reported as a defect is fixed and
+pushed; the commit messages from `fa55f135` onward carry the detail. The
+shared causes were worth more than any single game:
+
+- **Keys reached paused games.** Every game listened on `window` and checked
+  only for its menu state, so R, arrows and digits worked behind the pause
+  and rules cards. The shell now swallows game keys in the capture phase while
+  the loop is paused; Escape closes the rules card or toggles pause.
+- **A restart from behind a card froze the game.** `Shell.hide()` now resumes
+  the loop when the card it hides was the shell's own pause or rules card.
+- **Mouse clicks on start cards died in Bricks and Invaders**, because
+  `Touch.drag` took pointer capture on the stage. It ignores presses that
+  begin on a card or the d-pad.
+- **Wall-clock timers.** Mines, Picture, Slide, Bricks, Rocks, Pong and Puck
+  timed things with `performance.now()`, so clocks ran and CPUs "thought"
+  through a pause. They use `Loop.time` now. Rule of thumb: nothing in a game
+  reads `performance.now()` except sound rate limiting and double-tap timing.
+- **Match winner by list order.** Curve, Cycles and Tanks gave the match to
+  the first slot at the target score. Top scorer wins; ties play on; players
+  dying in the same frame score nothing off each other.
+- **Fake bests.** Measuring CPUs headlessly needs `Loop.time` advanced by
+  hand (`Loop.time += 1/60` per step), or a CPU thinks once and never again.
+  The Pong levels were re-tuned against three model players that way.
+
+Still deferred, all phone layout: the d-pad sits over the playfield in Pong,
+Merge and the arcade games (Blocks got a band of its own); Volley has no
+second set of touch controls; game-over cards cover the board they report on.
+Joris judges Easy Games on the desktop, so these wait for a phone pass.
+
 ## Open items
 
 1. **Nobody has judged how Swing FEELS.** Everything is verified correct;
@@ -175,8 +208,9 @@ manual's legible fragments ordered by clear size (INFERRED).
 4. Not implemented: the Question Mark resolving into arcade extras during solo
    (deliberate - they would do nothing there).
 5. **Easy Missiles, Invaders, Words, Sudoku, Picture, Blocks, Solitaire and
-   Muncher** were each built by their own agent, verified headlessly and smoke
-   tested in a browser by me, but none has had a human play it. Each has its own
+   Muncher** were each built by their own agent, verified headlessly, smoke
+   tested in a browser by me and, on 2026-09-28, played by an agent for a few
+   minutes each. No human has played them yet. Each has its own
    `test/rules.test.js` and its own known-gaps note in the commit message.
 
 ## Two traps this project has already sprung
