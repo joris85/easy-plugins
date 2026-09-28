@@ -197,7 +197,7 @@ if (isset($canonicalPath)):
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     
     <!-- Unified Master CSS -->
-    <link rel="stylesheet" href="/shared/master.css?v=2.3">
+    <link rel="stylesheet" href="/shared/master.css?v=2.4">
     
     <!-- Theme Management (toggling and widgets; the class is already set above) -->
     <script src="/shared/theme.js?v=3" defer></script>

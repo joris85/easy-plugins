@@ -772,3 +772,83 @@ body.dark .ep-brand-text strong {
 .nav-cat-icon {
     vertical-align: -2.5px;
 }
+
+/* ===== EASY STUDIO PROMO (shared/app-promo.php) =====
+   Easy Image carries its own copy of these rules in its page stylesheet,
+   which loads after this file and therefore still wins there. */
+.app-promo {
+    margin: 0 auto 2.5rem;
+    padding: 0 1rem;
+    max-width: 840px;
+}
+
+.app-promo__inner {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.1rem 1.5rem;
+    border-radius: 12px;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.18);
+}
+
+.app-promo__icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: rgba(76, 175, 80, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4CAF50;
+    font-size: 1.25rem;
+}
+
+.app-promo__content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Text colour is deliberately left to the site-wide "p" rule above, which
+   is !important and would win anyway. The weight and size carry the
+   hierarchy instead, matching the same block on Easy Image. */
+.app-promo__title {
+    margin: 0 0 0.15rem;
+    font-weight: 600;
+}
+
+.app-promo__text {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Several tool stylesheets carry a "body.dark .btn" rule, which outranks a
+   plain class selector and would turn this button grey. Forced, so the
+   partial keeps its own look on whichever page it is dropped into. */
+.app-promo__btn {
+    flex-shrink: 0;
+    width: auto;
+    background: #4CAF50 !important;
+    color: #fff !important;
+    border: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.app-promo__btn:hover {
+    background: #43A047 !important;
+    color: #fff !important;
+}
+
+body.dark .app-promo__inner {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.25);
+}
+
+@media (max-width: 576px) {
+    .app-promo__inner {
+        flex-direction: column;
+        text-align: center;
+    }
+}
