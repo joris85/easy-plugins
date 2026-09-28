@@ -94,6 +94,7 @@
     const W = gutterL + N * cell + 4, H = gutterT + N * cell + 4;
     G = { cell, slot, gutterL, gutterT, W, H };
     Shell.resize(W, H, Math.min(760, W));
+    Shell.scrollIfTiny(cell);
   }
 
   function cellAt(px, py, clampToGrid) {
@@ -151,7 +152,7 @@
     mistakes = 0;
     revealT = 0;
     cardShown = false;
-    startedAt = performance.now();
+    startedAt = Loop.time * 1000;
     elapsed = 0;
     state = 'play';
     layout();
@@ -274,7 +275,7 @@
 
   function win() {
     state = 'won';
-    elapsed = (performance.now() - startedAt) / 1000;
+    elapsed = (Loop.time * 1000 - startedAt) / 1000;
     revealT = 0;
     cardShown = false;
     Sfx.win();
@@ -302,7 +303,7 @@
   }
 
   function updateHud() {
-    const secs = state === 'play' ? (performance.now() - startedAt) / 1000 : elapsed;
+    const secs = state === 'play' ? (Loop.time * 1000 - startedAt) / 1000 : elapsed;
     const items = [
       { label: 'Time', value: fmtTime(secs), accent: true },
       { label: 'Filled', value: R.countFilled(board) + ' / ' + (puzzle ? R.countPicture(puzzle) : 0) }

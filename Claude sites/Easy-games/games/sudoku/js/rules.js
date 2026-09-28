@@ -637,7 +637,9 @@ const SudokuRules = (function () {
   function generate(grade, seed, opts) {
     const o = opts || {};
     const maxAttempts = o.maxAttempts || 200;
-    const rng = makeRng(seed == null ? (Math.random() * 4294967296) >>> 0 : seed);
+    // A caller may hand in its own rng, so the search can be run in short
+    // slices between frames and still walk the same sequence as one long run.
+    const rng = o.rng || makeRng(seed == null ? (Math.random() * 4294967296) >>> 0 : seed);
     const cap = GRADE_CAP[grade] || 6;
     let fallback = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {

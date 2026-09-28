@@ -36,7 +36,7 @@
   Shell.mount({
     name: 'Lights',
     width: SIZE, height: SIZE, max: 520, pad: 260,
-    tools: ['sound', 'help'],
+    tools: ['sound', 'restart', 'help'],
     foot: 'Click or tap a light &middot; <b>H</b> for a hint &middot; <b>R</b> for a new puzzle',
     rules: `
       <ul>
@@ -167,7 +167,9 @@
     N = n || N;
     lights = new Array(N * N).fill(0);
     // Scramble from solved, so solvability is guaranteed by construction.
-    const wanted = Math.max(3, Math.round(N * N * 0.34));
+    // Between a fifth and a half of the cells, so boards differ in how far
+    // from solved they start rather than always taking the same count.
+    const wanted = Math.max(3, Math.round(N * N * (0.2 + Math.random() * 0.3)));
     const pressed = new Set();
     while (pressed.size < wanted) pressed.add(randInt(N * N));
     for (const i of pressed) pressAt(lights, Math.floor(i / N), i % N);
@@ -201,6 +203,7 @@
     state = 'won';
     Sfx.win();
     const res = Scores.submit('lights', presses, { variant: 'n' + N, lower: true });
+    updateHud();
     Shell.gameOverCard({
       title: 'All out',
       scoreLabel: 'Presses used',
@@ -243,12 +246,16 @@
   window.addEventListener('keydown', (e) => {
     if (state === 'menu') return;
     if (e.code === 'KeyR') newPuzzle(N);
-    if (e.code === 'KeyH' && state === 'play') {
-      const opts = solution.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-      if (opts.length) { hintCell = pick(opts); Sfx.tick(false); }
-    }
+    if (e.code === 'KeyH') hint();
     if (e.code === 'KeyS' && state === 'play') showSolution = !showSolution;
   });
+
+  function hint() {
+    if (state !== 'play') return;
+    const opts = solution.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+    if (opts.length) { hintCell = pick(opts); Sfx.tick(false); }
+  }
+  if (Touch.available) Shell.tool('Hint', hint);
 
   /* ---------- drawing ---------- */
 
@@ -330,7 +337,7 @@
     lights = new Array(N * N).fill(0);
     for (let i = 0; i < N * N; i++) lights[i] = (i * 7 + Math.floor(i / N) * 3) % 4 < 2 ? 1 : 0;
     Shell.status('', '');
-    Shell.readouts([4, 5, 6].map((n) => ({ label: 'Best ' + n + 'x' + n, value: Scores.label('lights', 'n' + n) })));
+    Shell.readouts([3, 4, 5, 6].map((n) => ({ label: 'Best ' + n + 'x' + n, value: Scores.label('lights', 'n' + n) })));
     Shell.startCard({
       blurb: 'Every press flips a cross of lights. Turn them all off.',
       extra: `<div class="rowBetween"><span>Grid</span><div class="seg">${
@@ -343,6 +350,7 @@
 
   Shell.on({
     again: () => newPuzzle(N),
+    restart: () => { if (state !== 'menu') newPuzzle(N); },
     menu: () => showMenu(),
     size: (el) => { N = +el.dataset.n; showMenu(); }
   });

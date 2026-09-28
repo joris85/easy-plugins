@@ -51,8 +51,10 @@
   Shell.mount({
     name: 'Code',
     width: W, height: H, max: 520, pad: 235,
-    tools: ['sound', 'help'],
-    foot: 'Click a colour to place it &middot; <b>1</b> to <b>8</b> also work &middot; <b>Backspace</b> undoes &middot; <b>Enter</b> submits',
+    tools: ['sound', 'restart', 'help'],
+    foot: Touch.available
+      ? 'Tap a colour to place it &middot; tap a placed peg to cycle it &middot; <b>Delete</b> and <b>Submit</b> are in the toolbar'
+      : 'Click a colour to place it &middot; <b>1</b> to <b>8</b> also work &middot; <b>Backspace</b> undoes &middot; <b>Enter</b> submits',
     rules: `
       <ul>
         <li>A hidden code of ${4} colours. You have ${CFG.rows} guesses.</li>
@@ -226,8 +228,8 @@
 
   function submit() {
     if (state !== 'play' || mode !== 'break') return;
-    if (current.some((c) => c < 0)) { message = 'Fill every slot first'; return; }
-    if (!repeats && new Set(current).size !== len) { message = 'No repeats allowed in this game'; return; }
+    if (current.some((c) => c < 0)) { message = 'Fill every slot first'; Sfx.tick(true); return; }
+    if (!repeats && new Set(current).size !== len) { message = 'No repeats allowed in this game'; Sfx.tick(true); return; }
     message = '';
     const s = score(current, secret);
     guesses.push({ code: current.slice(), black: s.black, white: s.white });
@@ -257,7 +259,7 @@
       score: won ? guesses.length : secret.map((c) => PALETTE[c].name).join(' '),
       isNew,
       best: best,
-      extra: mode === 'solve'
+      extra: mode === 'solve' && len === 4 && colours === 6 && repeats
         ? `<p class="tag" style="margin-top:8px">Knuth's method never needs more than five for four pegs and six colours.</p>`
         : '',
       buttons: [{ label: 'New code', act: 'again', primary: true }, { label: 'Menu', act: 'menu' }]
@@ -509,8 +511,15 @@
     return n;
   }
 
+  // A phone has no Enter or Backspace, so the two actions live in the toolbar.
+  if (Touch.available) {
+    Shell.tool('Delete', () => backspace());
+    Shell.tool('Submit', () => submit());
+  }
+
   Shell.on({
     again: () => reset(),
+    restart: () => { if (state !== 'menu') reset(); },
     menu: () => showMenu(),
     mode: (el) => { mode = el.dataset.m; showMenu(); },
     len: (el) => { len = +el.dataset.n; showMenu(); },

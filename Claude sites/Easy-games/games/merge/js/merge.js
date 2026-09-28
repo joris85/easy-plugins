@@ -32,7 +32,7 @@
   Shell.mount({
     name: 'Merge',
     width: SIZE, height: SIZE, max: 520, pad: 250,
-    tools: ['sound', 'help'],
+    tools: ['sound', 'restart', 'help'],
     foot: '<b>Arrows</b> or <b>WASD</b> to slide &middot; <b>Z</b> undoes one move &middot; swipe on a phone',
     rules: `
       <ul>
@@ -202,6 +202,7 @@
     state = 'over';
     const res = Scores.submit('merge', score, { variant: 'n' + N });
     best = res.best;
+    updateHud();
     Shell.gameOverCard({
       title: 'No moves left',
       scoreLabel: 'Score',
@@ -214,7 +215,8 @@
   }
 
   function wonCard() {
-    Scores.submit('merge', score, { variant: 'n' + N });
+    best = Scores.submit('merge', score, { variant: 'n' + N }).best;
+    updateHud();
     Shell.overlay(`<div class="card">
       <h2>You reached 2048</h2>
       <div class="bigNum">${score}</div>
@@ -386,8 +388,11 @@
     });
   }
 
+  if (Touch.available) Shell.tool('Undo', () => undo());
+
   Shell.on({
     again: () => reset(N),
+    restart: () => { if (state !== 'menu') reset(N); },
     menu: () => showMenu(),
     size: (el) => { N = +el.dataset.n; showMenu(); },
     continue: () => { keepPlaying = true; state = 'play'; Shell.hide(); }

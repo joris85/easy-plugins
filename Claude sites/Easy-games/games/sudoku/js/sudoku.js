@@ -173,17 +173,40 @@
     const o = opts || {};
     dailyKey = o.daily ? R.todayKey() : null;
     if (dailyKey) gradeKey = R.dailyGrade(dailyKey);
-    const label = dailyKey ? 'today\'s ' + R.GRADE_LABEL[gradeKey] + ' puzzle' : 'a ' + R.GRADE_LABEL[gradeKey] + ' puzzle';
+    const name = R.GRADE_LABEL[gradeKey];
+    const label = dailyKey ? 'today\'s ' + name + ' puzzle' : (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name + ' puzzle';
     Shell.overlay(`<div class="card slim"><h2>Building ${label}</h2>
-      <p class="tag" style="margin:0">Digging clues until only one solution is left.</p></div>`);
+      <p class="tag" style="margin:0" id="buildNote">Digging clues until only one solution is left.</p></div>`);
     Shell.status('', 'building');
-    setTimeout(() => {
-      const made = dailyKey ? R.daily(dailyKey) : R.generate(gradeKey);
+
+    // The search can need a couple of hundred tries for a hard grade. Run it
+    // in short slices so the page keeps painting; the daily's seeded sequence
+    // is unchanged because the same rng carries across the slices.
+    const rng = R.makeRng(dailyKey ? R.hashString('easy-sudoku:' + dailyKey) : (Math.random() * 4294967296) >>> 0);
+    const want = R.GRADES.indexOf(gradeKey);
+    const gen = ++buildId;
+    let tries = 0, closest = null;
+    const nearer = (a, b) => (!a || Math.abs(R.GRADES.indexOf(b.grade) - want) < Math.abs(R.GRADES.indexOf(a.grade) - want)) ? b : a;
+    const step = () => {
+      if (gen !== buildId) return;                     // the player chose something else meanwhile
+      const made = R.generate(gradeKey, null, { rng, maxAttempts: 4 });
+      tries += made.attempts;
+      closest = nearer(closest, made);
+      if (made.fellBack && tries < 200) {
+        const note = document.getElementById('buildNote');
+        if (note && tries >= 12) note.textContent = 'Still digging, ' + tries + ' boards tried.';
+        setTimeout(step, 0);
+        return;
+      }
+      const out = made.fellBack ? closest : made;
+      if (dailyKey) out.date = dailyKey;
       clearSave();
-      beginBoard(made.puzzle, made.solution);
+      beginBoard(out.puzzle, out.solution);
       saveGame();
-    }, 30);
+    };
+    setTimeout(step, 30);
   }
+  let buildId = 0;
 
   function resumeGame() {
     const s = resumable || loadSave();

@@ -580,6 +580,7 @@
     state = 'over';
     clearSave();
     const res = Scores.submit('tilt', board.score);
+    updateHud();
     Shell.gameOverCard({
       title: 'Overloaded',
       scoreLabel: 'Score',

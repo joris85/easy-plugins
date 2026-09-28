@@ -62,7 +62,7 @@
       special: R.DEFAULTS.specialChance,
       goal: 'highest score wins',
       blurb: 'Plays like the solo game, on a shared ring. Marbles thrown across arrive as <b>Hearts</b>. ' +
-             'When someone overloads the round ends, and the <b>higher score</b> wins it - not the survivor.'
+             'When someone overloads the other plays on for 50 more drops, then the <b>higher score</b> wins the round - not the survivor.'
     }
   };
 
@@ -140,8 +140,9 @@
             Overload a pan and you are out; the last one standing wins.</li>
         <li><b>Competition</b>: plays exactly like the solo game, on a shared
             ring. A marble arriving across is a <b>Heart</b>. When someone
-            overloads the round ends and the <b>higher score</b> wins it, no
-            matter who fell over.</li>
+            overloads, the other plays on alone for <b>50 more drops</b> with a
+            countdown; then the <b>higher score</b> wins the round, no matter
+            who fell over.</li>
         <li>The first press of your drop key <b>picks up</b> the marble above
             you. After that, where you drop is where your next one comes from.</li>
       </ul>
@@ -1019,6 +1020,7 @@
 
   function showMenu() {
     state = 'menu';
+    switchConfirmed = false;
     // An interrupted match becomes the backdrop as well as the offer, so both
     // players can see it really is still there before choosing to go back to it.
     menuSave = loadMatch();
@@ -1043,6 +1045,7 @@
     const buttons = menuSave
       ? [{ label: 'Continue match', act: 'continueMatch', primary: true },
          { label: 'New match', act: 'start' },
+         { label: 'Switch mode', act: 'switchMode' },
          { label: 'How to play', act: 'howto' },
          { label: 'One player', act: 'solo' }]
       : [{ label: 'Play ' + MODES[mode].name, act: 'start', primary: true },
@@ -1066,18 +1069,37 @@
     newMatch: () => newMatch(false),
     menu: () => showMenu(),
     howto: () => Shell.showRules(),
-    closeRef: () => { Shell.hide(); if (!refWasPaused) Loop.resume(); },
-    switchMode: () => { mode = mode === 'arcade' ? 'competition' : 'arcade'; clearMatch(); menuSave = null; showMenu(); },
+    closeRef: () => {
+      if (refCameFromMenu) { showMenu(); return; }     // opened from the menu: go back to it, not to a stranded board
+      Shell.hide();
+      if (!refWasPaused) Loop.resume();
+    },
+    switchMode: () => {
+      if (menuSave && !switchConfirmed) {
+        // Switching modes throws the saved match away; say so first.
+        switchConfirmed = true;
+        Shell.overlay(`<div class="card"><h2>End the saved match?</h2>
+          <p class="tag">Switching to ${mode === 'arcade' ? 'Competition' : 'Arcade'} starts fresh. The match on the board is lost.</p>
+          <div class="btnRow"><button class="primary" data-act="switchMode">Switch and end it</button>
+          <button data-act="menu">Keep the match</button></div></div>`);
+        return;
+      }
+      switchConfirmed = false;
+      mode = mode === 'arcade' ? 'competition' : 'arcade'; clearMatch(); menuSave = null; showMenu();
+    },
     solo: () => { window.location.href = 'index.html'; }
   });
 
   /* Both players need the same reference the solo game has, and in a match the
      arsenal is the half that matters most. */
   let refWasPaused = false;
+  let refCameFromMenu = false;
+  let switchConfirmed = false;
 
   function showReference() {
+    refCameFromMenu = (state === 'menu');
     refWasPaused = Loop.paused;
-    if (!refWasPaused) Loop.pause();
+    if (!refWasPaused && !refCameFromMenu) Loop.pause();
     Shell.overlay(V.marbleCard(R, boards ? boards[0] : null, mode === 'arcade') +
       '<div class="btnRow"><button class="primary" data-act="closeRef">Back</button></div></div>');
   }

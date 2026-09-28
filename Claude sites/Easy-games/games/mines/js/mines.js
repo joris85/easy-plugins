@@ -15,7 +15,7 @@
 
 (function () {
   const LEVELS = {
-    beginner:     { cols: 9,  rows: 9,  mines: 10, cell: 34, label: 'Beginner' },
+    beginner:     { cols: 9,  rows: 9,  mines: 10, cell: 46, label: 'Beginner' },
     intermediate: { cols: 16, rows: 16, mines: 40, cell: 30, label: 'Intermediate' },
     expert:       { cols: 30, rows: 16, mines: 99, cell: 26, label: 'Expert' }
   };
@@ -37,8 +37,10 @@
   Shell.mount({
     name: 'Mines',
     width: 9 * 34, height: 9 * 34, max: 720, pad: 250,
-    tools: ['sound', 'help'],
-    foot: 'Left click reveals &middot; right click flags &middot; <b>both buttons</b> on a number clears its neighbours',
+    tools: ['sound', 'restart', 'help'],
+    foot: Touch.available
+      ? 'Tap reveals &middot; the <b>Flag</b> button switches to flagging &middot; double tap a number to clear its neighbours'
+      : 'Left click reveals &middot; right click flags &middot; <b>both buttons</b> on a number clears its neighbours',
     rules: `
       <ul>
         <li>A revealed number tells you how many mines touch that cell, counting all eight neighbours.</li>
@@ -87,6 +89,7 @@
     elapsed = 0;
     state = 'play';
     Shell.resize(cols * cell, rows * cell, Math.min(760, cols * cell));
+    Shell.scrollIfTiny(cell);
     Shell.hide();
     updateHud();
   }
@@ -106,7 +109,7 @@
       }
     }
     placed = true;
-    startedAt = performance.now();
+    startedAt = Loop.time * 1000 || 1;
   }
 
   /* ---------- actions ---------- */
@@ -167,7 +170,7 @@
 
   function lose() {
     state = 'lost';
-    elapsed = startedAt ? (performance.now() - startedAt) / 1000 : 0;
+    elapsed = startedAt ? (Loop.time * 1000 - startedAt) / 1000 : 0;
     for (let i = 0; i < mine.length; i++) if (mine[i]) open[i] = true;
     Sfx.boom();
     updateHud();
@@ -183,7 +186,7 @@
 
   function win() {
     state = 'won';
-    elapsed = (performance.now() - startedAt) / 1000;
+    elapsed = (Loop.time * 1000 - startedAt) / 1000;
     for (let i = 0; i < mine.length; i++) if (mine[i]) flag[i] = true;
     Sfx.win();
     const res = Scores.submit('mines', elapsed, { variant: levelKey, lower: true });
@@ -200,7 +203,7 @@
 
   function updateHud() {
     const flags = flag.filter(Boolean).length;
-    const secs = state === 'play' && startedAt ? (performance.now() - startedAt) / 1000 : elapsed;
+    const secs = state === 'play' && startedAt ? (Loop.time * 1000 - startedAt) / 1000 : elapsed;
     Shell.readouts([
       { label: 'Mines left', value: mineCount - flags, accent: true },
       { label: 'Time', value: secs.toFixed(0) + 's' },
@@ -370,6 +373,7 @@
     flag = new Array(n).fill(false);
     near = new Array(n).fill(0);
     Shell.resize(cols * cell, rows * cell, Math.min(760, cols * cell));
+    Shell.scrollIfTiny(cell);
     Shell.status('', '');
     Shell.readouts(Object.keys(LEVELS).map((k) =>
       ({ label: 'Best ' + LEVELS[k].label, value: Scores.label('mines', k, (v) => v.toFixed(1) + 's') })));
@@ -386,6 +390,7 @@
 
   Shell.on({
     again: () => newGame(),
+    restart: () => { if (state !== 'menu') newGame(); },
     menu: () => showMenu(),
     level: (el) => { levelKey = el.dataset.k; showMenu(); }
   });

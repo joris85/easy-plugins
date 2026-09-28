@@ -28,7 +28,7 @@
   Shell.mount({
     name: 'Slide',
     width: SIZE, height: SIZE, max: 520, pad: 260,
-    tools: ['sound', 'help'],
+    tools: ['sound', 'restart', 'help'],
     foot: 'Click a tile in line with the gap &middot; <b>arrows</b> also work &middot; <b>R</b> reshuffles',
     rules: `
       <ul>
@@ -126,7 +126,7 @@
 
     slide = { cells, t: 0 };
     moves++;
-    if (!startedAt) startedAt = performance.now();
+    if (!startedAt) startedAt = Loop.time * 1000 || 1;
     Sfx.kick();
     updateHud();
     return cells.length;
@@ -148,9 +148,10 @@
 
   function win() {
     state = 'won';
-    elapsed = (performance.now() - startedAt) / 1000;
+    elapsed = (Loop.time * 1000 - startedAt) / 1000;
     Sfx.win();
     const res = Scores.submit('slide', moves, { variant: 'n' + N, lower: true });
+    updateHud();
     Shell.gameOverCard({
       title: 'Solved',
       scoreLabel: 'Moves',
@@ -175,7 +176,7 @@
   }
 
   function updateHud() {
-    const secs = startedAt ? (performance.now() - startedAt) / 1000 : 0;
+    const secs = startedAt ? (Loop.time * 1000 - startedAt) / 1000 : 0;
     Shell.readouts([
       { label: 'Moves', value: moves, accent: true },
       { label: 'Time', value: secs.toFixed(0) + 's' },
@@ -200,11 +201,23 @@
     return { r, c };
   }
 
+  // A tap moves the tile under the finger; a swipe is handled below. The move
+  // happens on release, and only when the pointer barely travelled, so one
+  // gesture can never count as both.
+  let press = null;
   Shell.canvas.addEventListener('pointerdown', (e) => {
+    press = { x: e.clientX, y: e.clientY };
+  });
+  Shell.canvas.addEventListener('pointerup', (e) => {
+    if (!press) return;
+    const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+    press = null;
+    if (moved > 12) return;
     const p = Touch.canvasPos(Shell.canvas, e);
     const cell = cellAt(p.x, p.y);
-    if (cell) push(cell.r, cell.c);
+    if (cell && state === 'play' && !slide && !push(cell.r, cell.c)) Sfx.tick(true);   // not in line with the gap
   });
+  Shell.canvas.addEventListener('pointercancel', () => { press = null; });
 
   const ARROWS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   window.addEventListener('keydown', (e) => {
@@ -305,6 +318,7 @@
 
   Shell.on({
     again: () => newGame(N),
+    restart: () => { if (state !== 'menu') newGame(N); },
     menu: () => showMenu(),
     size: (el) => { N = +el.dataset.n; showMenu(); }
   });

@@ -28,9 +28,9 @@
   ];
 
   const LEVELS = {
-    easy:   { depth: 2, blunder: 0.35, label: 'Easy' },
-    normal: { depth: 5, blunder: 0.08, label: 'Normal' },
-    hard:   { depth: 8, blunder: 0,    label: 'Hard' }
+    easy:   { depth: 2, blunder: 0.35, think: 180, label: 'Easy' },
+    normal: { depth: 5, blunder: 0.08, think: 380, label: 'Normal' },
+    hard:   { depth: 8, blunder: 0,    think: 600, label: 'Hard' }
   };
 
   let mode = 'cpu';               // cpu | duel
@@ -46,7 +46,7 @@
   Shell.mount({
     name: 'Four',
     width: W, height: H, max: 620, pad: 250,
-    tools: ['sound', 'help'],
+    tools: ['sound', 'restart', 'help'],
     foot: 'Click a column, or use <b>1</b> to <b>7</b> &middot; <b>Z</b> takes a move back',
     rules: `
       <ul>
@@ -291,7 +291,7 @@
       const c = chooseMove(P2);
       thinking = false;
       if (canPlay(c)) doDrop(c); else { const l = ORDER.filter(canPlay); if (l.length) doDrop(l[0]); }
-    }, 240);
+    }, LEVELS[level].think);         // a harder opponent visibly takes longer over it
   }
 
   function undo() {
@@ -492,7 +492,7 @@
     heights = new Array(COLS).fill(0);
     moves = 0; turn = P1; winLine = null; falling = null;
     Shell.status('', '');
-    Shell.readouts([{ label: 'Wins vs CPU', value: Scores.label('four', level) || '0' }]);
+    Shell.readouts([{ label: 'Wins vs CPU (' + LEVELS[level].label + ')', value: String(Scores.record('four', level).runs || 0) }]);
     Shell.startCard({
       blurb: 'Four in a row. The middle column is worth more than it looks.',
       extra: `<div class="rowBetween"><span>Opponent</span><div class="seg">
@@ -507,8 +507,11 @@
     });
   }
 
+  if (Touch.available) Shell.tool('Undo', () => undo());
+
   Shell.on({
     again: () => reset(),
+    restart: () => { if (state !== 'menu') reset(); },
     menu: () => showMenu(),
     mode: (el) => { mode = el.dataset.m; showMenu(); },
     level: (el) => { level = el.dataset.k; showMenu(); }
