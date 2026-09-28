@@ -72,8 +72,16 @@ const Input = {
       e.preventDefault();
       const cap = this.capture;
       this.capture = null;
+      this.refused = null;
       if (e.code !== 'Escape') {
         const clash = this.conflict(e.code, cap.player, cap.action);
+        if (clash && clash.player !== cap.player) {
+          // Another player's key. Taking it would silently strip their control,
+          // so the old binding stays and the screen can say why.
+          this.refused = { code: e.code, player: clash.player, action: clash.action };
+          cap.done(null);
+          return;
+        }
         if (clash) this.bindings[clash.player][clash.action] = null;
         this.bindings[cap.player][cap.action] = e.code;
         this.save();

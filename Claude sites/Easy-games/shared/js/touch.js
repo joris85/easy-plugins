@@ -55,8 +55,11 @@ const Touch = {
   },
 
   _bindHold(el, on, off) {
-    const down = (e) => { e.preventDefault(); el.classList.add('press'); on(); };
-    const up = (e) => { e.preventDefault(); el.classList.remove('press'); off(); };
+    // Stop the press reaching the stage underneath. Pong moves its paddle by
+    // dragging anywhere on the stage, so a d-pad press that bubbled up jumped
+    // the paddle to the button's own height before the d-pad even applied.
+    const down = (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('press'); on(); };
+    const up = (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('press'); off(); };
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
@@ -90,7 +93,14 @@ const Touch = {
       const r = el.getBoundingClientRect();
       cb(clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1), phase);
     };
-    el.addEventListener('pointerdown', (e) => { down = true; el.setPointerCapture(e.pointerId); report(e, 'down'); });
+    el.addEventListener('pointerdown', (e) => {
+      // A press on a card button or a d-pad button is not a drag. Capturing
+      // the pointer here retargets the release and the click to the stage, so
+      // in every game that drags on the stage no card button worked with a real
+      // mouse, and a d-pad press released itself before a frame had run.
+      if (e.target.closest && e.target.closest('#overlay, #touchpad')) return;
+      down = true; el.setPointerCapture(e.pointerId); report(e, 'down');
+    });
     el.addEventListener('pointermove', (e) => { if (down) report(e, 'move'); });
     el.addEventListener('pointerup', (e) => { down = false; report(e, 'up'); });
     el.addEventListener('pointercancel', () => { down = false; });

@@ -27,9 +27,14 @@
   };
 
   const LEVELS = {
-    easy:   { react: 230, error: 34, speed: 330, label: 'Easy' },
-    normal: { react: 145, error: 20, speed: 400, label: 'Normal' },
-    hard:   { react: 80,  error: 8,  speed: 470, label: 'Hard' }
+    // The paddle catches anything within half its height plus the ball, about
+    // 50px. An aim error smaller than that can never miss, and the first tuning
+    // (34 / 20 / 8) produced a CPU that was measured unbeatable at every level
+    // over 45 minutes of play. The error now exceeds the catch window often
+    // enough to lose points on Easy and Normal, and Hard still misses sometimes.
+    easy:   { react: 260, error: 78, speed: 250, label: 'Easy' },
+    normal: { react: 160, error: 56, speed: 340, label: 'Normal' },
+    hard:   { react: 90,  error: 32, speed: 420, label: 'Hard' }
   };
 
   let mode = 'cpu';            // cpu | duel
@@ -164,7 +169,9 @@
 
   function point(scorer) {
     scorer.score++;
-    Sfx.die();
+    // The same sound for scoring and conceding told the player nothing. A
+    // rising note when the human scores, the fall when they concede.
+    if (mode === 'cpu' && scorer === left) Sfx.pickup(); else Sfx.die();
     serveDir = scorer === left ? 1 : -1;
     updateHud();
     const other = scorer === left ? right : left;
@@ -231,7 +238,7 @@
   function cpuMove(dt) {
     const lv = LEVELS[level];
     const half = CFG.paddleH / 2;
-    const now = performance.now();
+    const now = Loop.time * 1000;          // game time: a pause does not count as thinking
 
     if (now >= right.nextThink) {
       right.nextThink = now + lv.react;

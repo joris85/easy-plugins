@@ -106,6 +106,10 @@ button.off { color: var(--dim); }
 }
 
 .stageWrap canvas { display: block; width: 100%; height: auto; }
+/* A board too wide for a phone scrolls sideways instead of shrinking its cells
+   below a fingertip. A game opts in and sets the canvas width it needs. */
+.stageWrap.scrollx { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.stageWrap.scrollx canvas { width: auto; max-width: none; }
 
 .banner {
   position: absolute;
@@ -152,6 +156,14 @@ button.off { color: var(--dim); }
   box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
 }
 .card.wide { max-width: 620px; }
+/* On a short window the start card's button row was below the stage and had to
+   be scrolled to inside the overlay, with nothing to say it scrolls. */
+@media (max-height: 520px) {
+  .card { padding: 12px 14px; }
+  .card h1 { font-size: 22px; }
+  .card p, .tag { margin-bottom: 6px; }
+  .btnRow { margin-top: 10px; }
+}
 .card.slim { max-width: none; width: auto; text-align: center; background: rgba(14, 18, 30, .92); }
 
 .card h1 { margin: 0 0 2px; font-size: 28px; letter-spacing: -0.6px; text-wrap: balance; }
@@ -164,6 +176,14 @@ button.off { color: var(--dim); }
 .tag { margin: 0 0 14px; color: var(--dim); font-size: 13px; }
 
 .btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+/* On a card taller than the stage the close button was somewhere far below,
+   inside a scrolling overlay with no visible scrollbar on a Mac. Pinning the
+   button row to the bottom of whatever is visible keeps "Got it" in reach. */
+.overlay .card > .btnRow {
+  position: sticky; bottom: -18px;
+  margin: 16px -18px -18px; padding: 12px 18px 18px;
+  background: linear-gradient(180deg, rgba(22, 29, 44, 0) 0%, #161d2c 30%);
+}
 
 .bigNum {
   font-size: clamp(40px, 12vw, 74px);
@@ -175,10 +195,10 @@ button.off { color: var(--dim); }
 
 /* ---------- shared controls ---------- */
 
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button {
   border: 0; border-radius: 0; background: transparent;
-  padding: 5px 11px; font-size: 12px; text-transform: capitalize; color: var(--dim);
+  padding: 5px 11px; font-size: 12px; color: var(--dim);
 }
 .seg button.on { background: var(--accent); color: #241a03; font-weight: 650; }
 .seg button:not(.on):hover { background: #26304a; color: var(--text); }

@@ -130,10 +130,23 @@ const Shell = {
 
   _bindKeys() {
     const unlock = () => { Sfx.init(); Sfx.resume(); };
+    // While the loop is paused - the Pause card, or the rules opened mid-game -
+    // no game key may reach the game. Every game listens on window in the
+    // bubble phase and checked only for its menu state, so a paused board still
+    // took arrow keys, digits and R: tiles moved, a disc hung in the air behind
+    // the card, a marble dropped, a restart landed on a frozen board. Capture
+    // runs first, so one listener here covers all of them. Escape and the mute
+    // key stay the shell's; a key-capture screen (rebinding) keeps its keys.
+    window.addEventListener('keydown', (e) => {
+      if (!Loop.paused) return;
+      if (typeof Input !== 'undefined' && Input.capture) return;
+      if (e.code === 'Escape' || e.code === 'KeyM') return;
+      e.stopImmediatePropagation();
+    }, true);
     window.addEventListener('keydown', (e) => {
       unlock();
       if (typeof Input !== 'undefined' && Input.capture) return;
-      if (e.code === 'Escape') { this.togglePause(); return; }
+      if (e.code === 'Escape') { if (this._rulesOpen) this.closeRules(); else this.togglePause(); return; }
       if (e.code === 'KeyM' && !this._boundToPlayer('KeyM')) this._toggleMute();
     });
     window.addEventListener('pointerdown', unlock, { once: true });
@@ -145,7 +158,11 @@ const Shell = {
   },
 
   _boundToPlayer(code) {
-    if (typeof Input === 'undefined' || !Input.bindings) return false;
+    if (typeof Input === 'undefined') return false;
+    // A game that keeps its own key table (Curve) still claims the codes, and a
+    // claimed key is a game key: Green's right turn was muting the sound.
+    if (Input.claimed && Input.claimed.has(code)) return true;
+    if (!Input.bindings) return false;
     for (let p = 0; p < Input.bindings.length; p++) {
       for (const a in Input.bindings[p]) if (Input.bindings[p][a] === code) return true;
     }
@@ -171,6 +188,27 @@ const Shell = {
     }
   },
 
+  /** Add a button to the toolbar. For the game's own actions - Undo, Hint, a
+      solver - which used to live on keys alone and so did not exist on a phone. */
+  /** On a phone a big board is scaled to fit; when that would leave cells
+      smaller than a fingertip, let the stage scroll sideways instead. */
+  scrollIfTiny(cellPx) {
+    const touch = typeof Touch !== 'undefined' && Touch.available;
+    const avail = Math.max(200, window.innerWidth - 32);
+    const scaled = cellPx * Math.min(1, avail / this.canvas.width);
+    this.els.stageWrap.classList.toggle('scrollx', !!(touch && scaled < 16));
+    return this;
+  },
+
+  tool(label, fn) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    this.els.tools.appendChild(b);
+    return b;
+  },
+
   /** Register handlers for [data-act] clicks inside overlay cards. */
   on(map) { Object.assign(this._acts, map); return this; },
 
@@ -180,23 +218,27 @@ const Shell = {
       if (!el) return;
       const act = el.dataset.act;
       if (act === 'resume') { this.hide(); this._pauseOpen = false; Loop.resume(); return; }
-      if (act === 'closeRules') {
-        // Resume FIRST, on every path. Returning to the previous card while
-        // still paused leaves the game frozen with no way back short of a reload.
-        const back = this._rulesReturn;
-        this._rulesReturn = null;
-        if (this._rulesWasPaused) { this._rulesWasPaused = false; Loop.resume(); }
-        if (back) { this.overlay(back); return; }
-        this.hide();
-        return;
-      }
+      if (act === 'closeRules') { this.closeRules(); return; }
       if (this._acts[act]) this._acts[act](el);
     });
+  },
+
+  /** "Got it" on the rules card, also what Escape does while it is open. */
+  closeRules() {
+    // Resume FIRST, on every path. Returning to the previous card while
+    // still paused leaves the game frozen with no way back short of a reload.
+    const back = this._rulesReturn;
+    this._rulesReturn = null;
+    this._rulesOpen = false;
+    if (this._rulesWasPaused) { this._rulesWasPaused = false; Loop.resume(); }
+    if (back) { this.overlay(back); return; }
+    this.hide();
   },
 
   /* ---------- overlay ---------- */
 
   overlay(html, opts) {
+    this._rulesOpen = false;
     this.els.overlayInner.innerHTML = html;
     this.els.overlay.classList.remove('hidden');
     this.els.overlay.classList.toggle('transparent', !!(opts && opts.transparent));
@@ -207,6 +249,18 @@ const Shell = {
     this.els.overlay.classList.add('hidden');
     this.els.overlayInner.innerHTML = '';
     this._countKey = null;
+    this._rulesOpen = false;
+    // If the card being hidden was the shell's own pause card or the rules card,
+    // the loop was paused on its behalf and nothing else will resume it. A game
+    // that restarts with R while such a card is open calls hide() and then
+    // stood frozen with no card left to resume from; only a reload got it back.
+    // Pauses a game took itself are not touched - they carry no shell flag.
+    if (this._pauseOpen || this._rulesWasPaused) {
+      this._pauseOpen = false;
+      this._rulesWasPaused = false;
+      this._rulesReturn = null;
+      if (Loop.paused) Loop.resume();
+    }
     return this;
   },
 
@@ -224,6 +278,7 @@ const Shell = {
       ${this.cfg.rules}
       <div class="btnRow"><button class="primary" data-act="closeRules">Got it</button></div>
     </div>`);
+    this._rulesOpen = true;
   },
 
   /** Start screen. buttons: [{label, act, primary}] */

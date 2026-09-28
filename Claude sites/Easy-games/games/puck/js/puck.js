@@ -50,7 +50,9 @@
     name: 'Puck',
     width: W, height: H, max: 520, pad: 210,
     tools: ['sound', 'pause', 'help'],
-    foot: 'Bottom <b>W A S D</b> &middot; top <b>arrow keys</b> &middot; on a tablet each player drags with a thumb',
+    foot: Touch.available
+      ? 'Each player drags with a thumb, one on each half &middot; with a keyboard: bottom <b>W A S D</b>, top <b>arrow keys</b>'
+      : 'Bottom <b>W A S D</b> &middot; top <b>arrow keys</b> &middot; on a tablet each player drags with a thumb',
     rules: `
       <ul>
         <li>Knock the puck into the other goal. First to ${CFG.target}.</li>
@@ -93,10 +95,15 @@
     updateHud();
   }
 
+  let restMs = 0;                   // how long the puck has sat still in play
+
   function serve() {
     puck = { x: W / 2, y: serveTo === 0 ? H * 0.66 : H * 0.34, vx: 0, vy: 0 };
     serveTimer = CFG.serveDelay;
+    restMs = 0;
     state = 'serve';
+    // The puck used to appear and fire with no warning at all.
+    Shell.banner('Serve');
     trail = [];
   }
 
@@ -207,6 +214,16 @@
 
     const sp = Math.hypot(puck.vx, puck.vy);
     if (sp > CFG.puckMax) { puck.vx = puck.vx / sp * CFG.puckMax; puck.vy = puck.vy / sp * CFG.puckMax; }
+
+    // A puck that stops dead - twice it came to rest on the centre line just
+    // beyond the CPU's reach, and the game was simply over with no message.
+    // After three seconds at rest it is re-served to whoever's half it is in.
+    if (sp < 12) {
+      restMs += dt * 1000;
+      if (restMs > 3000) { serveTo = puck.y > H / 2 ? 0 : 1; serve(); }
+    } else {
+      restMs = 0;
+    }
   }
 
   let lastWallSound = 0;
@@ -224,6 +241,10 @@
     const nx = dx / d, ny = dy / d;
     puck.x = m.x + nx * minD;
     puck.y = m.y + ny * minD;
+    // The wall clamp ran before this, so a mallet pressed into a corner pushed
+    // the puck straight through the wall and off the table. Clamp again.
+    puck.x = clamp(puck.x, CFG.puckR, W - CFG.puckR);
+    puck.y = clamp(puck.y, CFG.puckR, H - CFG.puckR);
 
     // Reflect the component along the contact normal, then add the mallet's push.
     const dot = puck.vx * nx + puck.vy * ny;
@@ -245,7 +266,7 @@
   function goal(scorer) {
     mallets[scorer].score++;
     lastGoal = performance.now();
-    Sfx.boom();
+    if (mode === 'cpu' && scorer === 0) Sfx.pickup(); else Sfx.boom();
     for (let i = 0; i < 24; i++) {
       const a = Math.random() * 6.283, s = 60 + Math.random() * 260;
       particles.push({ x: puck.x, y: clamp(puck.y, 0, H), vx: Math.cos(a) * s, vy: Math.sin(a) * s,
@@ -277,20 +298,33 @@
 
   function cpuMove(m, dt) {
     const lv = LEVELS[level];
-    const now = performance.now();
+    const now = Loop.time * 1000;          // game time: a pause does not count as thinking
 
     if (now >= m.nextThink) {
       m.nextThink = now + lv.react;
       const err = () => (Math.random() - 0.5) * 2 * lv.error;
 
-      if (puck.vy < -20 || puck.y < H / 2) {
+      if (puck.y < m.y - CFG.malletR * 0.4 && Math.abs(puck.x - m.x) < CFG.malletR * 1.6) {
+        // The puck is between us and our own goal. Pressing forward from here
+        // pins it in the corner or shoves it into our own net; step to the side
+        // and get above it, then the next think will hit it downfield.
+        const side = puck.x < W / 2 ? 1 : -1;
+        m.aim = {
+          x: clamp(puck.x + side * CFG.malletR * 2.4, CFG.malletR, W - CFG.malletR),
+          y: clamp(puck.y - CFG.malletR * 1.2, CFG.malletR, H / 2 - CFG.malletR)
+        };
+      } else if (puck.vy < -20 || puck.y < H / 2) {
         // Puck coming at us: intercept it, and if it is close enough, attack.
         const attack = puck.y < H / 2 - 40 && Math.random() < lv.aggression;
-        m.aim = {
-          x: clamp(puck.x + err(), CFG.malletR, W - CFG.malletR),
-          y: attack ? clamp(puck.y + CFG.malletR * 0.9 + err() * 0.3, CFG.malletR, H / 2 - CFG.malletR)
-                    : clamp(90 + err() * 0.4, CFG.malletR, H / 2 - CFG.malletR)
-        };
+        // A real swing aims THROUGH the puck at the far goal, not at the puck.
+        // Aiming 27px past it and stopping there only ever nudged; the CPU was
+        // measured at 0 goals in three levels against a plain chaser.
+        const gx = W / 2 - puck.x, gy = H - puck.y, gd = Math.hypot(gx, gy) || 1;
+        m.aim = attack
+          ? { x: clamp(puck.x + gx / gd * CFG.malletR * 1.6 + err() * 0.5, CFG.malletR, W - CFG.malletR),
+              y: clamp(puck.y + gy / gd * CFG.malletR * 1.6, CFG.malletR, H / 2 - CFG.malletR) }
+          : { x: clamp(puck.x + err(), CFG.malletR, W - CFG.malletR),
+              y: clamp(90 + err() * 0.4, CFG.malletR, H / 2 - CFG.malletR) };
       } else {
         // Puck is away: hold a defensive line in front of the goal.
         m.aim = { x: clamp(W / 2 + (puck.x - W / 2) * 0.55 + err() * 0.5, CFG.malletR, W - CFG.malletR),

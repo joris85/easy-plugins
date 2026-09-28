@@ -26,7 +26,7 @@
      on a phone is the bottom of the well: the rows you watch hardest. So the
      canvas gets a blank band beneath the well, deep enough for the d-pad and
      its margin at every stage width, and the controls live there instead. */
-  const BAND = Touch.available ? 290 : 0;
+  const BAND = Touch.available ? 304 : 0;      // room for the d-pad plus a clear gap
   const W = 660, H = WELL_Y + WELL_H + 24 + BAND;
   const PANEL_L = { x: 24, w: 142 };
   const PANEL_R = { x: 494, w: 142 };
@@ -170,6 +170,9 @@
     snd.over();
     const variant = 'L' + settings.startLevel;
     const res = Scores.submit('blocks', game.score, { variant });
+    // The readout only rebuilds on a score change, so the best this run just
+    // set was on the card but the HUD still said "--".
+    updateHud(true);
     const st = game.stats;
     Shell.gameOverCard({
       title: game.overReason === 'lockout' ? 'Locked out at the top' : 'The well is full',
@@ -309,10 +312,13 @@
       updateHud();
       return;
     }
+    // The first repeat fires when the delay is up, then one every `arr`.
+    // Waiting for delay plus one repeat interval made the first step land one
+    // ARR late on every preset.
     let steps = 0;
-    while (das.timer >= h.das + h.arr && steps++ < COLS) {
+    while (das.timer >= h.das && steps++ < COLS) {
       das.timer -= h.arr;
-      if (!apply(R.move(game, dir)).length) { das.timer = h.das; break; }
+      if (!apply(R.move(game, dir)).length) { das.timer = h.das - h.arr; break; }
     }
   }
 

@@ -24,7 +24,7 @@
     ballGravity: 1150,
     maxBall: 900,
     transfer: 0.35,
-    playerBounce: 0.93,     // just under 1, so a rally cannot last forever
+    playerBounce: 0.85,     // well under 1: at 0.93 rallies ran to 260 touches
     minLaunch: 150,        // below this incoming speed the ball is not re-launched
     wallBounce: 0.96,
     netW: 12, netH: 96,
@@ -242,9 +242,12 @@
     // A touch of sideways scatter, so a perfectly vertical bounce cannot persist.
     ball.vx += (Math.random() - 0.5) * 26;
 
-    // Give a real hit some lift, but never re-launch a ball that has run out of
-    // energy, or it would sit on top of a blob bouncing indefinitely.
-    if (incoming > CFG.minLaunch && ball.vy > -140) ball.vy = -140 - Math.random() * 50;
+    // Give a real hit some lift, but only when the blob is actually doing
+    // something. Lifting every contact kept a dropped ball alive on a motionless
+    // blob for thirty touches, and two competent players in a rally that lasted
+    // a minute. A still blob now just bounces it, and a bounce runs out.
+    const active = Math.abs(p.vx) > 40 || Math.abs(p.vy) > 40;
+    if (active && incoming > CFG.minLaunch && ball.vy > -140) ball.vy = -140 - Math.random() * 50;
 
     const sp = Math.hypot(ball.vx, ball.vy);
     if (sp > CFG.maxBall) { ball.vx = ball.vx / sp * CFG.maxBall; ball.vy = ball.vy / sp * CFG.maxBall; }
@@ -265,7 +268,7 @@
   function point(winner) {
     players[winner].score++;
     server = 1 - winner;
-    Sfx.die();
+    if (mode === 'cpu' && winner === 0) Sfx.pickup(); else Sfx.die();
     for (let i = 0; i < 14; i++) {
       particles.push({
         x: ball.x, y: GROUND, vx: (Math.random() - 0.5) * 260, vy: -Math.random() * 260,
