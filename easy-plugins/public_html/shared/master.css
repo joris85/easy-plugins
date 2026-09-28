@@ -801,8 +801,8 @@ body.dark .ep-brand-text strong {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #4CAF50;
-    font-size: 1.25rem;
+    color: #2f855a;
+    font-size: 1.5rem;
 }
 
 .app-promo__content {
@@ -844,6 +844,11 @@ body.dark .ep-brand-text strong {
 body.dark .app-promo__inner {
     background: rgba(76, 175, 80, 0.1);
     border-color: rgba(76, 175, 80, 0.25);
+}
+
+body.dark .app-promo__icon {
+    background: rgba(76, 175, 80, 0.18);
+    color: #81C784;
 }
 
 @media (max-width: 576px) {

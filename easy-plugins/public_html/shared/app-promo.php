@@ -15,10 +15,13 @@ require_once __DIR__ . '/site-lang.php';
 
 $appPromoCampaign = $appPromoCampaign ?? 'tool';
 $appPromoIcon = $appPromoIcon ?? 'fa-folder-open';
-$appPromoTitle = $appPromoTitle ?? ['Want more?', 'Wil je meer?'];
+$appPromoTitle = $appPromoTitle ?? [
+    'Want everything for your website arranged?',
+    'Alles voor je website geregeld?'
+];
 $appPromoText = $appPromoText ?? [
-    'Are you a freelancer or professional? Check out Easy Studio.',
-    'Ben je freelancer of professional? Bekijk Easy Studio.'
+    'Easy Studio is the home base for every site you manage: image and file library, brand kit, designs, website audits and uptime monitoring. It publishes straight into WordPress, Joomla or any hand-built site, so it fits whatever you built on. 30 days free.',
+    'Easy Studio is de thuisbasis voor elke site die je beheert: afbeeldingen- en bestandsbibliotheek, huisstijl, ontwerpen, website-audits en uptimemonitoring. Het publiceert rechtstreeks naar WordPress, Joomla of een handgebouwde site, dus het past bij waar je site ook op draait. 30 dagen gratis.'
 ];
 $appPromoUrl = 'https://easy-studio.app/?utm_source=easy-plugins&utm_medium=tool&utm_campaign=' . rawurlencode($appPromoCampaign);
 ?>

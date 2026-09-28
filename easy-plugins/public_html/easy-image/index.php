@@ -13,7 +13,7 @@ include '../shared/header.php';
     <!-- Cropper.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" integrity="sha384-1arqhTHsGLPVJdhZo8SAycbI+y5k+G7khi5bTZ4BxHJIpCfvWoeSDgXEXXRxB/9G" crossorigin="anonymous">
     <!-- Easy Image Specific CSS -->
-    <link rel="stylesheet" href="css/styles.css?v=2.29">
+    <link rel="stylesheet" href="css/styles.css?v=2.30">
 <?php if (!empty($easyImageTossToyEnabled)): ?>
     <link rel="stylesheet" href="toss-toy/toss-toy.css?v=9">
     <link rel="stylesheet" href="toss-toy/toss-toy-easter-egg.css?v=4">
@@ -656,21 +656,11 @@ include '../shared/header.php';
             </div>
         </section>
 
-        <!-- Easy Studio promo -->
-        <section class="app-promo">
-            <div class="app-promo__inner">
-                <div class="app-promo__icon">
-                    <i class="fas fa-folder-open"></i>
-                </div>
-                <div class="app-promo__content">
-                    <p class="app-promo__title"><?= easyPluginsText('Do you want to organize your original images?', 'Wil je je originele afbeeldingen organiseren?') ?></p>
-                    <p class="app-promo__text"><?= easyPluginsText('Are you a freelancer or professional? Check out Easy Studio.', 'Ben je freelancer of professional? Bekijk Easy Studio.') ?></p>
-                </div>
-                <a href="https://easy-image.app/?utm_source=easy-plugins&utm_medium=tool&utm_campaign=easy-image" target="_blank" rel="noopener" class="btn app-promo__btn">
-                    Easy Studio <i class="fas fa-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </section>
+        <?php
+        $appPromoCampaign = 'easy-image';
+        $appPromoIcon = 'fa-folder-open';
+        include '../shared/app-promo.php';
+        ?>
 
         <?php include '../shared/footer.php'; ?>
     </div>

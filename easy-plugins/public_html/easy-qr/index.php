@@ -260,11 +260,6 @@ include '../shared/header.php';
         <?php
         $appPromoCampaign = 'easy-qr';
         $appPromoIcon = 'fa-qrcode';
-        $appPromoTitle = ['Want more design options?', 'Wil je meer ontwerpopties?'];
-        $appPromoText = [
-            'Easy Studio is an image library, so your logo and brand colours are already there. Build on-brand QR codes without uploading a logo every time.',
-            'Easy Studio is een afbeeldingenbibliotheek, dus je logo en huisstijlkleuren staan er al. Maak QR-codes in je huisstijl zonder elke keer een logo te uploaden.'
-        ];
         include '../shared/app-promo.php';
         ?>
 
