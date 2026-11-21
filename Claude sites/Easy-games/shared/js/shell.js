@@ -146,7 +146,12 @@ const Shell = {
     window.addEventListener('keydown', (e) => {
       unlock();
       if (typeof Input !== 'undefined' && Input.capture) return;
-      if (e.code === 'Escape') { if (this._rulesOpen) this.closeRules(); else this.togglePause(); return; }
+      if (e.code === 'Escape') {
+        // A game's own card (Tilt's Marbles) marks its way out with data-esc.
+        const out = this.isOpen() && this.els.overlayInner.querySelector('[data-esc]');
+        if (this._rulesOpen) this.closeRules(); else if (out) out.click(); else this.togglePause();
+        return;
+      }
       if (e.code === 'KeyM' && !this._boundToPlayer('KeyM')) this._toggleMute();
     });
     window.addEventListener('pointerdown', unlock, { once: true });
@@ -241,8 +246,7 @@ const Shell = {
 
   overlay(html, opts) {
     this._rulesOpen = false;
-    this._peekHtml = null;
-    this.els.overlay.classList.remove('peek');
+    this._endPeek();
     this.els.overlayInner.innerHTML = html;
     this.els.overlay.classList.remove('hidden');
     this.els.overlay.classList.toggle('transparent', !!(opts && opts.transparent));
@@ -254,8 +258,7 @@ const Shell = {
     this.els.overlayInner.innerHTML = '';
     this._countKey = null;
     this._rulesOpen = false;
-    this._peekHtml = null;
-    this.els.overlay.classList.remove('peek');
+    this._endPeek();
     // If the card being hidden was the shell's own pause card or the rules card,
     // the loop was paused on its behalf and nothing else will resume it. A game
     // that restarts with R while such a card is open calls hide() and then
@@ -276,7 +279,7 @@ const Shell = {
     if (!this.cfg.rules) return;
     // Remember whatever card is open so "Got it" returns to it. Without this,
     // reading the rules from a start card leaves an empty board and no way back.
-    this._rulesReturn = this.isOpen() ? this.els.overlayInner.innerHTML : null;
+    this._rulesReturn = this._peekHtml || (this.isOpen() ? this.els.overlayInner.innerHTML : null);
     this._rulesWasPaused = !Loop.paused && Loop.running;
     if (this._rulesWasPaused) Loop.pause();
     this.overlay(`<div class="card wide">
@@ -322,15 +325,20 @@ const Shell = {
      and leaves one small button to bring it back. */
   _peek() {
     this._peekHtml = this.els.overlayInner.innerHTML;
-    this.els.overlay.classList.add('peek');
-    this.els.overlayInner.innerHTML =
-      '<button type="button" class="peekBack primary" data-act="_unpeek">Show the result</button>';
+    this.els.overlay.classList.add('hidden');
+    // The way back lives in the toolbar: a button on the stage always covered
+    // some part of the board the player hid the card to look at.
+    this._peekBtn = this.tool('Show the result', () => this._unpeek());
+    this._peekBtn.classList.add('primary');
   },
   _unpeek() {
     const html = this._peekHtml;
+    this._endPeek();
+    if (html) { this.els.overlayInner.innerHTML = html; this.els.overlay.classList.remove('hidden'); }
+  },
+  _endPeek() {
     this._peekHtml = null;
-    this.els.overlay.classList.remove('peek');
-    if (html) this.els.overlayInner.innerHTML = html;
+    if (this._peekBtn) { this._peekBtn.remove(); this._peekBtn = null; }
   },
 
   /** Countdown that only rebuilds when the number changes, so the CSS pop animation runs. */

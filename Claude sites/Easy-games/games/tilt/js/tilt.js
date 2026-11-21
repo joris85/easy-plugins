@@ -17,11 +17,15 @@
      if these two ever disagree the marble jumps between the events. */
   const TRAVEL_LANE = G.ceilingY + 2;
 
+  /* Seconds each event holds the board. land and launch are only fallbacks:
+     durationOf() times those by how far the marble actually travels. Measured
+     before this pass, a plain drop locked the player out for 0.40 s whatever
+     the fall, one throw for 1.6 s, and a long chain for up to 7 s. */
   const DUR = {
-    land: 0.40, launch: 0.52, tilt: 0.24, clear: 0.44,
-    merge: 0.38, blast: 0.34, wrap: 0.01, tint: 0.22,
-    jokerise: 0.22, level: 0.60, overflow: 0.60,
-    starclear: 0.90, arm: 0.30, cascadeCapped: 0.01, reload: 0.01, fizzle: 0.22,
+    land: 0.36, launch: 0.40, tilt: 0.18, clear: 0.34,
+    merge: 0.30, blast: 0.28, wrap: 0.01, tint: 0.18,
+    jokerise: 0.18, level: 0.35, overflow: 0.60,
+    starclear: 0.90, arm: 0.20, cascadeCapped: 0.01, reload: 0.01, fizzle: 0.20,
     earn: 0.40, inert: 0.18, tower: 0.45, twister: 0.50,
     level0: 0.25, blocked: 0.30, blackout: 0.40, darken: 0.30
   };
@@ -78,7 +82,7 @@
     name: 'Tilt',
     width: G.W, height: G.H, max: 600, pad: 240,
     tools: ['sound', 'pause', 'help'],
-    foot: '<b>Left</b> and <b>right</b> move the crane &middot; <b>down</b> or <b>space</b> picks up, then drops &middot; you are then handed the next marble from the column you dropped into',
+    foot: '<b>Left</b> and <b>right</b> move the crane &middot; <b>down</b> or <b>space</b> picks up, then drops &middot; you are then handed the next marble from the column you dropped into &middot; <b>R</b> twice restarts',
     rules: `
       <ul>
         <li>Drop marbles into eight columns. Each pair of columns sits on a
@@ -104,7 +108,8 @@
             pan seven, and a <b>raised pan only six</b>. Overload any pan and the
             game ends.</li>
         <li>Thrown off the edge, a marble returns on the far side <b>transformed</b>:
-            plain becomes a Heart, a Heart becomes a Bomb, a Bomb reverts to a Heart.</li>
+            plain becomes a Heart, a Heart becomes a Bomb, a Bomb reverts to a Heart.
+            Every other special thrown off returns as a Bomb, Jokers and Stars included.</li>
       </ul>
       <p>Every <b>fifteenth</b> marble into the depot is a multicolour Joker, and
          the counter tells you how many are left. Other kinds of marble arrive as
@@ -126,8 +131,10 @@
     });
   })();
 
-  /* The bonus lamps run on real time, and the engine has no clock of its own. */
-  const nowSeconds = () => performance.now() / 1000;
+  /* The bonus lamps run on game time, and the engine has no clock of its own.
+     Game time stops behind the Pause, rules and Marbles cards and in a hidden
+     tab; the wall clock did not, so pausing at x4 came back at x1. */
+  const nowSeconds = () => Loop.time;
 
   Input.init();
   Input.claim(['KeyA', 'KeyD', 'KeyR', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowDown']);
@@ -246,10 +253,14 @@
 
   let pendingDrop = false;
 
-  function moveCrane(d) {
+  function moveCrane(d, held) {
     // The crane is only a cursor, so there is no reason to freeze it while the
     // board animates.
     if (state !== 'play' && state !== 'anim') return;
+    // A held key stops at the wall; only a deliberate tap wraps round. With
+    // key repeat a held arrow used to lap the board faster than anyone could
+    // stop it on a column.
+    if (held && (craneCol + d < 0 || craneCol + d >= board.cols)) return;
     craneCol = ((craneCol + d) % board.cols + board.cols) % board.cols;
     // The marble travels with the crane. What the column under it decides is
     // which marble comes NEXT, so this is a pick as much as a placement.
@@ -281,16 +292,35 @@
     if (board.over) clearSave();
     queue = events.slice();
     installDisplayHolds(queue);
+    chainSteps = 0;
     state = 'anim';
     nextEvent();
   }
 
+  /* R sits under the left hand and used to wipe a game of hundreds of drops,
+     and its save, on one stray press. It asks once now. */
+  let restartAsked = -10;
+  function askRestart() {
+    if (state === 'over' || !board.dropped || Loop.time - restartAsked < 2.5) {
+      restartAsked = -10;
+      newGame();
+      return;
+    }
+    restartAsked = Loop.time;
+    Shell.banner('Press R again to restart');
+  }
+
   window.addEventListener('keydown', (e) => {
     if (state === 'menu') return;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveCrane(-1);
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') moveCrane(1);
-    if (e.code === 'ArrowDown' || e.code === 'Space') { e.preventDefault(); dropHere(); }
-    if (e.code === 'KeyR' && state !== 'menu') newGame();
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveCrane(-1, e.repeat);
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') moveCrane(1, e.repeat);
+    if (e.code === 'ArrowDown' || e.code === 'Space') {
+      e.preventDefault();
+      // One press, one drop. A held key repeats, and every repeat was buffered
+      // as another drop into the same column, fatal ones included.
+      if (!e.repeat) dropHere();
+    }
+    if (e.code === 'KeyR' && !e.repeat) askRestart();
   });
 
   Shell.canvas.addEventListener('pointerdown', (e) => {
@@ -328,20 +358,44 @@
    * So pin the old appearance now and release it when that event plays.
    */
   function installDisplayHolds(events) {
+    // Look the marbles up in the picture the player still sees: the display
+    // copy from before this drop, plus whatever lands during it. Looking on
+    // the board missed every marble the cascade goes on to clear, so about one
+    // drop in a hundred at level 8 showed its repaint the moment you pressed.
+    const byId = new Map();
+    for (const stack of view.stacks) for (const m of stack) byId.set(m.id, m);
     for (const ev of events) {
+      if (ev.marble) byId.set(ev.marble.id, ev.marble);
       if (!ev.before) continue;
+      ev._held = [];
       for (const b of ev.before) {
-        const m = findMarble(b.id);
-        if (m) m._disp = { colour: b.colour, kind: b.kind == null ? m.kind : b.kind };
+        const m = byId.get(b.id);
+        if (!m) continue;
+        ev._held.push([m, b]);
+        if (!m._disp) m._disp = heldLook(m, b);      // the first change of a chain wins
       }
     }
   }
 
+  /* Colour, kind AND weight: a marble about to become a Joker or a mine showed
+     its new weight of 0 while still wearing its old colour. */
+  function heldLook(m, b) {
+    return {
+      colour: b.colour == null ? m.colour : b.colour,
+      kind: b.kind == null ? m.kind : b.kind,
+      weight: b.weight == null ? m.weight : b.weight
+    };
+  }
+
   function releaseDisplayHold(ev) {
-    if (!ev.before) return;
-    for (const b of ev.before) {
-      const m = findMarble(b.id);
-      if (m) delete m._disp;
+    for (const [m] of ev._held || []) {
+      delete m._disp;
+      // Changed again later in the same cascade: hand over to that change's
+      // "before", so the marble shows this step's result and not the last one.
+      for (const later of queue) {
+        const hit = (later._held || []).find((h) => h[0] === m);
+        if (hit) { m._disp = heldLook(m, hit[1]); break; }
+      }
     }
   }
 
@@ -362,7 +416,11 @@
       saveGame();                          // settled, so this is a safe point
       if (pendingDrop) {                   // a drop was buffered during the animation
         pendingDrop = false;
-        dropHere();                        // into wherever the crane is NOW
+        // The overload warning is only drawn between drops, so a buffered press
+        // was the one way to die without ever being shown the red cross.
+        const p = board.held ? R.predictDrop(board, craneCol) : null;
+        if (p && p.fatal) Shell.banner('That drop would overload');
+        else dropHere();                   // into wherever the crane is NOW
       }
       return;
     }
@@ -373,9 +431,31 @@
       console.warn('Easy Tilt: no handler for event "' + ev.type + '" - resyncing the view');
       resyncView();
     }
-    anim = { ev, t: 0, dur: DUR[ev.type] == null ? 0.25 : DUR[ev.type] };
+    anim = { ev, t: 0, dur: durationOf(ev) };
+    if (ev.type === 'clear' || ev.type === 'blast' || ev.type === 'launch') chainSteps++;
     beginEvent(ev);
+    // See-saws that settle one after another are one movement to the eye, so
+    // they tip together instead of each waiting its turn.
+    while (ev.type === 'tilt' && queue.length && queue[0].type === 'tilt') beginEvent(queue.shift());
     if (anim.dur <= 0.02) { completeEvent(ev); nextEvent(); }
+  }
+
+  let chainSteps = 0;       // clears, blasts and throws played so far in this drop
+
+  /** How long an event holds the board. A fall or a throw takes as long as its distance. */
+  function durationOf(ev) {
+    let d = DUR[ev.type] == null ? 0.25 : DUR[ev.type];
+    if (ev.type === 'land') {
+      const toY = V.rowY(V.animCupY(view.tilt[ev.col >> 1], ev.col), ev.row);
+      const fall = toY - (ev.flown ? TRAVEL_LANE : G.craneY + 12);
+      d = 0.16 + 0.20 * Math.sqrt(clamp(fall / 327, 0, 1));
+    } else if (ev.type === 'launch') {
+      d = 0.30 + 0.025 * Math.min(8, ev.distance || 1);
+    }
+    if (d <= 0.02) return d;
+    // Each further step of a chain plays a little quicker, down to 60%: the
+    // first clear has to be read, the fourth only has to be enjoyed.
+    return d * Math.max(0.6, 1 - 0.1 * chainSteps);
   }
 
   /** After every drop the display copy must equal the board. Say so if it does not. */
@@ -464,8 +544,10 @@
                                   ev.type === 'blast' ? '#ffd775' : colourOf(c.marble)));
         }
         removeFromView(ev.cells);
+        // The multiplier shown is the lamp bonus that was really paid. It used
+        // to be the cascade depth, which also counts throws and pays nothing.
         if (ev.gain) flash.push({ x: V.colX(ev.cells[0].col), y: slotY(ev.cells[0].col, ev.cells[0].row),
-                                  text: '+' + ev.gain, t: 0, chain: ev.chain });
+                                  text: '+' + ev.gain, t: 0, chain: ev.bonus || 1 });
         break;
       }
       case 'tint':
@@ -478,13 +560,13 @@
           particles.push(...burst(V.colX(c.col), slotY(c.col, c.row), colourOf(c.marble)));
         }
         for (let c = 0; c < view.stacks.length; c++) view.stacks[c].length = 0;
-        if (ev.gain) flash.push({ x: G.W / 2, y: G.ceilingY + 120, text: '+' + ev.gain, t: 0, chain: 2 });
+        if (ev.gain) flash.push({ x: G.W / 2, y: G.ceilingY + 120, text: '+' + ev.gain, t: 0, chain: 1, gold: true });
         break;
       }
       case 'merge': {
         removeFromView(ev.rows.map((r) => ({ col: ev.col, row: r })));
         view.stacks[ev.col].splice(ev.rows[0], 0, ev.marble);
-        flash.push({ x: V.colX(ev.col), y: slotY(ev.col, ev.rows[0]), text: 'x' + ev.weight, t: 0, chain: 1 });
+        flash.push({ x: V.colX(ev.col), y: slotY(ev.col, ev.rows[0]), text: '= ' + ev.weight, t: 0, chain: 1 });
         break;
       }
       default:
@@ -547,8 +629,11 @@
     if (board && state !== 'menu' && R.tickBonus(board, nowSeconds())) updateHud();
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
 
+    // A drop pressed during an animation is waiting: play the rest at double
+    // speed rather than make the player sit through it.
+    const hurry = pendingDrop ? 2 : 1;
     for (let s = 0; s < view.tiltTarget.length; s++) {
-      view.tilt[s] = approach(view.tilt[s], view.tiltTarget[s], dt * 5.5);
+      view.tilt[s] = approach(view.tilt[s], view.tiltTarget[s], dt * 9 * hurry);
     }
 
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -571,7 +656,7 @@
     }
 
     if (anim) {
-      anim.t += dt / anim.dur;
+      anim.t += dt * hurry / anim.dur;
       if (anim.t >= 1) { completeEvent(anim.ev); nextEvent(); }
     }
   }
@@ -651,15 +736,22 @@
     drawFlying();
     V.drawDepot(ctx, board.depot, K, craneCol, board.cfg.depotDepth);
     V.drawCrane(ctx, craneCol, board.held, K);
+    // Before the first press the crane is empty and the first press only picks
+    // up. The banner saying so is gone after two seconds; this stays.
+    if (state === 'play' && !board.held) V.drawPickHint(ctx, craneCol);
     if (state === 'play') drawGhost();
 
+    // Totals follow the marbles on screen, not the finished board, or they
+    // jump to the result the moment drop is pressed.
     const weights = [];
     const critical = [];
     for (let c = 0; c < board.cols; c++) {
-      weights.push(R.weightOf(board, c));
+      let w = 0;
+      for (const m of view.stacks[c]) w += (m._disp || m).weight;
+      weights.push(w);
       critical.push(view.stacks[c].length >= R.capacityOf(board, c));
     }
-    V.drawWeights(ctx, weights, board.tilt, critical);
+    V.drawWeights(ctx, weights, view.tiltTarget, critical);
 
     for (const p of particles) {
       ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
@@ -670,8 +762,9 @@
 
     for (const f of flash) {
       ctx.globalAlpha = clamp(1.1 - f.t, 0, 1);
-      ctx.fillStyle = f.chain > 1 ? '#ffd775' : '#ffffff';
-      ctx.font = '800 ' + (f.chain > 1 ? 22 : 17) + 'px system-ui, sans-serif';
+      const gold = f.gold || f.chain > 1;
+      ctx.fillStyle = gold ? '#ffd775' : '#ffffff';
+      ctx.font = '800 ' + (gold ? 22 : 17) + 'px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(f.text + (f.chain > 1 ? '  x' + f.chain : ''), f.x, f.y - f.t * 34);
@@ -955,13 +1048,18 @@
   function showReference() {
     refCameFromMenu = (state === 'menu');
     const wasPaused = Loop.paused;
+    // Whatever card is up comes back afterwards. Opened over the game-over
+    // card this used to leave no card at all, and on a phone no way out.
+    refReturn = refCameFromMenu ? null
+      : (Shell._peekHtml || (Shell.isOpen() ? Shell.els.overlayInner.innerHTML : null));
     if (!wasPaused && !refCameFromMenu) Loop.pause();
     Shell.overlay(V.marbleCard(R, board, false) +
-      '<div class="btnRow"><button class="primary" data-act="closeRef">Back</button></div></div>');
+      '<div class="btnRow"><button class="primary" data-act="closeRef" data-esc>Back</button></div></div>');
     refWasPaused = wasPaused;
   }
   let refWasPaused = false;
   let refCameFromMenu = false;
+  let refReturn = null;
 
   (function addReferenceButton() {
     const b = document.createElement('button');
@@ -974,6 +1072,13 @@
   Shell.on({
     closeRef: () => {
       if (refCameFromMenu) { showMenu(); return; }
+      if (refReturn) {
+        // Back to the card that was open, paused or not exactly as it was.
+        if (!refWasPaused) Loop.resume();
+        Shell.overlay(refReturn);
+        refReturn = null;
+        return;
+      }
       Shell.hide();
       if (!refWasPaused) Loop.resume();
     },

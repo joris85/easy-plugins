@@ -134,7 +134,7 @@ const TiltRules = (function () {
      The manual prints an exact level beside each extra: Joker 6, Bomb 8,
      Crusher 10, Color ZAP 12, Tint 14, Color Joker 18, ZAP Top 22, ZAP
      Horizontal 30, Multicolor ZAP 32. That schedule assumed far longer games
-     than this version produces - measured play reaches about level 4, so it
+     than this version produces - careful play reaches about level 7, so it
      would mean almost nobody ever saw an extra at all. The ORDER below is the
      manual's exactly; only the levels are compressed, which is a deliberate
      playability change rather than a gap in the source. The original shipped an

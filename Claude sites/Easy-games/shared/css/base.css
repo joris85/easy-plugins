@@ -369,11 +369,7 @@ body.hasDeck:has(.touchpad.split) { --deck-h: 96px; }
   text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
 }
 .linkBtn:hover { color: var(--text); }
-.overlay.peek {
-  background: transparent; backdrop-filter: none; pointer-events: none;
-  place-items: end center; padding-bottom: 14px;
-}
-.overlay.peek .peekBack { pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+
 
 .foot { text-align: center; color: #667496; font-size: 12px; margin: 16px 0 0; line-height: 1.6; }
 .foot b { color: var(--dim); font-weight: 600; }

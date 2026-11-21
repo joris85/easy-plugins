@@ -200,9 +200,9 @@ const TiltRender = (function () {
     ['question',   'Question Mark',   'level',  'Stays blank in the depot and only decides what it is the moment you collect it.'],
     ['shadow',     'Shadow',          'level',  'Blacks out its own column for a while. The marbles are unchanged; you just cannot read them.'],
 
-    ['bomb',       'Bomb',            'level',  'Blows a three by three hole. On an empty pan it lies armed instead, and goes off when something lands on it.'],
+    ['bomb',       'Bomb',            'level',  'Blows away the marble it lands on and those beside and below it. On an empty pan it lies armed instead, and goes off when something lands on it.'],
     ['crusher',    'Crusher',         'level',  'Destroys the entire column it lands in, stones included.'],
-    ['sting',      'Sting',           'level',  'Punctures the marbles directly above and below it.'],
+    ['sting',      'Sting',           'level',  'Punctures the marble it lands on.'],
     ['zappile',    'Pile Zap',        'level',  'Destroys everything beneath it in the column.'],
     ['zaprow',     'Row Zap',         'level',  'Destroys the whole row it lands in, straight across the board.'],
     ['zaptop',     'Top Zap',         'level',  'Takes the top marble off every column at once.'],
@@ -210,13 +210,13 @@ const TiltRender = (function () {
     ['colzap',     'Colour Zap',      'level',  'Destroys every marble of the colour it lands on, anywhere on the board.'],
 
     ['tint',       'Tint',            'level',  'Repaints its whole column to the colour it landed on. Destroys nothing.'],
-    ['tint3',      'Tint 3x3',        'level',  'Repaints a three by three block to the colour it landed on.'],
+    ['tint3',      'Tint 3x3',        'level',  'Repaints the marble it lands on, and those beside and below it, to that marble\'s colour.'],
     ['tinydepot',  'Tiny Depot',      'level',  'Repaints the bottom marble of every column - the row the see-saws actually move.'],
     ['flash',      'Flash',           'level',  'Repaints two marbles per row inside a triangle spreading down from it.'],
     ['flashdiag',  'Flash Diagonal',  'level',  'Repaints the two diagonals running down from it.'],
     ['triflash',   'Triangle Flash',  'level',  'Repaints an entire triangle beneath it. The widest brush in the game.'],
     ['coljoker',   'Colour Joker',    'level',  'Turns every marble of one colour into Jokers.'],
-    ['colbomb',    'Colour Bomb',     'level',  'Turns every marble of one colour into armed Bombs. The board becomes a minefield: the next thing to land near one sets it off.'],
+    ['colbomb',    'Colour Bomb',     'level',  'Turns every marble of one colour into armed Bombs. The board becomes a minefield: the next marble to land in a mined column sets off its top mine.'],
 
     ['stonemaker', 'Stonemaker',      'arcade', 'Turns a three by three block of their board to stone.'],
     ['colstone',   'Colour Stone',    'arcade', 'Turns every marble of one colour in their field to stone.'],
@@ -240,7 +240,7 @@ const TiltRender = (function () {
     const GROUPS = [
       ['basic',  'Always in play', ''],
       ['level',  'Arriving as the levels climb',
-       'Every one of these needs to land on top of something. Dropped into an empty pan it simply does not work.'],
+       'Every one of these needs to land on top of something. Dropped into an empty pan it does nothing and lies there taking up a slot, until a see-saw throws it somewhere it can work.'],
       ['arcade', versus ? 'The arsenal - earned by clearing' : 'The arsenal - two player games only',
        versus
          ? 'Clear an ODD number of marbles and you earn something useful. Clear an EVEN number and you earn one of these, which does nothing in your own field. You have to catapult it into theirs.'
@@ -376,7 +376,7 @@ const TiltRender = (function () {
     ctx.stroke();
 
     if (extra) drawExtraBadge(ctx, shown, x, y, r, K);
-    else drawWeight(ctx, m.weight, x, y, r);
+    else drawWeight(ctx, shown.weight == null ? m.weight : shown.weight, x, y, r);
   }
 
   /** The numeral on a flat high-contrast plate, so it reads over any decoration. */
@@ -532,8 +532,11 @@ const TiltRender = (function () {
       // it is special and nothing plain could make way; the queue simply
       // stacks one higher rather than losing an earned extra.
       const slots = Math.max(depth || 2, depot[c].length);
+      // A third marble squeezes the queue rather than hanging below it: at the
+      // normal spacing it sat under the crane and outside the highlight box.
+      const gap = Math.min(G.depotGap, Math.floor(42 / (slots - 1)));
       for (let d = depot[c].length - 1; d >= 0; d--) {
-        const y = G.depotY + (slots - 1 - d) * G.depotGap;
+        const y = G.depotY + (slots - 1 - d) * gap;
         const s = d === 0 ? 0.7 : 0.58;
         ctx.globalAlpha = d === 0 ? 1 : 0.82;
         drawMarble(ctx, depot[c][d], x, y, s, K);
@@ -568,6 +571,43 @@ const TiltRender = (function () {
     ctx.stroke();
 
     if (held) drawMarble(ctx, held, x, G.craneY + 12, 1, K);
+  }
+
+  /** An empty crane, before the first press: where the marble will hang, and what to do. */
+  function drawPickHint(ctx, col) {
+    const x = colX(col), y = G.craneY + 12;
+    ctx.save();
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(255,176,46,.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, G.ballR - 2, 0, 6.283);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffb02e';
+    ctx.font = '700 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('pick', x, y - 6);
+    ctx.fillText('up', x, y + 7);
+    ctx.restore();
+  }
+
+  /** A label on a dark plate, so it reads over marbles. Near the ceiling it
+      goes BELOW its anchor: above would put it on the crane and the depot. */
+  function plateLabel(ctx, text, x, anchorY, colour) {
+    const above = anchorY - G.ballR - 13;
+    const y = above >= G.ceilingY + 14 ? above : anchorY + G.ballR + 13;
+    ctx.font = '700 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + 12;
+    const px = Math.min(Math.max(x, w / 2 + 4), G.W - w / 2 - 4);
+    ctx.fillStyle = 'rgba(12,16,28,.86)';
+    roundRect(ctx, px - w / 2, y - 10, w, 20, 6);
+    ctx.fill();
+    ctx.fillStyle = colour;
+    ctx.fillText(text, px, y + 0.5);
   }
 
   /* ---------- the ghost preview ---------- */
@@ -621,12 +661,7 @@ const TiltRender = (function () {
       ctx.moveTo(fx - k, fy - k); ctx.lineTo(fx + k, fy + k);
       ctx.moveTo(fx + k, fy - k); ctx.lineTo(fx - k, fy + k);
       ctx.stroke();
-      ctx.fillStyle = '#ff8b96';
-      ctx.font = '700 12px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(elsewhere ? 'overloads that pan' : 'overloads this pan',
-                   fx, fy - G.ballR - 12);
+      plateLabel(ctx, elsewhere ? 'overloads that pan' : 'overloads this pan', fx, fy, '#ff8b96');
       ctx.restore();
       return;
     }
@@ -673,11 +708,7 @@ const TiltRender = (function () {
       ctx.arc(tx, ty, G.ballR - 4, 0, 6.283);
       ctx.stroke();
 
-      ctx.fillStyle = '#ffb02e';
-      ctx.font = '700 12px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('throws ' + t.distance + (t.wrapped ? ' (wraps)' : ''), fx, fy - G.ballR - 14);
+      plateLabel(ctx, 'throws ' + t.distance + (t.wrapped ? ' (wraps)' : ''), fx, fy, '#ffb02e');
     }
     ctx.restore();
   }
@@ -687,6 +718,6 @@ const TiltRender = (function () {
     setOrigin, fieldWidth,
     colX, cupY, animCupY, rowY,
     drawBackground, drawScale, drawPillar, drawMarble, drawWeight, drawStone, drawDark,
-    drawWeights, drawDepot, drawCrane, drawGhost
+    drawWeights, drawDepot, drawCrane, drawGhost, drawPickHint
   };
 })();
